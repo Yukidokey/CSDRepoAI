@@ -59,6 +59,71 @@ export default function Archive() {
     return matchesYear && matchesSource && matchesSdg && matchesQuery;
   });
 
+  const digitalPapers = filtered.filter((paper) => paper.source !== "ocr_scanned");
+  const ocrPapers = filtered.filter((paper) => paper.source === "ocr_scanned");
+
+  function renderPaperTable(records) {
+    return (
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Authors</th>
+              <th>Year</th>
+              <th>Keywords</th>
+              <th>Source</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((p) => (
+              <tr key={p.id} onClick={() => incrementViewCount(p.id)} style={{ cursor: "pointer" }}>
+                <td style={{ fontWeight: 600, maxWidth: 280 }}>{p.title}</td>
+                <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ")}</td>
+                <td>{p.academic_year || "—"}</td>
+                <td>
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                    {(p.keywords || []).slice(0, 3).map((k) => (
+                      <span key={k} className="badge badge-neutral">
+                        {k}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td>
+                  <span className={`badge ${p.source === "ocr_scanned" ? "badge-info" : "badge-neutral"}`}>
+                    {p.source === "ocr_scanned" ? "OCR Scanned" : "Digital"}
+                  </span>
+                </td>
+                <td>
+                  {getResearchFileUrls(p.file_url).length > 0 && (
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setFileError("");
+                        try {
+                          await openResearchFile(p);
+                          incrementDownloadCount(p.id);
+                        } catch (error) {
+                          setFileError(error.message);
+                        }
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                    >
+                      <FileText size={13} /> View research file
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
   return (
     <Layout>
       <PageHeader
@@ -152,62 +217,31 @@ export default function Archive() {
           </EmptyState>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Authors</th>
-                <th>Year</th>
-                <th>Keywords</th>
-                <th>Source</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id} onClick={() => incrementViewCount(p.id)} style={{ cursor: "pointer" }}>
-                  <td style={{ fontWeight: 600, maxWidth: 280 }}>{p.title}</td>
-                  <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ")}</td>
-                  <td>{p.academic_year || "—"}</td>
-                  <td>
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                      {(p.keywords || []).slice(0, 3).map((k) => (
-                        <span key={k} className="badge badge-neutral">
-                          {k}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td>
-                    <span className={`badge ${p.source === "ocr_scanned" ? "badge-info" : "badge-neutral"}`}>
-                      {p.source === "ocr_scanned" ? "OCR Scanned" : "Digital"}
-                    </span>
-                  </td>
-                  <td>
-                    {getResearchFileUrls(p.file_url).length > 0 && (
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          setFileError("");
-                          try {
-                            await openResearchFile(p);
-                            incrementDownloadCount(p.id);
-                          } catch (error) {
-                            setFileError(error.message);
-                          }
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                      >
-                        <FileText size={13} /> View research file
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="archive-source-sections">
+          {digitalPapers.length > 0 && (
+            <section className="archive-source-section">
+              <div className="archive-source-heading">
+                <div>
+                  <span className="page-eyebrow">Source collection</span>
+                  <h2>Digital Research</h2>
+                </div>
+                <span className="badge badge-neutral">{digitalPapers.length} records</span>
+              </div>
+              {renderPaperTable(digitalPapers)}
+            </section>
+          )}
+          {ocrPapers.length > 0 && (
+            <section className="archive-source-section">
+              <div className="archive-source-heading">
+                <div>
+                  <span className="page-eyebrow">Source collection</span>
+                  <h2>OCR Scanned Research</h2>
+                </div>
+                <span className="badge badge-info">{ocrPapers.length} records</span>
+              </div>
+              {renderPaperTable(ocrPapers)}
+            </section>
+          )}
           {fileError && <p className="auth-error" style={{ margin: "12px 0" }}>{fileError}</p>}
         </div>
       )}

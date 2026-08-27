@@ -163,6 +163,42 @@ a {
   max-width: 60ch;
 }
 
+.archive-source-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+}
+
+.archive-source-section {
+  min-width: 0;
+}
+
+.archive-source-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  border-bottom: 2px solid var(--line-strong);
+}
+
+.archive-source-heading .page-eyebrow {
+  margin-bottom: 3px;
+}
+
+.archive-source-heading h2 {
+  font-size: 20px;
+}
+
+@media (max-width: 520px) {
+  .archive-source-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
 /* ---------- profile form ---------- */
 
 .profile-form-shell {

@@ -17,6 +17,21 @@ export async function submitResearch({
   ieeeFile,
   userId,
 }) {
+  const normalizedTitle = title.trim().replace(/\s+/g, " ");
+  if (!normalizedTitle) throw new Error("Research title is required.");
+
+  const { data: existingTitle, error: titleCheckError } = await supabase
+    .from("research_papers")
+    .select("id")
+    .ilike("title", normalizedTitle)
+    .limit(1)
+    .maybeSingle();
+
+  if (titleCheckError) throw titleCheckError;
+  if (existingTitle) {
+    throw new Error("A research paper with this title already exists. Please choose a different title.");
+  }
+
   const uploads = {};
 
   for (const [key, file] of Object.entries({
@@ -37,7 +52,7 @@ export async function submitResearch({
   const { data, error } = await supabase
     .from("research_papers")
     .insert({
-      title,
+      title: normalizedTitle,
       abstract,
       authors,
       adviser,
@@ -53,7 +68,12 @@ export async function submitResearch({
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("A research paper with this title already exists. Please choose a different title.");
+    }
+    throw error;
+  }
 
   await supabase.from("submission_logs").insert({
     paper_id: data.id,

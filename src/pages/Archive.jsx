@@ -10,6 +10,7 @@ export default function Archive() {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [yearFilter, setYearFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [queryFilter, setQueryFilter] = useState("");
   const [fileError, setFileError] = useState("");
   const [searchParams, setSearchParams] = useSearchParams();
@@ -34,8 +35,20 @@ export default function Archive() {
     return ["all", ...Array.from(set).sort().reverse()];
   }, [papers]);
 
+  const sourceCounts = useMemo(
+    () => ({
+      all: papers.length,
+      digital: papers.filter((paper) => paper.source !== "ocr_scanned").length,
+      ocr_scanned: papers.filter((paper) => paper.source === "ocr_scanned").length,
+    }),
+    [papers]
+  );
+
   const filtered = papers.filter((p) => {
     const matchesYear = yearFilter === "all" || p.academic_year === yearFilter;
+    const matchesSource =
+      sourceFilter === "all" ||
+      (sourceFilter === "ocr_scanned" ? p.source === "ocr_scanned" : p.source !== "ocr_scanned");
     const matchesSdg = !sdgFilter || (p.sdg_tags || []).includes(sdgFilter);
     const q = queryFilter.toLowerCase();
     const matchesQuery =
@@ -43,7 +56,7 @@ export default function Archive() {
       p.title.toLowerCase().includes(q) ||
       (p.authors || []).some((a) => a.toLowerCase().includes(q)) ||
       (p.keywords || []).some((k) => k.toLowerCase().includes(q));
-    return matchesYear && matchesSdg && matchesQuery;
+    return matchesYear && matchesSource && matchesSdg && matchesQuery;
   });
 
   return (
@@ -109,6 +122,17 @@ export default function Archive() {
               {y === "all" ? "All academic years" : y}
             </option>
           ))}
+        </select>
+        <select
+          className="input"
+          value={sourceFilter}
+          onChange={(e) => setSourceFilter(e.target.value)}
+          style={{ maxWidth: 180 }}
+          aria-label="Filter by source"
+        >
+          <option value="all">All sources ({sourceCounts.all})</option>
+          <option value="digital">Digital ({sourceCounts.digital})</option>
+          <option value="ocr_scanned">OCR Scanned ({sourceCounts.ocr_scanned})</option>
         </select>
         <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 12.5, color: "var(--ink-500)" }}>
           {loading ? "" : `${filtered.length} record${filtered.length === 1 ? "" : "s"}`}

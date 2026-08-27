@@ -1,0 +1,23 @@
+<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="100" r="96" fill="#16233f"/>
+  <circle cx="100" cy="100" r="96" fill="none" stroke="#b98a45" stroke-width="4"/>
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#b98a45" stroke-width="1" opacity="0.45"/>
+
+  <path d="M62 84 Q62 74 74 74 L98 74 L98 138 L74 138 Q62 138 62 128 Z" fill="none" stroke="#e7cfa1" stroke-width="3.4"/>
+  <path d="M138 84 Q138 74 126 74 L102 74 L102 138 L126 138 Q138 138 138 128 Z" fill="none" stroke="#e7cfa1" stroke-width="3.4"/>
+
+  <line x1="70" y1="88" x2="92" y2="88" stroke="#e7cfa1" stroke-width="2"/>
+  <line x1="70" y1="99" x2="92" y2="99" stroke="#e7cfa1" stroke-width="2"/>
+  <line x1="70" y1="110" x2="88" y2="110" stroke="#e7cfa1" stroke-width="2"/>
+
+  <line x1="108" y1="88" x2="130" y2="88" stroke="#e7cfa1" stroke-width="2"/>
+  <line x1="108" y1="99" x2="130" y2="99" stroke="#e7cfa1" stroke-width="2"/>
+  <line x1="108" y1="110" x2="126" y2="110" stroke="#e7cfa1" stroke-width="2"/>
+
+  <circle cx="100" cy="52" r="7" fill="#e7cfa1"/>
+  <line x1="100" y1="59" x2="100" y2="74" stroke="#e7cfa1" stroke-width="2.4"/>
+  <circle cx="80" cy="64" r="4" fill="#e7cfa1"/>
+  <circle cx="120" cy="64" r="4" fill="#e7cfa1"/>
+  <line x1="85" y1="63" x2="95" y2="55" stroke="#e7cfa1" stroke-width="1.6"/>
+  <line x1="115" y1="63" x2="105" y2="55" stroke="#e7cfa1" stroke-width="1.6"/>
+</svg>

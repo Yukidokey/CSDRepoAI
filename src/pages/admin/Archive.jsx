@@ -1,0 +1,130 @@
+import { useEffect, useMemo, useState } from "react";
+import { FileText, Archive as ArchiveIcon } from "lucide-react";
+import Layout from "../../components/Layout";
+import { PageHeader, EmptyState, StatGrid, StatCard } from "../../components/ui";
+import { getApprovedPapers, getResearchFileUrls, openResearchFile } from "../../services/research";
+
+export default function Archive() {
+  const [papers, setPapers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [yearFilter, setYearFilter] = useState("all");
+  const [queryFilter, setQueryFilter] = useState("");
+  const [fileError, setFileError] = useState("");
+
+  useEffect(() => {
+    getApprovedPapers({ limit: 200 }).then(setPapers).finally(() => setLoading(false));
+  }, []);
+
+  const years = useMemo(() => {
+    const set = new Set(papers.map((p) => p.academic_year).filter(Boolean));
+    return ["all", ...Array.from(set).sort().reverse()];
+  }, [papers]);
+
+  const ocrCount = papers.filter((p) => p.source === "ocr_scanned").length;
+
+  const filtered = papers.filter((p) => {
+    const matchesYear = yearFilter === "all" || p.academic_year === yearFilter;
+    const q = queryFilter.toLowerCase();
+    const matchesQuery =
+      !q ||
+      p.title.toLowerCase().includes(q) ||
+      (p.authors || []).some((a) => a.toLowerCase().includes(q)) ||
+      (p.keywords || []).some((k) => k.toLowerCase().includes(q));
+    return matchesYear && matchesQuery;
+  });
+
+  return (
+    <Layout>
+      <PageHeader
+        eyebrow="Digital Repository"
+        title="Research Archive"
+        description="All approved and digitized research currently held in the repository."
+      />
+
+      <StatGrid>
+        <StatCard label="Total Records" value={papers.length} accent="brass" />
+        <StatCard label="Digital Submissions" value={papers.length - ocrCount} accent="info" />
+        <StatCard label="OCR Scanned" value={ocrCount} accent="success" />
+      </StatGrid>
+
+      <div style={{ display: "flex", gap: 10, margin: "22px 0 18px", flexWrap: "wrap" }}>
+        <input
+          className="input"
+          placeholder="Filter by title, author, or keyword..."
+          value={queryFilter}
+          onChange={(e) => setQueryFilter(e.target.value)}
+          style={{ maxWidth: 320 }}
+        />
+        <select className="input" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} style={{ maxWidth: 180 }}>
+          {years.map((y) => (
+            <option key={y} value={y}>
+              {y === "all" ? "All academic years" : y}
+            </option>
+          ))}
+        </select>
+        <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 12.5, color: "var(--ink-500)" }}>
+          {loading ? "" : `${filtered.length} record${filtered.length === 1 ? "" : "s"}`}
+        </span>
+      </div>
+
+      {loading ? (
+        <p className="page-loading">Loading archive...</p>
+      ) : filtered.length === 0 ? (
+        <div className="card">
+          <EmptyState icon={ArchiveIcon} title="No records found">
+            No research records match those filters yet.
+          </EmptyState>
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Authors</th>
+                <th>Year</th>
+                <th>Source</th>
+                <th>File</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 600, maxWidth: 320 }}>{p.title}</td>
+                  <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ") || "—"}</td>
+                  <td>{p.academic_year || "—"}</td>
+                  <td>
+                    <span className={`badge ${p.source === "ocr_scanned" ? "badge-info" : "badge-neutral"}`}>
+                      {p.source === "ocr_scanned" ? "OCR Scanned" : "Digital"}
+                    </span>
+                  </td>
+                  <td>
+                    {getResearchFileUrls(p.file_url).length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setFileError("");
+                          try {
+                            await openResearchFile(p);
+                          } catch (error) {
+                            setFileError(error.message);
+                          }
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                      >
+                        <FileText size={13} /> View research file
+                      </button>
+                    ) : (
+                      <span style={{ color: "var(--ink-300)" }}>—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {fileError && <p className="auth-error" style={{ margin: "12px 0" }}>{fileError}</p>}
+        </div>
+      )}
+    </Layout>
+  );
+}

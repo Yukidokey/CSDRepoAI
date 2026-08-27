@@ -209,10 +209,6 @@ export default function Layout({ children }) {
             <span className="sidebar-user-avatar">{initials}</span>
             <span>{profile?.full_name}</span>
           </div>
-          <button onClick={handleLogout} className="sidebar-logout" type="button">
-            <LogOut size={13} />
-            Log Out
-          </button>
         </div>
       </aside>
       <main className="app-main">{children}</main>

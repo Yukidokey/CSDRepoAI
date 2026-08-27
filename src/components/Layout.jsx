@@ -27,6 +27,7 @@ const NAV_ITEMS = {
     { to: "/student/submit", label: "Submit Research", icon: Upload },
     { to: "/student/my-submissions", label: "My Submissions", icon: FileText },
     { to: "/student/archive", label: "Research Archive", icon: ArchiveIcon },
+    { to: "/student/ocr", label: "OCR Scanning", icon: ScanLine },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/student/archive" },
     { to: "/student/search", label: "AI Search", icon: SearchIcon },
     { to: "/student/profile", label: "Profile", icon: User },
@@ -35,6 +36,7 @@ const NAV_ITEMS = {
   faculty: [
     { to: "/faculty", label: "Dashboard", end: true, icon: LayoutDashboard },
     { to: "/faculty/archive", label: "Research Archive", icon: ArchiveIcon },
+    { to: "/faculty/ocr", label: "OCR Scanning", icon: ScanLine },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/faculty/archive" },
     { to: "/faculty/search", label: "AI Search", icon: SearchIcon },
     { to: "/faculty/analytics", label: "Research Analytics", icon: BarChart3 },

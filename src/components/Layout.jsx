@@ -106,9 +106,19 @@ export default function Layout({ children }) {
           <img src="/logo.png" alt="CSDRepoAI logo" className="mobile-topbar-logo" width="26" height="26" />
           <span className="mobile-topbar-title">CSDRepoAI</span>
         </div>
-        <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">
-          <Menu size={18} />
-        </button>
+        <div className="mobile-topbar-actions">
+          <button
+            className="mobile-menu-btn"
+            onClick={handleLogout}
+            aria-label="Log out"
+            title="Log out"
+          >
+            <LogOut size={18} />
+          </button>
+          <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">
+            <Menu size={18} />
+          </button>
+        </div>
       </div>
 
       <div className={`sidebar-backdrop${menuOpen ? " open" : ""}`} onClick={() => setMenuOpen(false)} />

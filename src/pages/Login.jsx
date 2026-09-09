@@ -155,10 +155,15 @@ export default function Login() {
     if (result.error) {
       if (mode === "login") {
         const nextAttempt = failedLoginAttempts + 1;
-        const lockoutSeconds = nextAttempt === 1 ? 30 : nextAttempt === 2 ? 60 : 180;
         setFailedLoginAttempts(nextAttempt);
+        if (nextAttempt <= 5) {
+          setError(`Incorrect email or password. You have ${5 - nextAttempt} attempt${5 - nextAttempt === 1 ? "" : "s"} remaining before a temporary login warning.`);
+          return;
+        }
+
+        const lockoutSeconds = nextAttempt === 6 ? 30 : nextAttempt === 7 ? 60 : 180;
         setLoginLockedUntil(Date.now() + lockoutSeconds * 1000);
-        setError(`Incorrect email or password. Login is paused for ${formatLockoutTime(lockoutSeconds * 1000)}.`);
+        setError(`Too many incorrect password attempts. Login is paused for ${formatLockoutTime(lockoutSeconds * 1000)}.`);
         return;
       }
       const friendlyMessage = result.friendlyError || result.error.message;

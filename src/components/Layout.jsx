@@ -27,32 +27,31 @@ const NAV_ITEMS = {
     { to: "/student/submit", label: "Submit Research", icon: Upload },
     { to: "/student/my-submissions", label: "My Submissions", icon: FileText },
     { to: "/student/archive", label: "Research Archive", icon: ArchiveIcon },
-    { to: "/student/ocr", label: "OCR Scanning", icon: ScanLine },
+    { to: "/student/ocr", label: "Document Digitization", icon: ScanLine },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/student/archive" },
     { to: "/student/search", label: "AI Search", icon: SearchIcon },
     { to: "/student/profile", label: "Profile", icon: User },
-    { to: "/student/evaluation", label: "System Evaluation", icon: ClipboardList },
   ],
   faculty: [
     { to: "/faculty", label: "Dashboard", end: true, icon: LayoutDashboard },
+    { to: "/faculty/submit", label: "Submit Research", icon: Upload },
+    { to: "/faculty/my-submissions", label: "My Submissions", icon: FileText },
     { to: "/faculty/archive", label: "Research Archive", icon: ArchiveIcon },
-    { to: "/faculty/ocr", label: "OCR Scanning", icon: ScanLine },
+    { to: "/faculty/ocr", label: "Document Digitization", icon: ScanLine },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/faculty/archive" },
     { to: "/faculty/search", label: "AI Search", icon: SearchIcon },
     { to: "/faculty/analytics", label: "Research Analytics", icon: BarChart3 },
     { to: "/faculty/profile", label: "Profile", icon: User },
-    { to: "/faculty/evaluation", label: "System Evaluation", icon: ClipboardList },
   ],
   admin: [
     { to: "/admin", label: "Dashboard", end: true, icon: LayoutDashboard },
     { to: "/admin/users", label: "User Management", icon: Users },
-    { to: "/admin/ocr", label: "OCR Digitization", icon: ScanLine },
+    { to: "/admin/ocr", label: "Document Digitization", icon: ScanLine },
     { to: "/admin/review", label: "Review & Approval", icon: ClipboardCheck },
     { to: "/admin/archive", label: "Research Archive", icon: ArchiveIcon },
     { to: "/admin/search", label: "AI Search", icon: SearchIcon },
     { to: "/admin/analytics", label: "Research Analytics", icon: BarChart3 },
     { to: "/admin/profile", label: "Profile", icon: User },
-    { to: "/admin/evaluation", label: "Evaluation Results", icon: ClipboardList },
   ],
 };
 
@@ -209,6 +208,15 @@ export default function Layout({ children }) {
             <span className="sidebar-user-avatar">{initials}</span>
             <span>{profile?.full_name}</span>
           </div>
+          <button
+            type="button"
+            className="sidebar-logout"
+            onClick={handleLogout}
+            aria-label="Log out"
+          >
+            <LogOut size={15} />
+            Log out
+          </button>
         </div>
       </aside>
       <main className="app-main">{children}</main>

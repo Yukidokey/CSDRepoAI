@@ -167,6 +167,14 @@ async function uploadResearchPdf(files, { onProgress } = {}) {
   return pub.publicUrl;
 }
 
+async function uploadResearchFile(file, userId) {
+  const path = `${userId}/${Date.now()}_${file.name}`;
+  const { error } = await supabase.storage.from("research-files").upload(path, file);
+  if (error) throw error;
+  const { data: pub } = supabase.storage.from("research-files").getPublicUrl(path);
+  return pub.publicUrl;
+}
+
 /**
  * OCR Digitization Module: heuristic metadata extraction.
  *
@@ -239,11 +247,16 @@ export async function digitizeAndArchive({
   abstract,
   keywords,
   adminId,
+  digitalFile,
+  submitterId,
   onProgress,
 }) {
   const filesToUpload = imageFiles?.length ? imageFiles : imageFile ? [imageFile] : [];
 
-  const uploadedUrl = await uploadResearchPdf(filesToUpload, { onProgress });
+  const actorId = submitterId || adminId;
+  const uploadedUrl = digitalFile
+    ? await uploadResearchFile(digitalFile, actorId)
+    : await uploadResearchPdf(filesToUpload, { onProgress });
 
   const { data, error } = await supabase
     .from("research_papers")
@@ -254,8 +267,8 @@ export async function digitizeAndArchive({
       adviser,
       abstract,
       keywords,
-      submitted_by: adminId,
-      status: "approved", // OCR'd hardbound docs are already-approved past theses
+      submitted_by: actorId,
+      status: digitalFile ? "pending" : "approved", // digital files follow review; OCR archives are approved past theses
       source: "ocr_scanned",
       ocr_raw_text: ocrText,
       file_url: uploadedUrl,
@@ -268,7 +281,8 @@ export async function digitizeAndArchive({
   await supabase.from("submission_logs").insert({
     paper_id: data.id,
     action: "ocr_scanned",
-    actor_id: adminId,
+    actor_id: actorId,
+    detail: digitalFile ? { submission_type: "digital_file" } : null,
   });
 
   return data;

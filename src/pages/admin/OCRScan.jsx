@@ -21,6 +21,7 @@ import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { digitizeAndArchive, scanDocuments, extractMetadata } from "../../services/ocr";
+import { analyzeResearchDocument } from "../../services/metadataSuggestions";
 
 const STEPS = [
   { key: "upload", label: "Upload" },
@@ -40,6 +41,7 @@ function stepIndexFor(step) {
 export default function OCRScan() {
   const { user } = useAuth();
   const [files, setFiles] = useState([]);
+  const [digitalFile, setDigitalFile] = useState(null);
   const [previews, setPreviews] = useState([]);
   const [ocrText, setOcrText] = useState("");
   const [progress, setProgress] = useState(0);
@@ -77,6 +79,18 @@ export default function OCRScan() {
 function loadFiles(list) {
   const selected = Array.from(list || []);
   if (!selected.length) return;
+  const first = selected[0];
+  if (!first.type.startsWith("image/") || /\.(pdf|docx)$/i.test(first.name)) {
+    setDigitalFile(first);
+    setFiles([]);
+    setPreviews([]);
+    setOcrText("");
+    setStep("idle");
+    setDonePages(0);
+    setCurrentPage(1);
+    return;
+  }
+  setDigitalFile(null);
   setFiles((prev) => [...prev, ...selected]);
   setPreviews((prev) => [...prev, ...selected.map((f) => URL.createObjectURL(f))]);
   setOcrText("");
@@ -104,6 +118,23 @@ function handleFile(e) {
   }
 
   async function handleScan() {
+    if (digitalFile) {
+      setStep("scanning");
+      setProgress(0.5);
+      const extracted = await analyzeResearchDocument(digitalFile);
+      setOcrText(extracted.extractedText || "");
+      setMeta({
+        title: extracted.title,
+        authors: "",
+        academicYear: "",
+        adviser: "",
+        abstract: extracted.abstract,
+        keywords: extracted.keywords,
+      });
+      setProgress(1);
+      setStep("scanned");
+      return;
+    }
     if (!files.length) return;
     setStep("scanning");
     setProgress(0);
@@ -147,6 +178,8 @@ function handleFile(e) {
       abstract: meta.abstract,
       keywords: meta.keywords.split(",").map((k) => k.trim()).filter(Boolean),
       adminId: user.id,
+      digitalFile,
+      submitterId: user.id,
       onProgress: (completed, total) => setSaveProgress({ completed, total }),
     });
     setStep("done");
@@ -154,6 +187,7 @@ function handleFile(e) {
 
   function resetAll() {
     setFiles([]);
+    setDigitalFile(null);
     setPreviews([]);
     setOcrText("");
     setProgress(0);
@@ -171,8 +205,8 @@ function handleFile(e) {
     <Layout>
       <PageHeader
         eyebrow="OCR Digitization"
-        title="Digitize a Hardbound Document"
-        description="Upload one or more scanned pages from a research paper. The app will OCR every image, preserve the page structure, and auto-suggest the title, authors, adviser, abstract, and keywords for review before archiving."
+        title="Digitize or Submit a Research Document"
+        description="Upload scanned pages from a hardbound paper, or upload an existing PDF or DOCX file. The app extracts the text and suggests metadata for review before saving."
       />
 
       {/* ---------- stepper ---------- */}
@@ -201,14 +235,14 @@ function handleFile(e) {
               onDrop={handleDrop}
               onClick={() => fileInputRef.current?.click()}
             >
-              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleFile} />
+              <input ref={fileInputRef} type="file" accept="image/*,.pdf,.docx" multiple onChange={handleFile} />
               <div className="ocr-dropzone-icon">
                 <UploadCloud size={20} />
               </div>
-              <div className="ocr-dropzone-title">Drop scanned pages here, or click to browse</div>
+              <div className="ocr-dropzone-title">Drop research pages or a PDF/DOCX file here</div>
               <div className="ocr-dropzone-hint">
                 <Camera size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
-                JPG or PNG · multiple pages supported · camera capture on mobile
+                JPG or PNG pages, PDF, or DOCX · choose a file from your computer
               </div>
             </div>
           )}
@@ -224,7 +258,7 @@ function handleFile(e) {
                 <UploadCloud size={13} /> Add more
               </button>
               )}
-                <input ref={fileInputRef} type="file" accept="image/*" capture="environment" multiple onChange={handleFile} style={{ display: "none" }} />
+                <input ref={fileInputRef} type="file" accept="image/*,.pdf,.docx" multiple onChange={handleFile} style={{ display: "none" }} />
               </div>
 
               <div className="ocr-thumb-strip">
@@ -241,6 +275,19 @@ function handleFile(e) {
                 ))}
               </div>
             </>
+          )}
+
+          {digitalFile && step === "idle" && (
+            <div className="ocr-digital-file">
+              <FileText size={18} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <strong>{digitalFile.name}</strong>
+                <span>Digital document selected for text extraction</span>
+              </div>
+              <button type="button" className="btn btn-brass btn-sm" onClick={handleScan}>
+                <Sparkles size={13} /> Extract metadata
+              </button>
+            </div>
           )}
 
           {files.length > 0 && step === "idle" && (

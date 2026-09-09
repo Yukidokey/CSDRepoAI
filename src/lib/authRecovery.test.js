@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRecoveryParams } from './authRecovery.js';
+import { parseRecoveryCode, parseRecoveryParams } from './authRecovery.js';
 
 test('detects Supabase recovery links from the URL hash', () => {
   const params = parseRecoveryParams('#access_token=abc&refresh_token=xyz&expires_at=123&type=recovery');
@@ -18,4 +18,8 @@ test('ignores non-recovery URL fragments', () => {
   assert.equal(params.isRecovery, false);
   assert.equal(params.type, null);
   assert.equal(params.accessToken, null);
+});
+
+test('detects code-based recovery links', () => {
+  assert.deepEqual(parseRecoveryCode('?code=recovery-code'), { code: 'recovery-code', isRecovery: true });
 });

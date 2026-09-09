@@ -12,6 +12,7 @@ export async function submitResearch({
   program,
   keywords,
   sdgTags,
+  category,
   manuscriptFile,
   sourceCodeFile,
   ieeeFile,
@@ -79,6 +80,7 @@ export async function submitResearch({
     paper_id: data.id,
     action: "submitted",
     actor_id: userId,
+    detail: { category, metadata_source: "ai_assisted_document_analysis" },
   });
 
   triggerEmbedding(data.id);

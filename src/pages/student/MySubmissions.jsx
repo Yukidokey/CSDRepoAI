@@ -6,7 +6,7 @@ import { useAuth } from "../../context/AuthContext";
 import { getMySubmissions } from "../../services/research";
 
 export default function MySubmissions() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -25,7 +25,11 @@ export default function MySubmissions() {
 
   return (
     <Layout>
-      <PageHeader eyebrow="Research Submission" title="My Submissions" description="Every research output you've submitted, and its current review status." />
+      <PageHeader
+        eyebrow="Research Submission"
+        title="My Submissions"
+        description={`${role === "faculty" ? "Faculty" : "Student"} research outputs submitted from your account and their current review status.`}
+      />
 
       {submissions.length > 0 && (
         <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>

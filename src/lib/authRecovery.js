@@ -1,4 +1,4 @@
-export function parseRecoveryParams(hash = window.location.hash || "") {
+export function parseRecoveryParams(hash = typeof window !== "undefined" ? window.location.hash || "" : "") {
   const fragment = hash.startsWith("#") ? hash.slice(1) : hash;
   const params = new URLSearchParams(fragment);
 
@@ -14,4 +14,10 @@ export function parseRecoveryParams(hash = window.location.hash || "") {
     type,
     isRecovery: type === "recovery" && Boolean(accessToken),
   };
+}
+
+export function parseRecoveryCode(search = typeof window !== "undefined" ? window.location.search || "" : "") {
+  const params = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  const code = params.get("code");
+  return { code, isRecovery: Boolean(code) };
 }

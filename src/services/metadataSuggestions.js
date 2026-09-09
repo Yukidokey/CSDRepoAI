@@ -1,4 +1,9 @@
 import { SDG_LIST } from "../lib/sdgList";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import mammoth from "mammoth/mammoth.browser";
+
+GlobalWorkerOptions.workerSrc = workerSrc;
 
 const TOPIC_RULES = [
   { category: "Artificial Intelligence", terms: ["artificial intelligence", "machine learning", "deep learning", "neural network", "chatbot", "computer vision", "natural language"] },
@@ -44,4 +49,127 @@ export function suggestMetadata({ title = "", abstract = "", keywords = "" }) {
     sdgTags: suggestedSdgs,
     sdgNames: suggestedSdgs.map((id) => SDG_LIST.find((sdg) => sdg.id === id)?.title).filter(Boolean),
   };
+}
+
+export async function analyzeResearchDocument(file) {
+  if (!file) return null;
+
+  const documentText = isDocx(file) ? await extractDocxText(file) : await extractPdfText(file);
+  const extracted = extractDocumentFields(documentText);
+  const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
+  const metadata = suggestMetadata({
+    title: extracted.title,
+    abstract,
+    keywords: extracted.keywords,
+  });
+
+  return {
+    title: extracted.title,
+    keywords: extracted.keywords || metadata.keywords.join(", "),
+    abstract,
+    category: metadata.category,
+    sdgTags: metadata.sdgTags,
+    sdgNames: metadata.sdgNames,
+    extractedText: documentText,
+    sourceTextLength: documentText.length,
+  };
+}
+
+async function extractPdfText(file) {
+  const data = await file.arrayBuffer();
+  const pdf = await getDocument({ data }).promise;
+  const pages = [];
+  const pageLimit = Math.min(pdf.numPages, 8);
+
+  for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const content = await page.getTextContent();
+    pages.push(joinPdfTextItems(content.items));
+  }
+
+  return pages.join("\n\n").trim();
+}
+
+async function extractDocxText(file) {
+  const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+  return value.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function joinPdfTextItems(items) {
+  const lines = [];
+  for (const item of items) {
+    const text = item.str?.trim();
+    if (!text) continue;
+    const y = item.transform?.[5] ?? 0;
+    const line = lines.find((candidate) => Math.abs(candidate.y - y) < 3);
+    if (line) {
+      line.items.push({ x: item.transform?.[4] ?? 0, text });
+    } else {
+      lines.push({ y, items: [{ x: item.transform?.[4] ?? 0, text }] });
+    }
+  }
+  return lines
+    .sort((a, b) => b.y - a.y)
+    .map((line) => line.items.sort((a, b) => a.x - b.x).map((item) => item.text).join(" "))
+    .join("\n");
+}
+
+function isDocx(file) {
+  return file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(file.name);
+}
+
+function extractDocumentFields(text) {
+  if (!text) return { title: "", abstract: "", keywords: "" };
+
+  const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const abstractIndex = lines.findIndex((line) => /^abstract\s*[:\-]?$/i.test(line));
+  const keywordsIndex = lines.findIndex((line) => /^keywords?\s*[:\-]?/i.test(line));
+  const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(line));
+  const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
+  const keywordsLine = keywordsIndex >= 0 ? lines[keywordsIndex].replace(/^keywords?\s*[:\-]?\s*/i, "") : "";
+  const title = findTitleBeforeAbstract(lines, abstractIndex) || (titleLabel
+    ? titleLabel.replace(/^title\s*[:\-]?\s*/i, "").trim()
+    : "");
+
+  return {
+    title,
+    abstract,
+    keywords: keywordsLine.replace(/[.;]+$/, "").trim(),
+  };
+}
+
+function extractSection(lines, startIndex, stopPatterns) {
+  if (startIndex < 0) return "";
+  const content = [];
+  for (let index = startIndex; index < lines.length; index += 1) {
+    if (index === startIndex) {
+      const inline = lines[index].replace(/^(abstract|keywords?)\s*[:\-]?\s*/i, "");
+      if (inline) content.push(inline);
+      continue;
+    }
+    if (stopPatterns.some((pattern) => new RegExp(`^${pattern}\\b`, "i").test(lines[index]))) break;
+    content.push(lines[index]);
+  }
+  return content.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function findTitleBeforeAbstract(lines, abstractIndex) {
+  const firstPageLines = lines.slice(0, abstractIndex >= 0 ? abstractIndex : 25);
+  const firstMeaningfulLine = firstPageLines.find((line) =>
+    line.length >= 5 &&
+    !/^(title|by|author|authors|researchers?|proponents?|abstract|keywords?)\s*[:\-]?$/i.test(line)
+  );
+
+  return firstMeaningfulLine?.replace(/^title\s*[:\-]?\s*/i, "").trim() || "";
+}
+
+function buildAbstract(text, title = "") {
+  const withoutTitle = title ? text.replace(title, " ") : text;
+  const sentences = withoutTitle.match(/[^.!?]+[.!?]+/g) || [];
+  return sentences
+    .map((sentence) => sentence.trim())
+    .filter((sentence) => sentence.length > 35)
+    .slice(0, 3)
+    .join(" ")
+    .slice(0, 900);
 }

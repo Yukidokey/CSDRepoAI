@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   AlertTriangle,
   UploadCloud,
@@ -13,11 +14,12 @@ import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { submitResearch } from "../../services/research";
 import { searchResearch } from "../../services/search";
-import { suggestMetadata } from "../../services/metadataSuggestions";
+import { analyzeResearchDocument, suggestMetadata } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
 
 export default function Submit() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [form, setForm] = useState({
     title: "",
     abstract: "",
@@ -34,6 +36,7 @@ export default function Submit() {
   const [errorMsg, setErrorMsg] = useState("");
   const [related, setRelated] = useState([]);
   const [suggestions, setSuggestions] = useState(null);
+  const [documentAnalysis, setDocumentAnalysis] = useState({ status: "idle", message: "" });
 
   // Generate academic year options dynamically (e.g., 2022-2023, 2023-2024, etc.)
   // Returns 5 years back through 2 years forward from current year
@@ -94,11 +97,46 @@ export default function Submit() {
 
   function applySuggestions() {
     if (!suggestions) return;
+    const suggestedKeywords = Array.isArray(suggestions.keywords)
+      ? suggestions.keywords
+      : suggestions.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean);
     setForm((current) => ({
       ...current,
-      keywords: current.keywords || suggestions.keywords.join(", "),
+      keywords: current.keywords || suggestedKeywords.join(", "),
     }));
     setSdgTags((current) => [...new Set([...current, ...suggestions.sdgTags])]);
+  }
+
+  async function handleManuscriptChange(file) {
+    setFiles((current) => ({ ...current, manuscript: file }));
+    setDocumentAnalysis({ status: "analyzing", message: "Reading the manuscript and generating metadata..." });
+    if (!file) {
+      setDocumentAnalysis({ status: "idle", message: "" });
+      return;
+    }
+
+    try {
+      const analysis = await analyzeResearchDocument(file);
+      setForm((current) => ({
+        ...current,
+        title: analysis.title || current.title,
+        abstract: analysis.abstract || current.abstract,
+        keywords: analysis.keywords || current.keywords,
+        authors: analysis.authors || current.authors,
+      }));
+      setSdgTags((current) => [...new Set([...current, ...analysis.sdgTags])]);
+      setSuggestions(analysis);
+      setDocumentAnalysis({ status: "done", message: `AI-assisted metadata generated: ${analysis.category}.` });
+    } catch (error) {
+      setDocumentAnalysis({ status: "error", message: `Could not analyze this PDF automatically. You can enter the metadata manually. ${error.message}` });
+    }
+  }
+
+  function getSuggestedKeywords() {
+    if (!suggestions?.keywords) return [];
+    return Array.isArray(suggestions.keywords)
+      ? suggestions.keywords
+      : suggestions.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean);
   }
 
   async function handleSubmit(e) {
@@ -116,6 +154,7 @@ export default function Submit() {
         program: form.program,
         keywords: form.keywords.split(",").map((k) => k.trim()).filter(Boolean),
         sdgTags,
+        category: suggestions?.category || "Computer Studies",
         manuscriptFile: files.manuscript,
         sourceCodeFile: files.sourceCode,
         ieeeFile: files.ieee,
@@ -162,6 +201,14 @@ export default function Submit() {
                 Your research has been submitted and is now pending review. You'll see the status
                 update on your dashboard.
               </p>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ marginTop: 16 }}
+                onClick={() => navigate(profile?.role === "faculty" ? "/faculty" : "/student")}
+              >
+                Return to dashboard
+              </button>
             </div>
           </div>
         </div>
@@ -257,14 +304,14 @@ export default function Submit() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {suggestions && (suggestions.keywords.length > 0 || suggestions.sdgTags.length > 0) && (
+              {suggestions && (getSuggestedKeywords().length > 0 || suggestions.sdgTags.length > 0) && (
                 <div className="metadata-suggestion">
                   <div>
                     <strong>Suggested classification</strong>
                     <span>{suggestions.category}</span>
                   </div>
                   <p>
-                    {suggestions.keywords.length > 0 ? `Keywords: ${suggestions.keywords.join(", ")}` : "Review the suggested SDG tags below."}
+                    {getSuggestedKeywords().length > 0 ? `Keywords: ${getSuggestedKeywords().join(", ")}` : "Review the suggested SDG tags below."}
                   </p>
                   {suggestions.sdgNames.length > 0 && <p>SDGs: {suggestions.sdgNames.join(", ")}</p>}
                   <button type="button" className="btn btn-outline btn-sm" onClick={applySuggestions}>Apply suggestions</button>
@@ -304,15 +351,21 @@ export default function Submit() {
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <Field label="Manuscript (PDF)">
+              <Field label="Manuscript (PDF or DOCX)">
                 <Dropzone
-                  accept=".pdf"
+                  accept=".pdf,.docx"
                   file={files.manuscript}
                   required
-                  onChange={(file) => setFiles((f) => ({ ...f, manuscript: file }))}
-                  hint="Full research paper, PDF only"
+                  onChange={handleManuscriptChange}
+                  hint="Full research paper, PDF or DOCX"
                 />
               </Field>
+              {documentAnalysis.status !== "idle" && (
+                <div className={`metadata-analysis ${documentAnalysis.status}`} role="status">
+                  <strong>AI-assisted document analysis</strong>
+                  <span>{documentAnalysis.message}</span>
+                </div>
+              )}
               <Field label="Source code (zip)">
                 <Dropzone
                   accept=".zip"

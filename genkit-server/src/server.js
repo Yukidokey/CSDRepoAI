@@ -59,8 +59,12 @@ app.post("/embed", async (req, res) => {
 
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
-const port = process.env.PORT || 8787;
-app.listen(port, () => {
-  console.log(`[genkit] CSDRepoAI semantic search server listening on http://localhost:${port}`);
-  console.log(`[genkit] Point the frontend at it via VITE_GENKIT_SEARCH_URL=http://localhost:${port}/search`);
-});
+if (!process.env.VERCEL) {
+  const port = process.env.PORT || 8787;
+  app.listen(port, () => {
+    console.log(`[genkit] CSDRepoAI semantic search server listening on http://localhost:${port}`);
+    console.log(`[genkit] Point the frontend at it via VITE_GENKIT_SEARCH_URL=http://localhost:${port}/search`);
+  });
+}
+
+export default app;

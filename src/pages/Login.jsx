@@ -185,10 +185,12 @@ export default function Login() {
           </div>
 
           <form onSubmit={handleSubmit} className="auth-form">
-            <h2>{recoveryActive ? "Set a new password" : mode === "login" ? "Sign in to your account" : "Create an account"}</h2>
+            <h2>{recoveryActive ? "Set a new password" : showResetPrompt ? "Reset your password" : mode === "login" ? "Sign in to your account" : "Create an account"}</h2>
             <p className="auth-form-sub">
               {recoveryActive
                 ? "Use the password reset link to choose a new password for your account."
+                : showResetPrompt
+                  ? "Enter your email and we will send you a password reset link."
                 : mode === "login"
                   ? "Use your institutional credentials."
                   : "Register with your role and details below."}
@@ -290,7 +292,7 @@ export default function Login() {
               />
             </Field>
 
-            {(mode === "signup" || mode === "login") && (
+            {!showResetPrompt && (mode === "signup" || mode === "login") && (
               <>
                 <Field label="Password">
                   <div className="password-field">

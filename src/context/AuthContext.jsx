@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { normalizeEmail, validatePassword } from "../lib/authValidation";
-import { parseRecoveryParams } from "../lib/authRecovery";
+import { parseRecoveryCode, parseRecoveryParams } from "../lib/authRecovery";
 import { getPasswordResetRedirectTo } from "../lib/authReset";
 import { buildProfileState } from "../lib/authProfile";
 import { applyAuthenticatedSession } from "../lib/authSession";
@@ -19,6 +19,10 @@ function formatAuthError(error) {
 
   if (message.includes("invalid login credentials")) {
     return "The email or password is incorrect.";
+  }
+
+  if (message.includes("failed to fetch") || message.includes("networkerror") || message.includes("network error")) {
+    return "Unable to connect to the password reset service. Please try again later or contact the administrator.";
   }
 
   if (message.includes("email")) {
@@ -100,25 +104,32 @@ export function AuthProvider({ children }) {
   }
 
   async function resetPassword(email) {
-    const redirectTo = getPasswordResetRedirectTo(typeof window !== "undefined" ? window.location.origin : "");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo,
-    });
+    try {
+      const redirectTo = getPasswordResetRedirectTo(typeof window !== "undefined" ? window.location.origin : "");
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
 
-    return { error, friendlyError: formatAuthError(error) };
+      return { error, friendlyError: formatAuthError(error) };
+    } catch (error) {
+      return { error, friendlyError: formatAuthError(error) };
+    }
   }
 
   async function handleRecoveryLink() {
     if (typeof window === "undefined") return { handled: false, error: null };
 
     const { isRecovery, accessToken, refreshToken, type } = parseRecoveryParams(window.location.hash);
-    if (!isRecovery) return { handled: false, error: null };
+    const { isRecovery: hasCode, code } = parseRecoveryCode(window.location.search);
+    if (!isRecovery && !hasCode) return { handled: false, error: null };
 
     try {
-      const { data, error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken || "",
-      });
+      const { data, error } = hasCode
+        ? await supabase.auth.exchangeCodeForSession(code)
+        : await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken || "",
+          });
 
       if (error) {
         return { handled: true, error, friendlyError: formatAuthError(error) };
@@ -131,7 +142,7 @@ export function AuthProvider({ children }) {
         }
       }
 
-      return { handled: true, error: null, friendlyError: null, type };
+      return { handled: true, error: null, friendlyError: null, type: type || "recovery" };
     } catch (recoveryError) {
       return { handled: true, error: recoveryError, friendlyError: formatAuthError(recoveryError) };
     }

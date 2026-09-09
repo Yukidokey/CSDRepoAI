@@ -8,7 +8,6 @@ import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import Analytics from "./pages/Analytics";
 import Archive from "./pages/Archive";
-import Evaluation from "./pages/Evaluation";
 
 import StudentDashboard from "./pages/student/Dashboard";
 import Submit from "./pages/student/Submit";
@@ -28,26 +27,26 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/redirect" element={<RoleRedirect />} />
-          <Route path="/" element={<Navigate to="/login" replace />} />
+          <Route path="/" element={<Login />} />
 
           {/* Student routes */}
           <Route path="/student" element={<ProtectedRoute allowedRoles={["student"]}><StudentDashboard /></ProtectedRoute>} />
           <Route path="/student/submit" element={<ProtectedRoute allowedRoles={["student"]}><Submit /></ProtectedRoute>} />
           <Route path="/student/my-submissions" element={<ProtectedRoute allowedRoles={["student"]}><MySubmissions /></ProtectedRoute>} />
-          <Route path="/student/archive" element={<ProtectedRoute allowedRoles={["student"]}><Archive /></ProtectedRoute>} />
           <Route path="/student/ocr" element={<ProtectedRoute allowedRoles={["student"]}><OCRScan /></ProtectedRoute>} />
+          <Route path="/student/archive" element={<ProtectedRoute allowedRoles={["student"]}><Archive /></ProtectedRoute>} />
           <Route path="/student/search" element={<ProtectedRoute allowedRoles={["student"]}><Search /></ProtectedRoute>} />
           <Route path="/student/profile" element={<ProtectedRoute allowedRoles={["student"]}><Profile /></ProtectedRoute>} />
-          <Route path="/student/evaluation" element={<ProtectedRoute allowedRoles={["student"]}><Evaluation /></ProtectedRoute>} />
 
           {/* Faculty routes */}
           <Route path="/faculty" element={<ProtectedRoute allowedRoles={["faculty"]}><FacultyDashboard /></ProtectedRoute>} />
-          <Route path="/faculty/archive" element={<ProtectedRoute allowedRoles={["faculty"]}><Archive /></ProtectedRoute>} />
+          <Route path="/faculty/submit" element={<ProtectedRoute allowedRoles={["faculty"]}><Submit /></ProtectedRoute>} />
+          <Route path="/faculty/my-submissions" element={<ProtectedRoute allowedRoles={["faculty"]}><MySubmissions /></ProtectedRoute>} />
           <Route path="/faculty/ocr" element={<ProtectedRoute allowedRoles={["faculty"]}><OCRScan /></ProtectedRoute>} />
+          <Route path="/faculty/archive" element={<ProtectedRoute allowedRoles={["faculty"]}><Archive /></ProtectedRoute>} />
           <Route path="/faculty/search" element={<ProtectedRoute allowedRoles={["faculty"]}><Search /></ProtectedRoute>} />
           <Route path="/faculty/analytics" element={<ProtectedRoute allowedRoles={["faculty"]}><Analytics /></ProtectedRoute>} />
           <Route path="/faculty/profile" element={<ProtectedRoute allowedRoles={["faculty"]}><Profile /></ProtectedRoute>} />
-          <Route path="/faculty/evaluation" element={<ProtectedRoute allowedRoles={["faculty"]}><Evaluation /></ProtectedRoute>} />
 
           {/* Admin routes */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
@@ -58,7 +57,6 @@ export default function App() {
           <Route path="/admin/search" element={<ProtectedRoute allowedRoles={["admin"]}><Search /></ProtectedRoute>} />
           <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={["admin"]}><Analytics /></ProtectedRoute>} />
           <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["admin"]}><Profile /></ProtectedRoute>} />
-          <Route path="/admin/evaluation" element={<ProtectedRoute allowedRoles={["admin"]}><Evaluation /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

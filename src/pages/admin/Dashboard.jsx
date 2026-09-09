@@ -38,7 +38,7 @@ export default function AdminDashboard() {
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <QuickLink to="/admin/review" icon={ClipboardCheck} label="Review Pending Submissions" sub={`${pending.length} waiting`} />
-        <QuickLink to="/admin/ocr" icon={ScanLine} label="Digitize a Hardbound Document" sub="OCR scan + archive" />
+        <QuickLink to="/admin/ocr" icon={ScanLine} label="Digitize a Research Document" sub="PDF, DOCX, or hardbound scan" />
         <QuickLink to="/admin/users" icon={Users} label="Manage Users" sub="Roles & accounts" />
       </div>
     </Layout>

@@ -1261,6 +1261,32 @@ table.table tbody tr:hover {
   color: #fff;
 }
 
+.metadata-analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--brass-200);
+  border-radius: var(--radius-sm);
+  background: var(--brass-50);
+  color: var(--ink-600);
+  font-size: 12px;
+}
+
+.metadata-analysis strong {
+  color: var(--ink-800);
+}
+
+.metadata-analysis.analyzing {
+  border-color: var(--brass-300);
+}
+
+.metadata-analysis.error {
+  border-color: var(--danger-200);
+  background: var(--danger-50);
+  color: var(--danger-700);
+}
+
 .logout-dialog-backdrop {
   position: fixed;
   inset: 0;

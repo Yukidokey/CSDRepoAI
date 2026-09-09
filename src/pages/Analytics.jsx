@@ -112,10 +112,10 @@ export default function Analytics() {
           {data.byKeyword.length === 0 ? (
             <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No keywords recorded yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10 }}>
+            <ResponsiveContainer width="100%" height={Math.max(300, data.byKeyword.length * 42)}>
+              <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <XAxis type="number" allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-                <YAxis type="category" dataKey="keyword" width={100} fontSize={10.5} stroke="var(--ink-500)" />
+                <YAxis type="category" dataKey="keyword" width={180} fontSize={10.5} stroke="var(--ink-500)" />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
                 <Bar dataKey="count" fill="#9c6b14" radius={[0, 4, 4, 0]} />
               </BarChart>

@@ -8,6 +8,7 @@ import Search from "./pages/Search";
 import Profile from "./pages/Profile";
 import Analytics from "./pages/Analytics";
 import Archive from "./pages/Archive";
+import AdminArchive from "./pages/admin/Archive";
 
 import StudentDashboard from "./pages/student/Dashboard";
 import Submit from "./pages/student/Submit";
@@ -53,7 +54,7 @@ export default function App() {
           <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><UserManagement /></ProtectedRoute>} />
           <Route path="/admin/ocr" element={<ProtectedRoute allowedRoles={["admin"]}><OCRScan /></ProtectedRoute>} />
           <Route path="/admin/review" element={<ProtectedRoute allowedRoles={["admin"]}><ReviewApproval /></ProtectedRoute>} />
-          <Route path="/admin/archive" element={<ProtectedRoute allowedRoles={["admin"]}><Archive /></ProtectedRoute>} />
+          <Route path="/admin/archive" element={<ProtectedRoute allowedRoles={["admin"]}><AdminArchive /></ProtectedRoute>} />
           <Route path="/admin/search" element={<ProtectedRoute allowedRoles={["admin"]}><Search /></ProtectedRoute>} />
           <Route path="/admin/analytics" element={<ProtectedRoute allowedRoles={["admin"]}><Analytics /></ProtectedRoute>} />
           <Route path="/admin/profile" element={<ProtectedRoute allowedRoles={["admin"]}><Profile /></ProtectedRoute>} />

@@ -27,6 +27,7 @@ export default function Login() {
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showResetPrompt, setShowResetPrompt] = useState(false);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
+  const [lockoutStage, setLockoutStage] = useState(0);
   const [loginLockedUntil, setLoginLockedUntil] = useState(0);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const passwordStrength = mode === "signup" ? getPasswordStrength(form.password) : null;
@@ -70,7 +71,10 @@ export default function Login() {
     function updateRemaining() {
       const remaining = Math.max(0, loginLockedUntil - Date.now());
       setLockoutRemaining(remaining);
-      if (remaining === 0) setLoginLockedUntil(0);
+      if (remaining === 0) {
+        setLoginLockedUntil(0);
+        setFailedLoginAttempts(0);
+      }
     }
 
     updateRemaining();
@@ -161,7 +165,8 @@ export default function Login() {
           return;
         }
 
-        const lockoutSeconds = nextAttempt === 6 ? 30 : nextAttempt === 7 ? 60 : 180;
+        const lockoutSeconds = lockoutStage === 0 ? 30 : lockoutStage === 1 ? 60 : 180;
+        setLockoutStage((stage) => Math.min(stage + 1, 2));
         setLoginLockedUntil(Date.now() + lockoutSeconds * 1000);
         setError(`Too many incorrect password attempts. Login is paused for ${formatLockoutTime(lockoutSeconds * 1000)}.`);
         return;
@@ -187,6 +192,7 @@ export default function Login() {
     }
 
     setFailedLoginAttempts(0);
+    setLockoutStage(0);
     setLoginLockedUntil(0);
     navigate("/redirect");
   }

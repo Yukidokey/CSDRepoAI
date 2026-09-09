@@ -70,8 +70,10 @@ create index if not exists idx_research_status on research_papers(status);
 create index if not exists idx_research_submitted_by on research_papers(submitted_by);
 create index if not exists idx_research_keywords on research_papers using gin(keywords);
 create index if not exists idx_research_sdg on research_papers using gin(sdg_tags);
-create unique index if not exists idx_research_unique_normalized_title
-  on research_papers (lower(trim(title)));
+drop index if exists idx_research_unique_normalized_title;
+create unique index idx_research_unique_normalized_title
+  on research_papers (lower(trim(title)))
+  where status <> 'rejected';
 
 -- Full-text search support for the AI-Assisted Search module
 alter table research_papers add column if not exists search_vector tsvector

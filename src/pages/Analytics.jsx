@@ -76,8 +76,8 @@ export default function Analytics() {
 
       {/* c + g: program + SDG */}
       <SectionTitle>Distribution</SectionTitle>
-      <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
-        <div className="card card-pad" style={{ flex: "1 1 340px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+        <div className="card card-pad" style={{ width: "100%" }}>
           <h3 style={{ fontSize: 14, marginBottom: 14 }}>Research per Program</h3>
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={data.byProgram}>
@@ -89,7 +89,7 @@ export default function Analytics() {
           </ResponsiveContainer>
         </div>
 
-        <div className="card card-pad" style={{ flex: "1 1 340px" }}>
+        <div className="card card-pad" style={{ width: "100%" }}>
           <h3 style={{ fontSize: 14, marginBottom: 14 }}>Research by SDG Alignment</h3>
           {data.sdgCounts.length === 0 ? (
             <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No SDG-tagged research yet.</p>
@@ -107,7 +107,7 @@ export default function Analytics() {
           )}
         </div>
 
-        <div className="card card-pad" style={{ flex: "1 1 340px" }}>
+        <div className="card card-pad" style={{ width: "100%" }}>
           <h3 style={{ fontSize: 14, marginBottom: 14 }}>Research by Keyword</h3>
           {data.byKeyword.length === 0 ? (
             <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No keywords recorded yet.</p>

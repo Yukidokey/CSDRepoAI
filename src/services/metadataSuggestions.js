@@ -127,7 +127,7 @@ function extractDocumentFields(text) {
   const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(line));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
   const keywordsLine = keywordsIndex >= 0 ? lines[keywordsIndex].replace(/^keywords?\s*[:\-]?\s*/i, "") : "";
-  const title = findTitleBeforeAbstract(lines, abstractIndex) || (titleLabel
+  const title = firstPageTitle(lines) || (titleLabel
     ? titleLabel.replace(/^title\s*[:\-]?\s*/i, "").trim()
     : "");
 
@@ -161,6 +161,12 @@ function findTitleBeforeAbstract(lines, abstractIndex) {
   );
 
   return firstMeaningfulLine?.replace(/^title\s*[:\-]?\s*/i, "").trim() || "";
+}
+
+function firstPageTitle(lines) {
+  const firstLine = lines[0] || "";
+  if (!firstLine || /^(title|abstract|keywords?)\s*[:\-]?$/i.test(firstLine)) return "";
+  return firstLine.replace(/^title\s*[:\-]?\s*/i, "").trim();
 }
 
 function buildAbstract(text, title = "") {

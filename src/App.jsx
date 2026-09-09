@@ -37,6 +37,7 @@ export default function App() {
           <Route path="/student/ocr" element={<ProtectedRoute allowedRoles={["student"]}><OCRScan /></ProtectedRoute>} />
           <Route path="/student/archive" element={<ProtectedRoute allowedRoles={["student"]}><Archive /></ProtectedRoute>} />
           <Route path="/student/search" element={<ProtectedRoute allowedRoles={["student"]}><Search /></ProtectedRoute>} />
+          <Route path="/student/analytics" element={<ProtectedRoute allowedRoles={["student"]}><Analytics /></ProtectedRoute>} />
           <Route path="/student/profile" element={<ProtectedRoute allowedRoles={["student"]}><Profile /></ProtectedRoute>} />
 
           {/* Faculty routes */}

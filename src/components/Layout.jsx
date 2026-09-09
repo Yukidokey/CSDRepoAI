@@ -30,6 +30,7 @@ const NAV_ITEMS = {
     { to: "/student/ocr", label: "Document Digitization", icon: ScanLine },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/student/archive" },
     { to: "/student/search", label: "AI Search", icon: SearchIcon },
+    { to: "/student/analytics", label: "Research Analytics", icon: BarChart3 },
     { to: "/student/profile", label: "Profile", icon: User },
   ],
   faculty: [

@@ -8,6 +8,7 @@ export default function Archive() {
   const [papers, setPapers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [yearFilter, setYearFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
   const [queryFilter, setQueryFilter] = useState("");
   const [fileError, setFileError] = useState("");
   const [deleteError, setDeleteError] = useState("");
@@ -43,17 +44,86 @@ export default function Archive() {
   }, [papers]);
 
   const ocrCount = papers.filter((p) => p.source === "ocr_scanned").length;
+  const sourceCounts = {
+    all: papers.length,
+    digital: papers.length - ocrCount,
+    ocr_scanned: ocrCount,
+  };
 
   const filtered = papers.filter((p) => {
     const matchesYear = yearFilter === "all" || p.academic_year === yearFilter;
+    const matchesSource =
+      sourceFilter === "all" ||
+      (sourceFilter === "ocr_scanned" ? p.source === "ocr_scanned" : p.source !== "ocr_scanned");
     const q = queryFilter.toLowerCase();
     const matchesQuery =
       !q ||
       p.title.toLowerCase().includes(q) ||
       (p.authors || []).some((a) => a.toLowerCase().includes(q)) ||
       (p.keywords || []).some((k) => k.toLowerCase().includes(q));
-    return matchesYear && matchesQuery;
+    return matchesYear && matchesSource && matchesQuery;
   });
+
+  const digitalPapers = filtered.filter((paper) => paper.source !== "ocr_scanned");
+  const ocrPapers = filtered.filter((paper) => paper.source === "ocr_scanned");
+
+  function renderPaperTable(records) {
+    return (
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Title</th>
+              <th>Authors</th>
+              <th>Year</th>
+              <th>File</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {records.map((p) => (
+              <tr key={p.id}>
+                <td style={{ fontWeight: 600, maxWidth: 320 }}>{p.title}</td>
+                <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ") || "—"}</td>
+                <td>{p.academic_year || "—"}</td>
+                <td>
+                  {getResearchFileUrls(p.file_url).length > 0 ? (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setFileError("");
+                        try {
+                          await openResearchFile(p);
+                        } catch (error) {
+                          setFileError(error.message);
+                        }
+                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                    >
+                      <FileText size={13} /> View research file
+                    </button>
+                  ) : (
+                    <span style={{ color: "var(--ink-300)" }}>—</span>
+                  )}
+                </td>
+                <td>
+                  <button
+                    type="button"
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDelete(p)}
+                    disabled={deletingId === p.id}
+                    title="Delete research record and attached files"
+                  >
+                    <Trash2 size={13} /> {deletingId === p.id ? "Deleting..." : "Delete"}
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
 
   return (
     <Layout>
@@ -84,6 +154,11 @@ export default function Archive() {
             </option>
           ))}
         </select>
+        <select className="input" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)} style={{ maxWidth: 180 }} aria-label="Filter by source">
+          <option value="all">All sources ({sourceCounts.all})</option>
+          <option value="digital">Digital ({sourceCounts.digital})</option>
+          <option value="ocr_scanned">OCR Scanned ({sourceCounts.ocr_scanned})</option>
+        </select>
         <span style={{ marginLeft: "auto", alignSelf: "center", fontSize: 12.5, color: "var(--ink-500)" }}>
           {loading ? "" : `${filtered.length} record${filtered.length === 1 ? "" : "s"}`}
         </span>
@@ -98,64 +173,31 @@ export default function Archive() {
           </EmptyState>
         </div>
       ) : (
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Authors</th>
-                <th>Year</th>
-                <th>Source</th>
-                <th>File</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: 600, maxWidth: 320 }}>{p.title}</td>
-                  <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ") || "—"}</td>
-                  <td>{p.academic_year || "—"}</td>
-                  <td>
-                    <span className={`badge ${p.source === "ocr_scanned" ? "badge-info" : "badge-neutral"}`}>
-                      {p.source === "ocr_scanned" ? "OCR Scanned" : "Digital"}
-                    </span>
-                  </td>
-                  <td>
-                    {getResearchFileUrls(p.file_url).length > 0 ? (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          setFileError("");
-                          try {
-                            await openResearchFile(p);
-                          } catch (error) {
-                            setFileError(error.message);
-                          }
-                        }}
-                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                      >
-                        <FileText size={13} /> View research file
-                      </button>
-                    ) : (
-                      <span style={{ color: "var(--ink-300)" }}>—</span>
-                    )}
-                  </td>
-                  <td>
-                    <button
-                      type="button"
-                      className="btn btn-danger btn-sm"
-                      onClick={() => handleDelete(p)}
-                      disabled={deletingId === p.id}
-                      title="Delete research record and attached files"
-                    >
-                      <Trash2 size={13} /> {deletingId === p.id ? "Deleting..." : "Delete"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="archive-source-sections">
+          {digitalPapers.length > 0 && (
+            <section className="archive-source-section">
+              <div className="archive-source-heading">
+                <div>
+                  <span className="page-eyebrow">Source collection</span>
+                  <h2>Digital Research</h2>
+                </div>
+                <span className="badge badge-neutral">{digitalPapers.length} records</span>
+              </div>
+              {renderPaperTable(digitalPapers)}
+            </section>
+          )}
+          {ocrPapers.length > 0 && (
+            <section className="archive-source-section">
+              <div className="archive-source-heading">
+                <div>
+                  <span className="page-eyebrow">Source collection</span>
+                  <h2>OCR Scanned Research</h2>
+                </div>
+                <span className="badge badge-info">{ocrPapers.length} records</span>
+              </div>
+              {renderPaperTable(ocrPapers)}
+            </section>
+          )}
           {fileError && <p className="auth-error" style={{ margin: "12px 0" }}>{fileError}</p>}
           {deleteError && <p className="auth-error" style={{ margin: "12px 0" }}>{deleteError}</p>}
         </div>

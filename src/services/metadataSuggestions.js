@@ -122,11 +122,11 @@ function extractDocumentFields(text) {
   if (!text) return { title: "", abstract: "", keywords: "" };
 
   const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const abstractIndex = lines.findIndex((line) => /^abstract\s*[:\-]?$/i.test(line));
+  const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(line));
   const keywordsIndex = lines.findIndex((line) => /^keywords?\s*[:\-]?/i.test(line));
   const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(line));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
-  const keywordsLine = keywordsIndex >= 0 ? lines[keywordsIndex].replace(/^keywords?\s*[:\-]?\s*/i, "") : "";
+  const keywordsLine = extractKeywords(lines, keywordsIndex);
   const title = firstPageTitle(lines) || (titleLabel
     ? titleLabel.replace(/^title\s*[:\-]?\s*/i, "").trim()
     : "");
@@ -153,20 +153,33 @@ function extractSection(lines, startIndex, stopPatterns) {
   return content.join(" ").replace(/\s+/g, " ").trim();
 }
 
-function findTitleBeforeAbstract(lines, abstractIndex) {
-  const firstPageLines = lines.slice(0, abstractIndex >= 0 ? abstractIndex : 25);
-  const firstMeaningfulLine = firstPageLines.find((line) =>
-    line.length >= 5 &&
-    !/^(title|by|author|authors|researchers?|proponents?|abstract|keywords?)\s*[:\-]?$/i.test(line)
-  );
+function extractKeywords(lines, startIndex) {
+  if (startIndex < 0) return "";
 
-  return firstMeaningfulLine?.replace(/^title\s*[:\-]?\s*/i, "").trim() || "";
+  const values = [];
+  const firstValue = lines[startIndex].replace(/^keywords?\s*[:\-]?\s*/i, "").trim();
+  if (firstValue) values.push(firstValue);
+
+  for (let index = startIndex + 1; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (isDocumentHeading(line) || /^abstract\b/i.test(line)) break;
+    values.push(line);
+  }
+
+  return values.join(" ").replace(/[.;]+$/, "").replace(/\s+/g, " ").trim();
+}
+
+function isDocumentHeading(line) {
+  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents)\b/i.test(line);
 }
 
 function firstPageTitle(lines) {
   const firstLine = lines[0] || "";
-  if (!firstLine || /^(title|abstract|keywords?)\s*[:\-]?$/i.test(firstLine)) return "";
-  return firstLine.replace(/^title\s*[:\-]?\s*/i, "").trim();
+  if (!firstLine || /^(abstract|keywords?)\b/i.test(firstLine)) return "";
+  return firstLine
+    .replace(/^(title\s*[:\-]?\s*)/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function buildAbstract(text, title = "") {

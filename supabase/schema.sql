@@ -220,6 +220,10 @@ create policy "papers_update_own_or_admin" on research_papers for update
     or exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('faculty', 'admin'))
   );
 
+drop policy if exists "papers_admin_delete" on research_papers;
+create policy "papers_admin_delete" on research_papers for delete
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin'));
+
 -- Submission logs: readable by faculty/admin, insertable by any authenticated user
 drop policy if exists "logs_select_staff" on submission_logs;
 create policy "logs_select_staff" on submission_logs for select
@@ -292,3 +296,9 @@ create policy "research_files_read" on storage.objects for select
 drop policy if exists "research_files_upload" on storage.objects;
 create policy "research_files_upload" on storage.objects for insert
   with check (bucket_id = 'research-files' and auth.role() = 'authenticated');
+
+drop policy if exists "research_files_admin_delete" on storage.objects;
+create policy "research_files_admin_delete" on storage.objects for delete
+  using (bucket_id = 'research-files' and exists (
+    select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin'
+  ));

@@ -128,6 +128,22 @@ export async function getApprovedPapers({ limit = 50 } = {}) {
   return data;
 }
 
+export async function deleteResearchPaper(paper) {
+  const fileUrls = [paper.file_url, paper.source_code_url, paper.ieee_paper_url]
+    .flatMap(getResearchFileUrls);
+  const storagePaths = fileUrls
+    .map((url) => getResearchStoragePath(url))
+    .filter(Boolean);
+
+  if (storagePaths.length > 0) {
+    const { error: storageError } = await supabase.storage.from("research-files").remove(storagePaths);
+    if (storageError) throw storageError;
+  }
+
+  const { error } = await supabase.from("research_papers").delete().eq("id", paper.id);
+  if (error) throw error;
+}
+
 export function getResearchFileUrls(fileUrl) {
   if (!fileUrl) return [];
   if (Array.isArray(fileUrl)) return fileUrl.filter(Boolean);
@@ -138,6 +154,12 @@ export function getResearchFileUrls(fileUrl) {
   } catch {
     return [fileUrl];
   }
+}
+
+function getResearchStoragePath(url) {
+  const marker = "/storage/v1/object/public/research-files/";
+  const markerIndex = url.indexOf(marker);
+  return markerIndex >= 0 ? decodeURIComponent(url.slice(markerIndex + marker.length)) : null;
 }
 
 async function blobToDataUrl(blob) {

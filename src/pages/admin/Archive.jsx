@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Archive as ArchiveIcon } from "lucide-react";
+import { FileText, Archive as ArchiveIcon, Trash2 } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, EmptyState, StatGrid, StatCard } from "../../components/ui";
-import { getApprovedPapers, getResearchFileUrls, openResearchFile } from "../../services/research";
+import { deleteResearchPaper, getApprovedPapers, getResearchFileUrls, openResearchFile } from "../../services/research";
 
 export default function Archive() {
   const [papers, setPapers] = useState([]);
@@ -10,10 +10,32 @@ export default function Archive() {
   const [yearFilter, setYearFilter] = useState("all");
   const [queryFilter, setQueryFilter] = useState("");
   const [fileError, setFileError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
+  const [deletingId, setDeletingId] = useState(null);
 
   useEffect(() => {
-    getApprovedPapers({ limit: 200 }).then(setPapers).finally(() => setLoading(false));
+    load();
   }, []);
+
+  function load() {
+    setLoading(true);
+    getApprovedPapers({ limit: 200 }).then(setPapers).finally(() => setLoading(false));
+  }
+
+  async function handleDelete(paper) {
+    if (!window.confirm(`Delete "${paper.title}" and all attached files? This cannot be undone.`)) return;
+
+    setDeleteError("");
+    setDeletingId(paper.id);
+    try {
+      await deleteResearchPaper(paper);
+      setPapers((current) => current.filter((item) => item.id !== paper.id));
+    } catch (error) {
+      setDeleteError(error.message);
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const years = useMemo(() => {
     const set = new Set(papers.map((p) => p.academic_year).filter(Boolean));
@@ -85,6 +107,7 @@ export default function Archive() {
                 <th>Year</th>
                 <th>Source</th>
                 <th>File</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody>
@@ -118,11 +141,23 @@ export default function Archive() {
                       <span style={{ color: "var(--ink-300)" }}>—</span>
                     )}
                   </td>
+                  <td>
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleDelete(p)}
+                      disabled={deletingId === p.id}
+                      title="Delete research record and attached files"
+                    >
+                      <Trash2 size={13} /> {deletingId === p.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           {fileError && <p className="auth-error" style={{ margin: "12px 0" }}>{fileError}</p>}
+          {deleteError && <p className="auth-error" style={{ margin: "12px 0" }}>{deleteError}</p>}
         </div>
       )}
     </Layout>

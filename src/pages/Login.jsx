@@ -415,7 +415,7 @@ export default function Login() {
             {!recoveryActive && (
               <div className="auth-button-stack">
                 <button type="submit" disabled={loading || (mode === "login" && lockoutRemaining > 0)} className="btn btn-primary btn-block">
-                  {loading ? "Please wait..." : showResetPrompt ? "Send Reset Link" : mode === "login" ? "Log In" : "Create Account"}
+                  {loading ? "Please wait..." : mode === "login" && lockoutRemaining > 0 ? `Try again in ${formatLockoutTime(lockoutRemaining)}` : showResetPrompt ? "Send Reset Link" : mode === "login" ? "Log In" : "Create Account"}
                 </button>
                 <div className="auth-links">
                   <button

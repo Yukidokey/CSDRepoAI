@@ -157,7 +157,7 @@ function SectionTitle({ children }) {
 
 function RankedList({ title, icon: Icon, items, metricKey, metricLabel }) {
   return (
-    <div className="card card-pad" style={{ flex: "1 1 340px" }}>
+    <div className="card card-pad" style={{ flex: "1 1 340px", minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12 }}>
         <Icon size={14} color="var(--brass-600)" />
         <h3 style={{ fontSize: 14 }}>{title}</h3>
@@ -167,10 +167,10 @@ function RankedList({ title, icon: Icon, items, metricKey, metricLabel }) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((p, i) => (
-            <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0", borderBottom: i < items.length - 1 ? "1px solid var(--line)" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minWidth: 0, padding: "8px 0", borderBottom: i < items.length - 1 ? "1px solid var(--line)" : "none" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-300)", flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                <span style={{ display: "block", flex: 1, minWidth: 0, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
               </div>
               <span className="badge badge-neutral" style={{ flexShrink: 0 }}>
                 {p[metricKey] || 0} {metricLabel}

@@ -7,6 +7,43 @@ import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../serv
 
 const PIE_COLORS = ["#a9812e", "#14213d", "#35577a", "#2f6846", "#9c6b14", "#a23b2e", "#57648a"];
 
+function wrapKeyword(keyword, maxLength = 24) {
+  const words = keyword.split(/\s+/);
+  const lines = [];
+  let currentLine = "";
+
+  words.forEach((word) => {
+    const nextLine = currentLine ? `${currentLine} ${word}` : word;
+    if (currentLine && nextLine.length > maxLength) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = nextLine;
+    }
+  });
+
+  if (currentLine) lines.push(currentLine);
+  return lines.slice(0, 2);
+}
+
+function KeywordTick({ x, y, payload }) {
+  const lines = wrapKeyword(payload.value);
+  const firstLineOffset = lines.length > 1 ? -6 : 0;
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <title>{payload.value}</title>
+      <text x={-8} textAnchor="end" fill="var(--ink-500)" fontSize={10.5}>
+        {lines.map((line, index) => (
+          <tspan key={`${line}-${index}`} x={0} dy={index === 0 ? firstLineOffset : 12}>
+            {line}
+          </tspan>
+        ))}
+      </text>
+    </g>
+  );
+}
+
 export default function Analytics() {
   const [data, setData] = useState(null);
   const [users, setUsers] = useState(null);
@@ -107,15 +144,15 @@ export default function Analytics() {
           )}
         </div>
 
-        <div className="card card-pad" style={{ flex: "1 1 340px" }}>
+        <div className="card card-pad" style={{ flex: "1 1 340px", minWidth: 0 }}>
           <h3 style={{ fontSize: 14, marginBottom: 14 }}>Research by Keyword</h3>
           {data.byKeyword.length === 0 ? (
             <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No keywords recorded yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={240}>
-              <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10 }}>
+            <ResponsiveContainer width="100%" height={Math.max(240, data.byKeyword.length * 42)}>
+              <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10, right: 12 }}>
                 <XAxis type="number" allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-                <YAxis type="category" dataKey="keyword" width={100} fontSize={10.5} stroke="var(--ink-500)" />
+                <YAxis type="category" dataKey="keyword" width={155} interval={0} tick={<KeywordTick />} stroke="var(--ink-500)" />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
                 <Bar dataKey="count" fill="#9c6b14" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -168,9 +205,18 @@ function RankedList({ title, icon: Icon, items, metricKey, metricLabel }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {items.map((p, i) => (
             <div key={p.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 0", borderBottom: i < items.length - 1 ? "1px solid var(--line)" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
                 <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--ink-300)", flexShrink: 0 }}>{String(i + 1).padStart(2, "0")}</span>
-                <span style={{ fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                  <div className={`ranked-title-viewport${p.title.length > 70 ? " is-marquee" : ""}`}>
+                    {p.title.length > 70 ? (
+                      <div className="ranked-title-track">
+                        <span>{p.title}</span>
+                        <span aria-hidden="true">{p.title}</span>
+                      </div>
+                    ) : (
+                      <span className="ranked-title-text">{p.title}</span>
+                    )}
+                  </div>
               </div>
               <span className="badge badge-neutral" style={{ flexShrink: 0 }}>
                 {p[metricKey] || 0} {metricLabel}

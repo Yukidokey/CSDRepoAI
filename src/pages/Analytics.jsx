@@ -124,6 +124,35 @@ export default function Analytics() {
         </div>
       </div>
 
+      <SectionTitle>Research Titles by Program</SectionTitle>
+      <div className="card card-pad">
+        <p style={{ color: "var(--ink-500)", fontSize: 13, marginBottom: 16 }}>
+          Compare existing active and approved research titles before choosing a topic.
+        </p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {data.titlesByProgram.length === 0 ? (
+            <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No research titles available yet.</p>
+          ) : (
+            data.titlesByProgram.map(({ program, titles }) => (
+              <section key={program} style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingBottom: 8, borderBottom: "1px solid var(--line)" }}>
+                  <h3 style={{ fontSize: 14 }}>{program}</h3>
+                  <span className="badge badge-neutral">{titles.length} title{titles.length === 1 ? "" : "s"}</span>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                  {titles.map((paper) => (
+                    <div key={paper.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minWidth: 0 }}>
+                      <span style={{ minWidth: 0, fontSize: 13, overflowWrap: "anywhere" }}>{paper.title}</span>
+                      <StatusBadge status={paper.status} />
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* d: most viewed / downloaded */}
       <SectionTitle>Engagement</SectionTitle>
       <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
@@ -153,6 +182,12 @@ function SectionTitle({ children }) {
       {children}
     </h2>
   );
+}
+
+function StatusBadge({ status }) {
+  const labels = { approved: "Approved", pending: "Pending", under_review: "Under review" };
+  const kinds = { approved: "success", pending: "warning", under_review: "info" };
+  return <span className={`badge badge-${kinds[status] || "neutral"}`}>{labels[status] || status}</span>;
 }
 
 function RankedList({ title, icon: Icon, items, metricKey, metricLabel }) {

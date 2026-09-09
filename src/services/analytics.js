@@ -28,6 +28,7 @@ export async function getAnalyticsSummary() {
 
   // (c) Research per program
   const byProgram = toChartArray(groupCount(papers, (p) => p.program || "Unknown"));
+  const titlesByProgram = groupTitlesByProgram(papers);
 
   // (d) Most viewed / most downloaded
   const mostViewed = [...papers]
@@ -68,6 +69,7 @@ export async function getAnalyticsSummary() {
     rejected,
     byYear,
     byProgram,
+    titlesByProgram,
     mostViewed,
     mostDownloaded,
     byKeyword,
@@ -113,6 +115,24 @@ function toChartArray(map) {
   return Object.entries(map)
     .map(([name, count]) => ({ name, count }))
     .sort((a, b) => (a.name > b.name ? 1 : -1));
+}
+
+function groupTitlesByProgram(papers) {
+  const grouped = {};
+  papers
+    .filter((paper) => paper.status !== "rejected")
+    .forEach((paper) => {
+      const program = paper.program || "Unknown";
+      if (!grouped[program]) grouped[program] = [];
+      grouped[program].push({ id: paper.id, title: paper.title, status: paper.status });
+    });
+
+  return Object.entries(grouped)
+    .map(([program, titles]) => ({
+      program,
+      titles: titles.sort((a, b) => a.title.localeCompare(b.title)),
+    }))
+    .sort((a, b) => a.program.localeCompare(b.program));
 }
 
 /** Research Analytics Dashboard Module: export a CSV report of submissions */

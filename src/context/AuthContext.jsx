@@ -36,6 +36,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recoverySession, setRecoverySession] = useState(false);
 
   async function loadProfile(userId, user = null) {
     const { data, error } = await supabase
@@ -62,7 +63,8 @@ export function AuthProvider({ children }) {
       if (mounted) setLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") setRecoverySession(true);
       setSession(session);
       if (session?.user) {
         loadProfile(session.user.id, session.user);
@@ -121,7 +123,9 @@ export function AuthProvider({ children }) {
 
     const { isRecovery, accessToken, refreshToken, type } = parseRecoveryParams(window.location.hash);
     const { isRecovery: hasCode, code } = parseRecoveryCode(window.location.search);
-    if (!isRecovery && !hasCode) return { handled: false, error: null };
+    if (!isRecovery && !hasCode) {
+      return recoverySession ? { handled: true, error: null, type: "recovery" } : { handled: false, error: null };
+    }
 
     try {
       const { data, error } = hasCode
@@ -136,6 +140,7 @@ export function AuthProvider({ children }) {
       }
 
       if (data?.session) {
+        setRecoverySession(true);
         setSession(data.session);
         if (data.session.user) {
           await loadProfile(data.session.user.id, data.session.user);
@@ -243,6 +248,7 @@ export function AuthProvider({ children }) {
     profile,
     role: profile?.role ?? null,
     loading,
+    recoverySession,
     signIn,
     sendLoginCode,
     verifyLoginCode,

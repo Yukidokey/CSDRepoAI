@@ -6,7 +6,7 @@ import { getPasswordStrength, validatePassword } from "../lib/authValidation";
 import { Field } from "../components/ui";
 
 export default function Login() {
-  const { signIn, signUp, handleRecoveryLink, updatePassword, resetPassword } = useAuth();
+  const { signIn, signUp, handleRecoveryLink, updatePassword, resetPassword, recoverySession } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState("login"); // 'login' | 'signup'
   const [form, setForm] = useState({
@@ -47,10 +47,16 @@ export default function Login() {
 
     processRecoveryLink();
 
+    if (recoverySession) {
+      setRecoveryActive(true);
+      setInfo("Your password reset link is active. Please choose a new password.");
+      setError("");
+    }
+
     return () => {
       mounted = false;
     };
-  }, [handleRecoveryLink, navigate]);
+  }, [handleRecoveryLink, navigate, recoverySession]);
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));

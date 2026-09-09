@@ -26,6 +26,9 @@ export default function Login() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [showResetPrompt, setShowResetPrompt] = useState(false);
+  const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
+  const [loginLockedUntil, setLoginLockedUntil] = useState(0);
+  const [lockoutRemaining, setLockoutRemaining] = useState(0);
   const passwordStrength = mode === "signup" ? getPasswordStrength(form.password) : null;
 
   useEffect(() => {
@@ -57,6 +60,23 @@ export default function Login() {
       mounted = false;
     };
   }, [handleRecoveryLink, navigate, recoverySession]);
+
+  useEffect(() => {
+    if (!loginLockedUntil) {
+      setLockoutRemaining(0);
+      return undefined;
+    }
+
+    function updateRemaining() {
+      const remaining = Math.max(0, loginLockedUntil - Date.now());
+      setLockoutRemaining(remaining);
+      if (remaining === 0) setLoginLockedUntil(0);
+    }
+
+    updateRemaining();
+    const timer = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(timer);
+  }, [loginLockedUntil]);
 
   function update(field) {
     return (e) => setForm((f) => ({ ...f, [field]: e.target.value }));
@@ -116,6 +136,11 @@ export default function Login() {
       return;
     }
 
+    if (mode === "login" && loginLockedUntil > Date.now()) {
+      setError(`Too many incorrect password attempts. Please wait ${formatLockoutTime(lockoutRemaining)} before trying again.`);
+      return;
+    }
+
     if (mode === "signup" && form.password !== form.confirmPassword) {
       setError("Passwords do not match.");
       return;
@@ -128,6 +153,14 @@ export default function Login() {
     setLoading(false);
 
     if (result.error) {
+      if (mode === "login") {
+        const nextAttempt = failedLoginAttempts + 1;
+        const lockoutSeconds = nextAttempt === 1 ? 30 : nextAttempt === 2 ? 60 : 180;
+        setFailedLoginAttempts(nextAttempt);
+        setLoginLockedUntil(Date.now() + lockoutSeconds * 1000);
+        setError(`Incorrect email or password. Login is paused for ${formatLockoutTime(lockoutSeconds * 1000)}.`);
+        return;
+      }
       const friendlyMessage = result.friendlyError || result.error.message;
       setError(
         friendlyMessage?.includes("Too many signup emails")
@@ -148,7 +181,15 @@ export default function Login() {
       return;
     }
 
+    setFailedLoginAttempts(0);
+    setLoginLockedUntil(0);
     navigate("/redirect");
+  }
+
+  function formatLockoutTime(milliseconds) {
+    const seconds = Math.max(1, Math.ceil(milliseconds / 1000));
+    if (seconds >= 60) return `${Math.ceil(seconds / 60)} minute${Math.ceil(seconds / 60) === 1 ? "" : "s"}`;
+    return `${seconds} second${seconds === 1 ? "" : "s"}`;
   }
 
   return (
@@ -368,7 +409,7 @@ export default function Login() {
 
             {!recoveryActive && (
               <div className="auth-button-stack">
-                <button type="submit" disabled={loading} className="btn btn-primary btn-block">
+                <button type="submit" disabled={loading || (mode === "login" && lockoutRemaining > 0)} className="btn btn-primary btn-block">
                   {loading ? "Please wait..." : showResetPrompt ? "Send Reset Link" : mode === "login" ? "Log In" : "Create Account"}
                 </button>
                 <div className="auth-links">

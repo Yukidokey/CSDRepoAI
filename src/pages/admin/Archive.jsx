@@ -13,6 +13,7 @@ export default function Archive() {
   const [fileError, setFileError] = useState("");
   const [deleteError, setDeleteError] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   useEffect(() => {
     load();
@@ -24,9 +25,15 @@ export default function Archive() {
   }
 
   async function handleDelete(paper) {
-    if (!window.confirm(`Delete "${paper.title}" and all attached files? This cannot be undone.`)) return;
-
     setDeleteError("");
+    setPendingDelete(paper);
+  }
+
+  async function confirmDelete() {
+    if (!pendingDelete) return;
+
+    const paper = pendingDelete;
+    setPendingDelete(null);
     setDeletingId(paper.id);
     try {
       await deleteResearchPaper(paper);
@@ -200,6 +207,49 @@ export default function Archive() {
           )}
           {fileError && <p className="auth-error" style={{ margin: "12px 0" }}>{fileError}</p>}
           {deleteError && <p className="auth-error" style={{ margin: "12px 0" }}>{deleteError}</p>}
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setPendingDelete(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+            background: "rgba(20, 33, 61, 0.52)",
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-research-title"
+            className="card card-pad"
+            style={{ width: "min(100%, 460px)", boxShadow: "var(--shadow-lg)" }}
+          >
+            <h2 id="delete-research-title" style={{ fontSize: 19 }}>Confirm deletion</h2>
+            <p style={{ marginTop: 10, color: "var(--ink-700)" }}>
+              Delete <strong>{pendingDelete.title}</strong> from the research archive?
+            </p>
+            <p style={{ marginTop: 8, color: "var(--danger-700)", fontSize: 13 }}>
+              This permanently removes the archive record and all attached research files. This action cannot be undone.
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setPendingDelete(null)}>
+                Cancel
+              </button>
+              <button type="button" className="btn btn-danger btn-sm" onClick={confirmDelete}>
+                <Trash2 size={13} /> Delete permanently
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Layout>

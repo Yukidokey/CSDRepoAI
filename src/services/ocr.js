@@ -81,13 +81,19 @@ export async function scanDocuments(imageFiles, onProgress) {
 function cleanOcrText(rawText) {
   const normalized = rawText
     .replace(/\r/g, "")
+    .replace(/\u00a0/g, " ")
     .replace(/\t+/g, " ")
     .replace(/([A-Za-z])-\s*\n\s*([A-Za-z])/g, "$1$2")
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]+/g, " ")
     .trim();
 
-  return applyCommonOcrCorrections(normalized);
+  return applyCommonOcrCorrections(normalized)
+    .replace(/\b([A-Za-z]{3,})\s+\1\b/gi, "$1")
+    .replace(/([A-Za-z])\s{2,}([A-Za-z])/g, "$1 $2")
+    .replace(/\s+([.,;:!?])/g, "$1")
+    .replace(/([.,;:!?])([A-Za-z])/g, "$1 $2")
+    .trim();
 }
 
 function applyCommonOcrCorrections(text) {

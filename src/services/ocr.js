@@ -82,7 +82,9 @@ function cleanOcrText(rawText) {
   const normalized = rawText
     .replace(/\r/g, "")
     .replace(/\t+/g, " ")
+    .replace(/([A-Za-z])-\s*\n\s*([A-Za-z])/g, "$1$2")
     .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
     .trim();
 
   return applyCommonOcrCorrections(normalized);
@@ -91,17 +93,34 @@ function cleanOcrText(rawText) {
 function applyCommonOcrCorrections(text) {
   const replacements = [
     [/\bteh\b/gi, "the"],
+    [/\bthte\b/gi, "the"],
+    [/\bthier\b/gi, "their"],
     [/\brecieve\b/gi, "receive"],
     [/\bseperate\b/gi, "separate"],
     [/\boccured\b/gi, "occurred"],
-    [/\bthier\b/gi, "their"],
     [/\bimporant\b/gi, "important"],
     [/\bstudetn\b/gi, "student"],
+    [/\bstudnet\b/gi, "student"],
     [/\bdeparment\b/gi, "department"],
+    [/\bdepatrment\b/gi, "department"],
     [/\breserach\b/gi, "research"],
+    [/\breserch\b/gi, "research"],
     [/\bpractial\b/gi, "practical"],
     [/\bintial\b/gi, "initial"],
     [/\bdocuemnt\b/gi, "document"],
+    [/\bdocment\b/gi, "document"],
+    [/\baccross\b/gi, "across"],
+    [/\bintroductionn\b/gi, "introduction"],
+    [/\bmethodolgy\b/gi, "methodology"],
+    [/\banalysys\b/gi, "analysis"],
+    [/\bimplmentation\b/gi, "implementation"],
+    [/\btechonology\b/gi, "technology"],
+    [/\bconclsuion\b/gi, "conclusion"],
+    [/\bperfromance\b/gi, "performance"],
+    [/\bproccess\b/gi, "process"],
+    [/\bcommitee\b/gi, "committee"],
+    [/\bpalce\b/gi, "place"],
+    [/\bpg\s*(\d+)\b/gi, "Page $1"],
   ];
 
   return replacements.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);

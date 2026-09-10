@@ -259,6 +259,9 @@ function handleFile(e) {
                 <h3 style={{ fontSize: 13.5 }}>
                   {previews.length} page{previews.length > 1 ? "s" : ""} selected
                 </h3>
+                <span style={{ fontSize: 11.5, color: "var(--ink-500)" }}>
+                  First uploaded image = Page 1, then Page 2, and so on.
+                </span>
                {(step === "idle" || step === "scanned") && (
               <button className="btn btn-ghost btn-sm" onClick={openFilePicker}>
                 <UploadCloud size={13} /> Add more

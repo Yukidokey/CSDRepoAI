@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { jsPDF } from "jspdf";
 import {
   AlertTriangle,
   UploadCloud,
@@ -37,6 +38,7 @@ export default function Submit() {
   const [related, setRelated] = useState([]);
   const [suggestions, setSuggestions] = useState(null);
   const [documentAnalysis, setDocumentAnalysis] = useState({ status: "idle", message: "" });
+  const [submittedPaper, setSubmittedPaper] = useState(null);
 
   // Generate academic year options dynamically (e.g., 2022-2023, 2023-2024, etc.)
   // Returns 5 years back through 2 years forward from current year
@@ -144,7 +146,7 @@ export default function Submit() {
     setStatus("submitting");
     setErrorMsg("");
     try {
-      await submitResearch({
+      const result = await submitResearch({
         title: form.title,
         abstract: form.abstract,
         authors: form.authors.split(",").map((a) => a.trim()).filter(Boolean),
@@ -160,11 +162,49 @@ export default function Submit() {
         ieeeFile: files.ieee,
         userId: user.id,
       });
+      setSubmittedPaper(result);
       setStatus("done");
     } catch (err) {
       setStatus("error");
       setErrorMsg(err.message);
     }
+  }
+
+  function downloadReceipt() {
+    if (!submittedPaper) return;
+
+    const doc = new jsPDF({ unit: "pt", format: "a4" });
+    const now = new Date(submittedPaper.created_at || Date.now());
+
+    doc.setFontSize(18);
+    doc.text("Confirmation Receipt", 42, 48);
+
+    doc.setFontSize(11);
+    let y = 80;
+    const lines = [
+      ["Research title:", submittedPaper.title || form.title],
+      ["Submitted by:", profile?.full_name || user?.full_name || "Student"],
+      ["Program:", form.program || "—"],
+      ["Academic year:", form.academicYear || "—"],
+      ["Semester:", form.semester || "—"],
+      ["Adviser:", form.adviser || "—"],
+      ["Authors:", form.authors || "—"],
+      ["Keywords:", form.keywords || "—"],
+      ["Submitted on:", now.toLocaleString()],
+      ["Status:", "Pending Review"],
+    ];
+
+    lines.forEach(([label, value]) => {
+      doc.setFont(undefined, "bold");
+      doc.text(label, 42, y);
+      doc.setFont(undefined, "normal");
+      doc.text(String(value || "—"), 150, y, { maxWidth: 310 });
+      y += 18;
+    });
+
+    doc.setFont(undefined, "bold");
+    doc.text("This receipt confirms that your research submission has been received.", 42, y + 28);
+    doc.save(`confirmation-receipt-${(submittedPaper.title || "submission").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`);
   }
 
   if (status === "done") {
@@ -195,20 +235,45 @@ export default function Submit() {
             >
               <CheckCircle2 size={20} color="#fff" />
             </div>
-            <div>
+            <div style={{ flex: 1 }}>
               <h2 style={{ color: "var(--success-700)", fontSize: 17 }}>Submission received</h2>
               <p style={{ color: "var(--success-700)", marginTop: 6, fontSize: 13.5 }}>
-                Your research has been submitted and is now pending review. You'll see the status
-                update on your dashboard.
+                Your research has been submitted and is now pending review. A confirmation receipt is
+                ready below for your records.
               </p>
-              <button
-                type="button"
-                className="btn btn-primary"
-                style={{ marginTop: 16 }}
-                onClick={() => navigate(profile?.role === "faculty" ? "/faculty" : "/student")}
+
+              <div
+                className="card"
+                style={{
+                  marginTop: 16,
+                  background: "rgba(255,255,255,0.45)",
+                  border: "1px solid rgba(42, 93, 69, 0.18)",
+                  padding: 16,
+                }}
               >
-                Return to dashboard
-              </button>
+                <div style={{ fontSize: 12.5, color: "var(--ink-700)", fontWeight: 700, marginBottom: 8 }}>
+                  Confirmation receipt
+                </div>
+
+                <div style={{ display: "grid", gap: 6, fontSize: 12.5, color: "var(--ink-700)" }}>
+                  <div><strong>Title:</strong> {submittedPaper?.title || form.title}</div>
+                  <div><strong>Submitted on:</strong> {submittedPaper?.created_at ? new Date(submittedPaper.created_at).toLocaleString() : new Date().toLocaleString()}</div>
+                  <div><strong>Status:</strong> Pending Review</div>
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
+                <button type="button" className="btn btn-primary" onClick={downloadReceipt}>
+                  Download receipt
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => navigate(profile?.role === "faculty" ? "/faculty" : "/student")}
+                >
+                  Return to dashboard
+                </button>
+              </div>
             </div>
           </div>
         </div>

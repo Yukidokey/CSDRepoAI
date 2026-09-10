@@ -22,12 +22,14 @@ export async function scanDocument(imageFileOrUrl, onProgress) {
     await worker.setParameters({
       tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
       preserve_interword_spaces: "1",
+      textord_heavy_nr: "1",
     });
 
+    const preparedImage = await prepareOcrImage(imageFileOrUrl);
     const {
       data: { text, confidence },
-    } = await worker.recognize(imageFileOrUrl);
-    return { text, confidence };
+    } = await worker.recognize(preparedImage);
+    return { text: cleanOcrText(text), confidence };
   } finally {
     await worker.terminate();
   }
@@ -46,14 +48,15 @@ export async function scanDocuments(imageFiles, onProgress) {
 
   try {
     await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
+      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
       preserve_interword_spaces: "1",
       textord_heavy_nr: "1",
     });
 
     for (let index = 0; index < imageFiles.length; index += 1) {
       const file = imageFiles[index];
-      const { data: { text } } = await worker.recognize(file);
+      const preparedImage = await prepareOcrImage(file);
+      const { data: { text } } = await worker.recognize(preparedImage);
 
       pages.push({
         pageNumber: index + 1,
@@ -76,11 +79,73 @@ export async function scanDocuments(imageFiles, onProgress) {
 }
 
 function cleanOcrText(rawText) {
-  return rawText
+  const normalized = rawText
     .replace(/\r/g, "")
     .replace(/\t+/g, " ")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
+
+  return applyCommonOcrCorrections(normalized);
+}
+
+function applyCommonOcrCorrections(text) {
+  const replacements = [
+    [/\bteh\b/gi, "the"],
+    [/\brecieve\b/gi, "receive"],
+    [/\bseperate\b/gi, "separate"],
+    [/\boccured\b/gi, "occurred"],
+    [/\bthier\b/gi, "their"],
+    [/\bimporant\b/gi, "important"],
+    [/\bstudetn\b/gi, "student"],
+    [/\bdeparment\b/gi, "department"],
+    [/\breserach\b/gi, "research"],
+    [/\bpractial\b/gi, "practical"],
+    [/\bintial\b/gi, "initial"],
+    [/\bdocuemnt\b/gi, "document"],
+  ];
+
+  return replacements.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+}
+
+async function prepareOcrImage(file) {
+  if (!file?.type?.startsWith("image/")) {
+    return file;
+  }
+
+  try {
+    const bitmap = await createImageBitmap(file);
+    const maxDimension = 2400;
+    const scale = Math.min(2.5, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    ctx.filter = "grayscale(1) contrast(1.45) brightness(1.08)";
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+
+    for (let i = 0; i < data.length; i += 4) {
+      const luminance = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      const value = luminance > 180 ? 255 : luminance < 80 ? 0 : luminance;
+      data[i] = value;
+      data[i + 1] = value;
+      data[i + 2] = value;
+      data[i + 3] = 255;
+    }
+
+    ctx.putImageData(imageData, 0, 0);
+    bitmap.close?.();
+
+    return canvas.toDataURL("image/jpeg", 0.92);
+  } catch {
+    return file;
+  }
 }
 
 /**

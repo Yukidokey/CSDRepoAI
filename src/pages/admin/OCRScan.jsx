@@ -16,6 +16,8 @@ import {
   CalendarDays,
   ArrowRight,
   RotateCcw,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
@@ -50,6 +52,8 @@ export default function OCRScan() {
   const [isDragging, setIsDragging] = useState(false);
   const [meta, setMeta] = useState({ title: "", authors: "", academicYear: "", adviser: "", abstract: "", keywords: "" });
   const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
+  const [previewIndex, setPreviewIndex] = useState(null);
+  const [previewZoom, setPreviewZoom] = useState(1);
   const fileInputRef = useRef(null);
 
   const activeIndex = stepIndexFor(step);
@@ -103,6 +107,18 @@ function handleFile(e) {
     const nextPreviews = previews.filter((_, i) => i !== index);
     setFiles(nextFiles);
     setPreviews(nextPreviews);
+    if (nextFiles.length === 0) {
+      setStep("idle");
+      setOcrText("");
+      setMeta({ title: "", authors: "", academicYear: "", adviser: "", abstract: "", keywords: "" });
+    }
+    setPreviewIndex(null);
+    setPreviewZoom(1);
+  }
+
+  function openPreview(index) {
+    setPreviewIndex(index);
+    setPreviewZoom(1);
   }
 
   async function handleScan() {
@@ -195,7 +211,7 @@ function handleFile(e) {
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
         {/* ---------- left: upload / scan stage ---------- */}
         <div className="card card-pad" style={{ flex: "1 1 360px" }}>
-          {step === "idle" && previews.length === 0 && (
+          {step !== "scanning" && previews.length === 0 && (
             <div
               className={`ocr-dropzone ${isDragging ? "is-dragging" : ""}`}
               onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -232,7 +248,9 @@ function handleFile(e) {
               <div className="ocr-thumb-strip">
                 {previews.map((src, index) => (
                   <div key={`${src}-${index}`} className="ocr-thumb">
-                    <img src={src} alt={`page ${index + 1}`} />
+                    <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${index + 1}`}>
+                      <img src={src} alt={`page ${index + 1}`} />
+                    </button>
                     <span className="ocr-thumb-page">Pg {index + 1}</span>
                     {(step === "idle" || step === "scanned") && (
               <button className="ocr-thumb-remove" onClick={() => removeFile(index)} aria-label="Remove page">
@@ -292,7 +310,9 @@ function handleFile(e) {
                     const isCurrent = pageNum === currentPage && !isDone;
                     return (
                       <div key={`${src}-${index}`} className={`ocr-thumb ${isCurrent ? "is-current" : ""} ${isDone ? "is-done" : ""}`}>
-                        <img src={src} alt={`page ${pageNum}`} />
+                        <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${pageNum}`}>
+                          <img src={src} alt={`page ${pageNum}`} />
+                        </button>
                         {isDone && <span className="ocr-thumb-check"><Check size={10} /></span>}
                         <span className="ocr-thumb-page">Pg {pageNum}</span>
                       </div>
@@ -332,6 +352,29 @@ function handleFile(e) {
           )}
         </div>
       </div>
+
+      {previewIndex !== null && previews[previewIndex] && (
+        <div className="ocr-preview-modal" role="dialog" aria-modal="true" aria-label={`Preview page ${previewIndex + 1}`}>
+          <div className="ocr-preview-toolbar">
+            <span>Page {previewIndex + 1} of {previews.length}</span>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreviewZoom((value) => Math.max(0.5, value - 0.25))} aria-label="Zoom out">
+                <ZoomOut size={14} />
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreviewZoom(1)}>Reset</button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreviewZoom((value) => Math.min(3, value + 0.25))} aria-label="Zoom in">
+                <ZoomIn size={14} />
+              </button>
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPreviewIndex(null)} aria-label="Close preview">
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+          <div className="ocr-preview-canvas" onClick={(event) => { if (event.target === event.currentTarget) setPreviewIndex(null); }}>
+            <img src={previews[previewIndex]} alt={`Expanded page ${previewIndex + 1}`} style={{ transform: `scale(${previewZoom})` }} />
+          </div>
+        </div>
+      )}
 
       {/* ---------- metadata review ---------- */}
       {(step === "scanned" || step === "saving") && (

@@ -263,6 +263,22 @@ export async function getPendingSubmissions() {
   return data;
 }
 
+export async function getAuditTrail({ limit = 10 } = {}) {
+  const { data, error } = await supabase
+    .from("submission_logs")
+    .select("*, paper:paper_id(title), actor:actor_id(full_name)")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw error;
+
+  return (data || []).map((entry) => ({
+    ...entry,
+    paperTitle: entry.paper?.title || "Unknown paper",
+    actorName: entry.actor?.full_name || "System",
+  }));
+}
+
 /** Research Analytics Module: best-effort view/download tracking.
  *  Never blocks the UI — if it fails, we just don't count that one. */
 export async function incrementViewCount(paperId) {

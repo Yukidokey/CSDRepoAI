@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Sparkles,
   Camera,
@@ -23,6 +23,7 @@ import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { digitizeAndArchive, scanDocuments, extractMetadata } from "../../services/ocr";
+import { getAcademicYears } from "../../services/academicYears";
 
 const STEPS = [
   { key: "upload", label: "Upload" },
@@ -55,7 +56,14 @@ export default function OCRScan() {
   const [previewIndex, setPreviewIndex] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
   const [draggedIndex, setDraggedIndex] = useState(null);
+  const [academicYears, setAcademicYears] = useState([]);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    getAcademicYears({ activeOnly: true })
+      .then((items) => setAcademicYears(items.map((year) => year.label)))
+      .catch(() => setAcademicYears([]));
+  }, []);
 
   const activeIndex = stepIndexFor(step);
 
@@ -71,16 +79,6 @@ export default function OCRScan() {
       return;
     }
     setMeta((m) => ({ ...m, authors: value }));
-  }
-
-  function generateAcademicYears() {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = -5; i <= 2; i += 1) {
-      const year = currentYear + i;
-      years.push(`${year}-${year + 1}`);
-    }
-    return years;
   }
 
 function loadFiles(list) {
@@ -482,7 +480,7 @@ function handleFile(e) {
             <Field label={<span><CalendarDays size={11} style={{ verticalAlign: -1, marginRight: 4 }} />Academic year</span>}>
               <select className="input" value={meta.academicYear} onChange={(e) => setMeta((m) => ({ ...m, academicYear: e.target.value }))} required>
                 <option value="">Select academic year</option>
-                {generateAcademicYears().map((year) => (
+                {academicYears.map((year) => (
                   <option key={year} value={year}>{year}</option>
                 ))}
               </select>

@@ -146,6 +146,16 @@ create table if not exists submission_logs (
   created_at timestamptz default now()
 );
 
+create table if not exists academic_years (
+  id uuid primary key default gen_random_uuid(),
+  label text not null unique,
+  is_active boolean default true,
+  sort_order integer default 0,
+  created_at timestamptz default now()
+);
+
+create index if not exists idx_academic_years_active on academic_years(is_active, sort_order, label);
+
 create table if not exists system_evaluations (
   id uuid primary key default gen_random_uuid(),
   respondent_id uuid references profiles(id) on delete cascade not null unique,
@@ -178,6 +188,7 @@ on conflict (id) do nothing;
 alter table profiles enable row level security;
 alter table research_papers enable row level security;
 alter table submission_logs enable row level security;
+alter table academic_years enable row level security;
 alter table system_evaluations enable row level security;
 alter table sdg_list enable row level security;
 
@@ -235,6 +246,17 @@ create policy "logs_select_staff" on submission_logs for select
 drop policy if exists "logs_insert_any" on submission_logs;
 create policy "logs_insert_any" on submission_logs for insert
   with check (auth.role() = 'authenticated');
+
+-- Academic years: authenticated users can read the list; admins can manage it
+-- for the repository-wide term catalog used by submissions and OCR review.
+drop policy if exists "academic_years_select_authenticated" on academic_years;
+create policy "academic_years_select_authenticated" on academic_years for select
+  using (auth.role() = 'authenticated');
+
+drop policy if exists "academic_years_admin_manage" on academic_years;
+create policy "academic_years_admin_manage" on academic_years for all
+  using (exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin'))
+  with check (exists (select 1 from profiles p where p.id = auth.uid() and p.role = 'admin'));
 
 drop policy if exists "evaluations_insert_own" on system_evaluations;
 create policy "evaluations_insert_own" on system_evaluations for insert

@@ -18,6 +18,7 @@ import FacultyDashboard from "./pages/faculty/Dashboard";
 
 import AdminDashboard from "./pages/admin/Dashboard";
 import UserManagement from "./pages/admin/UserManagement";
+import AcademicYearManagement from "./pages/admin/AcademicYearManagement";
 import OCRScan from "./pages/admin/OCRScan";
 import ReviewApproval from "./pages/admin/ReviewApproval";
 
@@ -53,6 +54,7 @@ export default function App() {
           {/* Admin routes */}
           <Route path="/admin" element={<ProtectedRoute allowedRoles={["admin"]}><AdminDashboard /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute allowedRoles={["admin"]}><UserManagement /></ProtectedRoute>} />
+          <Route path="/admin/academic-years" element={<ProtectedRoute allowedRoles={["admin"]}><AcademicYearManagement /></ProtectedRoute>} />
           <Route path="/admin/ocr" element={<ProtectedRoute allowedRoles={["admin"]}><OCRScan /></ProtectedRoute>} />
           <Route path="/admin/review" element={<ProtectedRoute allowedRoles={["admin"]}><ReviewApproval /></ProtectedRoute>} />
           <Route path="/admin/archive" element={<ProtectedRoute allowedRoles={["admin"]}><AdminArchive /></ProtectedRoute>} />

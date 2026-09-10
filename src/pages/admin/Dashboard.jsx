@@ -5,16 +5,18 @@ import Layout from "../../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { getAnalyticsSummary } from "../../services/analytics";
-import { getPendingSubmissions } from "../../services/research";
+import { getPendingSubmissions, getAuditTrail } from "../../services/research";
 
 export default function AdminDashboard() {
   const { profile } = useAuth();
   const [summary, setSummary] = useState(null);
   const [pending, setPending] = useState([]);
+  const [auditTrail, setAuditTrail] = useState([]);
 
   useEffect(() => {
     getAnalyticsSummary().then(setSummary);
     getPendingSubmissions().then(setPending);
+    getAuditTrail({ limit: 8 }).then(setAuditTrail);
   }, []);
 
   return (
@@ -41,8 +43,65 @@ export default function AdminDashboard() {
         <QuickLink to="/admin/ocr" icon={ScanLine} label="Digitize a Research Document" sub="JPG, PNG, or other image files" />
         <QuickLink to="/admin/users" icon={Users} label="Manage Users" sub="Roles & accounts" />
       </div>
+
+      <div style={{ marginTop: 28 }} className="card card-pad">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 12, fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--brass-700)" }}>
+              Audit Trail
+            </div>
+            <h2 style={{ fontSize: 16, marginTop: 6 }}>Recent repository activity</h2>
+          </div>
+        </div>
+
+        {auditTrail.length === 0 ? (
+          <p style={{ fontSize: 13, color: "var(--ink-500)" }}>No recent activity has been recorded yet.</p>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {auditTrail.map((entry) => (
+              <div
+                key={entry.id}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  alignItems: "flex-start",
+                  borderBottom: "1px solid var(--line)",
+                  paddingBottom: 10,
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--ink-900)" }}>
+                    {entry.paperTitle}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--ink-500)", marginTop: 2 }}>
+                    {formatAuditAction(entry.action)} by {entry.actorName}
+                    {entry.detail?.status ? ` · ${entry.detail.status}` : ""}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-500)", whiteSpace: "nowrap" }}>
+                  {new Date(entry.created_at).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </Layout>
   );
+}
+
+function formatAuditAction(action) {
+  switch (action) {
+    case "submitted":
+      return "Submission recorded";
+    case "ocr_scanned":
+      return "OCR scan archived";
+    case "status_changed":
+      return "Review status updated";
+    default:
+      return action;
+  }
 }
 
 function QuickLink({ to, icon: Icon, label, sub }) {

@@ -17,6 +17,7 @@ import { submitResearch } from "../../services/research";
 import { searchResearch } from "../../services/search";
 import { analyzeResearchDocument, suggestMetadata } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
+import { getAcademicYears } from "../../services/academicYears";
 
 export default function Submit() {
   const { user, profile } = useAuth();
@@ -39,18 +40,13 @@ export default function Submit() {
   const [suggestions, setSuggestions] = useState(null);
   const [documentAnalysis, setDocumentAnalysis] = useState({ status: "idle", message: "" });
   const [submittedPaper, setSubmittedPaper] = useState(null);
+  const [academicYears, setAcademicYears] = useState([]);
 
-  // Generate academic year options dynamically (e.g., 2022-2023, 2023-2024, etc.)
-  // Returns 5 years back through 2 years forward from current year
-  function generateAcademicYears() {
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = -5; i <= 2; i++) {
-      const year = currentYear + i;
-      years.push(`${year}-${year + 1}`);
-    }
-    return years;
-  }
+  useEffect(() => {
+    getAcademicYears({ activeOnly: true })
+      .then((items) => setAcademicYears(items.map((year) => year.label)))
+      .catch(() => setAcademicYears([]));
+  }, []);
 
   // AI-Assisted Search Module: proactively surface similar existing studies
   // as the student types a title, so they can avoid duplicating a topic
@@ -328,7 +324,7 @@ export default function Submit() {
                 <Field label="Academic year">
                   <select className="input" value={form.academicYear} onChange={update("academicYear")} required>
                     <option value="">Select academic year</option>
-                    {generateAcademicYears().map((year) => (
+                    {academicYears.map((year) => (
                       <option key={year} value={year}>
                         {year}
                       </option>

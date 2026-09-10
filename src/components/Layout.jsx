@@ -47,6 +47,7 @@ const NAV_ITEMS = {
   admin: [
     { to: "/admin", label: "Dashboard", end: true, icon: LayoutDashboard },
     { to: "/admin/users", label: "User Management", icon: Users },
+    { to: "/admin/academic-years", label: "Academic Years", icon: ClipboardList },
     { to: "/admin/ocr", label: "Document Digitization", icon: ScanLine },
     { to: "/admin/review", label: "Review & Approval", icon: ClipboardCheck },
     { to: "/admin/archive", label: "Research Archive", icon: ArchiveIcon },

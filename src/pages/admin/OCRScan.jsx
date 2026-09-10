@@ -54,6 +54,7 @@ export default function OCRScan() {
   const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
   const [previewIndex, setPreviewIndex] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
+  const [draggedIndex, setDraggedIndex] = useState(null);
   const fileInputRef = useRef(null);
 
   const activeIndex = stepIndexFor(step);
@@ -123,6 +124,32 @@ function handleFile(e) {
   function openPreview(index) {
     setPreviewIndex(index);
     setPreviewZoom(1);
+  }
+
+  function reorderPages(fromIndex, toIndex) {
+    if (fromIndex === toIndex || fromIndex < 0 || toIndex < 0) return;
+
+    setFiles((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+
+    setPreviews((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+
+    setPreviewIndex((current) => {
+      if (current === null) return null;
+      if (current === fromIndex) return toIndex;
+      if (current > fromIndex && current <= toIndex) return current - 1;
+      if (current < fromIndex && current >= toIndex) return current + 1;
+      return current;
+    });
   }
 
   async function handleScan() {
@@ -260,7 +287,7 @@ function handleFile(e) {
                   {previews.length} page{previews.length > 1 ? "s" : ""} selected
                 </h3>
                 <span style={{ fontSize: 11.5, color: "var(--ink-500)" }}>
-                  First uploaded image = Page 1, then Page 2, and so on.
+                  Drag thumbnails to reorder pages. The first visible page is Page 1.
                 </span>
                {(step === "idle" || step === "scanned") && (
               <button className="btn btn-ghost btn-sm" onClick={openFilePicker}>
@@ -271,7 +298,20 @@ function handleFile(e) {
 
               <div className="ocr-thumb-strip">
                 {previews.map((src, index) => (
-                  <div key={`${src}-${index}`} className="ocr-thumb">
+                  <div
+                    key={`${src}-${index}`}
+                    className={`ocr-thumb ${draggedIndex === index ? "is-dragging" : ""}`}
+                    draggable={step === "idle" || step === "scanned"}
+                    onDragStart={() => setDraggedIndex(index)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => {
+                      if (draggedIndex !== null) {
+                        reorderPages(draggedIndex, index);
+                        setDraggedIndex(null);
+                      }
+                    }}
+                    onDragEnd={() => setDraggedIndex(null)}
+                  >
                     <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${index + 1}`} title="Zoom to review this image">
                       <img src={src} alt={`page ${index + 1}`} />
                     </button>

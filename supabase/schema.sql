@@ -46,6 +46,7 @@ create table if not exists research_papers (
   abstract text,
   authors text[] not null default '{}',
   adviser text,
+  panel_members text[] default '{}',
   academic_year text,
   semester text,
   program text,

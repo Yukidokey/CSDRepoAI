@@ -20,9 +20,11 @@ export async function scanDocument(imageFileOrUrl, onProgress) {
 
   try {
     await worker.setParameters({
-      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+      tessedit_pageseg_mode: PSM.AUTO,
+      tessedit_ocr_engine_mode: OEM.LSTM_ONLY,
       preserve_interword_spaces: "1",
       textord_heavy_nr: "1",
+      textord_no_rejects: "1",
     });
 
     const preparedImage = await prepareOcrImage(imageFileOrUrl);
@@ -48,9 +50,11 @@ export async function scanDocuments(imageFiles, onProgress) {
 
   try {
     await worker.setParameters({
-      tessedit_pageseg_mode: PSM.SINGLE_BLOCK,
+      tessedit_pageseg_mode: PSM.AUTO,
+      tessedit_ocr_engine_mode: OEM.LSTM_ONLY,
       preserve_interword_spaces: "1",
       textord_heavy_nr: "1",
+      textord_no_rejects: "1",
     });
 
     for (let index = 0; index < imageFiles.length; index += 1) {
@@ -139,8 +143,8 @@ async function prepareOcrImage(file) {
 
   try {
     const bitmap = await createImageBitmap(file);
-    const maxDimension = 2400;
-    const scale = Math.min(2.5, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const maxDimension = 3000;
+    const scale = Math.min(3.5, maxDimension / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
 
@@ -151,23 +155,10 @@ async function prepareOcrImage(file) {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     ctx.filter = "grayscale(1) contrast(1.45) brightness(1.08)";
     ctx.drawImage(bitmap, 0, 0, width, height);
-
-    const imageData = ctx.getImageData(0, 0, width, height);
-    const data = imageData.data;
-
-    for (let i = 0; i < data.length; i += 4) {
-      const luminance = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
-      const value = luminance > 180 ? 255 : luminance < 80 ? 0 : luminance;
-      data[i] = value;
-      data[i + 1] = value;
-      data[i + 2] = value;
-      data[i + 3] = 255;
-    }
-
-    ctx.putImageData(imageData, 0, 0);
+    ctx.filter = "none";
     bitmap.close?.();
 
-    return canvas.toDataURL("image/jpeg", 0.92);
+    return canvas.toDataURL("image/jpeg", 0.95);
   } catch {
     return file;
   }
@@ -326,6 +317,7 @@ export async function digitizeAndArchive({
   authors,
   academicYear,
   adviser,
+  panelMembers,
   abstract,
   keywords,
   adminId,
@@ -346,6 +338,7 @@ export async function digitizeAndArchive({
       authors,
       academic_year: academicYear,
       adviser,
+      panel_members: panelMembers,
       abstract,
       keywords,
       submitted_by: actorId,

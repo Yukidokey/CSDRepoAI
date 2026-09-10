@@ -50,7 +50,7 @@ export default function OCRScan() {
   const [totalPages, setTotalPages] = useState(0);
   const [donePages, setDonePages] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [meta, setMeta] = useState({ title: "", authors: "", academicYear: "", adviser: "", abstract: "", keywords: "" });
+  const [meta, setMeta] = useState({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
   const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
   const [previewIndex, setPreviewIndex] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
@@ -115,7 +115,7 @@ function handleFile(e) {
     if (nextFiles.length === 0) {
       setStep("idle");
       setOcrText("");
-      setMeta({ title: "", authors: "", academicYear: "", adviser: "", abstract: "", keywords: "" });
+      setMeta({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
     }
     setPreviewIndex(null);
     setPreviewZoom(1);
@@ -175,6 +175,7 @@ function handleFile(e) {
       authors: extracted.authors,
       academicYear: "",
       adviser: extracted.adviser,
+      panelMembers: extracted.panelMembers,
       abstract: extracted.abstract,
       keywords: extracted.keywords,
     });
@@ -193,6 +194,7 @@ function handleFile(e) {
       authors: meta.authors.split(",").map((a) => a.trim()).filter(Boolean),
       academicYear: meta.academicYear,
       adviser: meta.adviser,
+      panelMembers: meta.panelMembers.split(",").map((member) => member.trim()).filter(Boolean),
       abstract: meta.abstract,
       keywords: meta.keywords.split(",").map((k) => k.trim()).filter(Boolean),
       adminId: user.id,
@@ -210,7 +212,7 @@ function handleFile(e) {
     setCurrentPage(1);
     setTotalPages(0);
     setDonePages(0);
-    setMeta({ title: "", authors: "", academicYear: "", adviser: "", abstract: "", keywords: "" });
+    setMeta({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
     setSaveProgress({ completed: 0, total: 0 });
   }
 
@@ -464,6 +466,10 @@ function handleFile(e) {
               <input className="input" value={meta.adviser} onChange={(e) => setMeta((m) => ({ ...m, adviser: e.target.value }))} />
             </Field>
           </div>
+
+          <Field label={<span><Users size={11} style={{ verticalAlign: -1, marginRight: 4 }} />Panel Members (comma-separated)</span>}>
+            <input className="input" value={meta.panelMembers} onChange={(e) => setMeta((m) => ({ ...m, panelMembers: e.target.value }))} />
+          </Field>
 
           <Field label={<span><Quote size={11} style={{ verticalAlign: -1, marginRight: 4 }} />Abstract</span>}>
             <textarea className="input" rows={3} value={meta.abstract} onChange={(e) => setMeta((m) => ({ ...m, abstract: e.target.value }))} />

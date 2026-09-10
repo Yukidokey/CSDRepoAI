@@ -58,6 +58,10 @@ export default function OCRScan() {
 
   const activeIndex = stepIndexFor(step);
 
+  function openFilePicker() {
+    fileInputRef.current?.click();
+  }
+
   function handleAuthorsChange(e) {
     const { value } = e.target;
     const inputType = e.nativeEvent?.inputType || "";
@@ -209,26 +213,44 @@ function handleFile(e) {
       </div>
 
       <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          onChange={handleFile}
+          style={{ display: "none" }}
+        />
+
         {/* ---------- left: upload / scan stage ---------- */}
         <div className="card card-pad" style={{ flex: "1 1 360px" }}>
           {step !== "scanning" && previews.length === 0 && (
-            <div
-              className={`ocr-dropzone ${isDragging ? "is-dragging" : ""}`}
-              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDrop}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFile} />
-              <div className="ocr-dropzone-icon">
-                <UploadCloud size={20} />
+            <>
+              <div
+                className={`ocr-dropzone ${isDragging ? "is-dragging" : ""}`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={handleDrop}
+                onClick={openFilePicker}
+              >
+                <div className="ocr-dropzone-icon">
+                  <UploadCloud size={20} />
+                </div>
+                <div className="ocr-dropzone-title">Drop scanned research pages here</div>
+                <div className="ocr-dropzone-hint">
+                  <Camera size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
+                  JPG, PNG, or other image files · choose pages from your computer
+                </div>
               </div>
-              <div className="ocr-dropzone-title">Drop scanned research pages here</div>
-              <div className="ocr-dropzone-hint">
-                <Camera size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
-                JPG, PNG, or other image files · choose pages from your computer
-              </div>
-            </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-block"
+                onClick={openFilePicker}
+                style={{ marginTop: 12 }}
+              >
+                <UploadCloud size={14} /> Select files
+              </button>
+            </>
           )}
 
           {previews.length > 0 && step !== "scanning" && (
@@ -238,17 +260,16 @@ function handleFile(e) {
                   {previews.length} page{previews.length > 1 ? "s" : ""} selected
                 </h3>
                {(step === "idle" || step === "scanned") && (
-              <button className="btn btn-ghost btn-sm" onClick={() => fileInputRef.current?.click()}>
+              <button className="btn btn-ghost btn-sm" onClick={openFilePicker}>
                 <UploadCloud size={13} /> Add more
               </button>
               )}
-                <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handleFile} style={{ display: "none" }} />
               </div>
 
               <div className="ocr-thumb-strip">
                 {previews.map((src, index) => (
                   <div key={`${src}-${index}`} className="ocr-thumb">
-                    <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${index + 1}`}>
+                    <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${index + 1}`} title="Zoom to review this image">
                       <img src={src} alt={`page ${index + 1}`} />
                     </button>
                     <span className="ocr-thumb-page">Pg {index + 1}</span>
@@ -310,7 +331,7 @@ function handleFile(e) {
                     const isCurrent = pageNum === currentPage && !isDone;
                     return (
                       <div key={`${src}-${index}`} className={`ocr-thumb ${isCurrent ? "is-current" : ""} ${isDone ? "is-done" : ""}`}>
-                        <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${pageNum}`}>
+                        <button type="button" className="ocr-thumb-preview" onClick={() => openPreview(index)} aria-label={`Preview page ${pageNum}`} title="Zoom to review this image">
                           <img src={src} alt={`page ${pageNum}`} />
                         </button>
                         {isDone && <span className="ocr-thumb-check"><Check size={10} /></span>}

@@ -1,6 +1,10 @@
 import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { supabase } from "../lib/supabaseClient";
+
+GlobalWorkerOptions.workerSrc = workerSrc;
 
 /**
  * OCR Digitization Module
@@ -35,6 +39,24 @@ export async function scanDocument(imageFileOrUrl, onProgress) {
   } finally {
     await worker.terminate();
   }
+}
+
+export async function expandUploadedFiles(files) {
+  const expanded = [];
+
+  for (const file of files || []) {
+    if (file?.type?.startsWith("image/")) {
+      expanded.push(file);
+      continue;
+    }
+
+    if (isPdfFile(file)) {
+      const pdfPageFiles = await pdfFileToPageImageFiles(file);
+      expanded.push(...pdfPageFiles);
+    }
+  }
+
+  return expanded;
 }
 
 export async function scanDocuments(imageFiles, onProgress) {
@@ -134,6 +156,39 @@ function applyCommonOcrCorrections(text) {
   ];
 
   return replacements.reduce((result, [pattern, replacement]) => result.replace(pattern, replacement), text);
+}
+
+function isPdfFile(file) {
+  return file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
+}
+
+async function pdfFileToPageImageFiles(file) {
+  const pdfData = await file.arrayBuffer();
+  const pdf = await getDocument({ data: pdfData }).promise;
+  const pageFiles = [];
+
+  for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+    const page = await pdf.getPage(pageNumber);
+    const viewport = page.getViewport({ scale: 1.5 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+
+    const context = canvas.getContext("2d");
+    await page.render({ canvasContext: context, viewport }).promise;
+
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+    if (!blob) continue;
+
+    const baseName = file.name.replace(/\.pdf$/i, "");
+    pageFiles.push(
+      new File([blob], `${baseName}-page-${pageNumber}.jpg`, {
+        type: "image/jpeg",
+      })
+    );
+  }
+
+  return pageFiles;
 }
 
 async function prepareOcrImage(file) {

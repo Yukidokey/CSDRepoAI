@@ -22,7 +22,7 @@ import {
 import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
-import { digitizeAndArchive, scanDocuments, extractMetadata } from "../../services/ocr";
+import { digitizeAndArchive, scanDocuments, extractMetadata, expandUploadedFiles } from "../../services/ocr";
 import { getAcademicYears } from "../../services/academicYears";
 
 const STEPS = [
@@ -81,13 +81,15 @@ export default function OCRScan() {
     setMeta((m) => ({ ...m, authors: value }));
   }
 
-function loadFiles(list) {
+async function loadFiles(list) {
   const selected = Array.from(list || []);
   if (!selected.length) return;
-  const imageFiles = selected.filter((file) => file.type.startsWith("image/"));
-  if (!imageFiles.length) return;
-  setFiles((prev) => [...prev, ...imageFiles]);
-  setPreviews((prev) => [...prev, ...imageFiles.map((file) => URL.createObjectURL(file))]);
+
+  const expandedFiles = await expandUploadedFiles(selected);
+  if (!expandedFiles.length) return;
+
+  setFiles((prev) => [...prev, ...expandedFiles]);
+  setPreviews((prev) => [...prev, ...expandedFiles.map((file) => URL.createObjectURL(file))]);
   setOcrText("");
   setStep("idle");
   setDonePages(0);
@@ -243,7 +245,7 @@ function handleFile(e) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*"
+          accept="image/*,.pdf"
           multiple
           onChange={handleFile}
           style={{ display: "none" }}
@@ -266,7 +268,7 @@ function handleFile(e) {
                 <div className="ocr-dropzone-title">Drop scanned research pages here</div>
                 <div className="ocr-dropzone-hint">
                   <Camera size={11} style={{ verticalAlign: -1, marginRight: 3 }} />
-                  JPG, PNG, or other image files · choose pages from your computer
+                  JPG, PNG, PDF, or other image files · choose pages from your computer
                 </div>
               </div>
               <button

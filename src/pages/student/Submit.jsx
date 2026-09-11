@@ -408,6 +408,26 @@ export default function Submit() {
                 </div>
               </div>
 
+              {(submittedPaper?.file_url || submittedPaper?.source_code_url || submittedPaper?.ieee_paper_url) && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
+                  {submittedPaper?.file_url && (
+                    <a href={submittedPaper.file_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      View manuscript
+                    </a>
+                  )}
+                  {submittedPaper?.source_code_url && (
+                    <a href={submittedPaper.source_code_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      View source code
+                    </a>
+                  )}
+                  {submittedPaper?.ieee_paper_url && (
+                    <a href={submittedPaper.ieee_paper_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      View IEEE short paper
+                    </a>
+                  )}
+                </div>
+              )}
+
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 16 }}>
                 <button type="button" className="btn btn-primary" onClick={downloadReceipt}>
                   Download receipt

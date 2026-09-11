@@ -1,9 +1,9 @@
-import { SDG_LIST } from "../lib/sdgList";
+import { SDG_LIST } from "../lib/sdgList.js";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import mammoth from "mammoth/mammoth.browser";
+import mammoth from "mammoth/mammoth.browser.js";
 
-const GENKIT_METADATA_URL = import.meta.env.VITE_GENKIT_METADATA_URL;
+const viteEnv = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
+const GENKIT_METADATA_URL = viteEnv.VITE_GENKIT_METADATA_URL;
 
 export async function extractMetadataWithAI(documentText) {
   if (!GENKIT_METADATA_URL) {
@@ -30,7 +30,19 @@ export async function extractMetadataWithAI(documentText) {
   }
 }
 
-GlobalWorkerOptions.workerSrc = workerSrc;
+async function configurePdfWorker() {
+  if (typeof window === "undefined" && typeof document === "undefined") {
+    return;
+  }
+
+  try {
+    const workerModule = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+    const workerSrc = workerModule.default || workerModule;
+    GlobalWorkerOptions.workerSrc = workerSrc;
+  } catch {
+    // Ignore in environments where the browser-only worker URL cannot be resolved.
+  }
+}
 
 const TOPIC_RULES = [
   { category: "Artificial Intelligence", terms: ["artificial intelligence", "machine learning", "deep learning", "neural network", "chatbot", "computer vision", "natural language"] },
@@ -193,6 +205,7 @@ function normalizeMetadataPayload(payload) {
 }
 
 async function extractPdfText(file) {
+  await configurePdfWorker();
   const data = await file.arrayBuffer();
   const pdf = await getDocument({ data }).promise;
   const pages = [];
@@ -301,12 +314,17 @@ function isDocumentHeading(line) {
   return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledgement|approval sheet|dedication)\b/i.test(line);
 }
 
+function isPageMarkerLine(line) {
+  return /^-{2,}\s*page\s*\d+\s*-{2,}$/i.test(line.trim());
+}
+
 function firstPageTitle(lines) {
   const titleLines = [];
 
   for (let index = 0; index < lines.length && index < 8; index += 1) {
     const line = lines[index].replace(/^(title\s*[:\-]?\s*)/i, "").trim();
     if (!line) continue;
+    if (isPageMarkerLine(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
     if (line.length > 90) break;
 
@@ -360,7 +378,12 @@ function isLikelyAuthorLine(line) {
   }
 
   const words = line.split(/\s+/).filter(Boolean);
-  return words.length >= 2 && words.length <= 6;
+  if (words.length < 2 || words.length > 6) return false;
+
+  return words.every((word) => {
+    const letters = word.replace(/[^A-Za-z]/g, "");
+    return letters.length >= 2 && /[A-Za-z]{2,}/.test(letters);
+  });
 }
 
 function isLikelyAuthorOrInstitutionLine(line) {

@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 
+const viteEnv = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
+
 function normalizeSupabaseUrl(url) {
   if (!url) return url;
 
@@ -13,9 +15,9 @@ function normalizeSupabaseUrl(url) {
   }
 }
 
-const supabaseUrl = normalizeSupabaseUrl(import.meta.env.VITE_SUPABASE_URL || "https://example.supabase.co");
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "public-anon-key";
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE?.trim() || null;
+const supabaseUrl = normalizeSupabaseUrl(viteEnv.VITE_SUPABASE_URL || "https://example.supabase.co");
+const supabaseAnonKey = viteEnv.VITE_SUPABASE_ANON_KEY || "public-anon-key";
+const supabaseServiceKey = viteEnv.VITE_SUPABASE_SERVICE_ROLE?.trim() || null;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(

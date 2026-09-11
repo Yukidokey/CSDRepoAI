@@ -1,11 +1,9 @@
 import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
-import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import { supabase } from "../lib/supabaseClient";
-import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions";
-
-GlobalWorkerOptions.workerSrc = workerSrc;
+import { getDocument } from "pdfjs-dist";
+import { supabase } from "../lib/supabaseClient.js";
+import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions.js";
+import { stripPageMarkers } from "./ocrTextUtils.js";
 
 /**
  * OCR Digitization Module
@@ -59,6 +57,8 @@ export async function expandUploadedFiles(files) {
 
   return expanded;
 }
+
+export { stripPageMarkers } from "./ocrTextUtils.js";
 
 export async function scanDocuments(imageFiles, onProgress) {
   const pages = [];
@@ -314,8 +314,9 @@ async function uploadResearchPdf(files, { onProgress } = {}) {
  * the fields before archiving (see OCRScan.jsx).
  */
 export async function extractMetadata(rawText) {
-  const fallback = extractDocumentFields(rawText);
-  const aiMetadata = await extractMetadataWithAI(rawText);
+  const cleanedText = stripPageMarkers(rawText);
+  const fallback = extractDocumentFields(cleanedText);
+  const aiMetadata = await extractMetadataWithAI(cleanedText);
 
   const authors = Array.isArray(aiMetadata?.authors) && aiMetadata.authors.length
     ? aiMetadata.authors.join(", ")

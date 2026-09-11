@@ -4,6 +4,7 @@ import cors from "cors";
 import { semanticSearchFlow } from "./flows/semanticSearch.js";
 import { embedPaperFlow } from "./flows/embedPaper.js";
 import { metadataAnalysisFlow } from "./flows/metadataAnalysis.js";
+import { extractMetadataFlow } from "./flows/extractMetadata.js";
 
 const app = express();
 app.use(cors());
@@ -83,6 +84,22 @@ app.post("/metadata", async (req, res) => {
   } catch (error) {
     console.error("[genkit] /metadata failed:", error);
     res.status(500).json({ error: error.message || "metadata analysis failed" });
+  }
+});
+
+app.post("/extract-metadata", async (req, res) => {
+  const { documentText } = req.body || {};
+
+  if (!documentText || !documentText.trim()) {
+    return res.status(400).json({ error: "documentText is required" });
+  }
+
+  try {
+    const result = await extractMetadataFlow({ documentText });
+    res.json(result);
+  } catch (error) {
+    console.error("[genkit] /extract-metadata failed:", error);
+    res.status(500).json({ error: error.message || "metadata extraction failed" });
   }
 });
 

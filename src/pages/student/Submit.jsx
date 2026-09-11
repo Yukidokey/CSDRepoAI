@@ -121,6 +121,7 @@ export default function Submit() {
         abstract: analysis.abstract || current.abstract,
         keywords: analysis.keywords || current.keywords,
         authors: analysis.authors || current.authors,
+        adviser: analysis.adviser || current.adviser,
       }));
       setSdgTags((current) => [...new Set([...current, ...analysis.sdgTags])]);
       setSuggestions(analysis);

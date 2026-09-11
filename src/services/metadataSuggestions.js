@@ -5,6 +5,31 @@ import mammoth from "mammoth/mammoth.browser";
 
 const GENKIT_METADATA_URL = import.meta.env.VITE_GENKIT_METADATA_URL;
 
+export async function extractMetadataWithAI(documentText) {
+  if (!GENKIT_METADATA_URL) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(GENKIT_METADATA_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ documentText }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`metadata extraction request failed (${response.status})`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.warn("Genkit semantic search unavailable, using fallback text search.", error);
+    return null;
+  }
+}
+
 GlobalWorkerOptions.workerSrc = workerSrc;
 
 const TOPIC_RULES = [
@@ -60,6 +85,23 @@ export async function analyzeResearchDocument(file) {
   const extracted = extractDocumentFields(documentText);
   const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
 
+  const aiMetadata = await extractMetadataWithAI(documentText);
+
+  if (aiMetadata) {
+    return {
+      title: aiMetadata.title || extracted.title,
+      authors: Array.isArray(aiMetadata.authors) ? aiMetadata.authors.join(", ") : "",
+      adviser: aiMetadata.adviser || "",
+      keywords: Array.isArray(aiMetadata.keywords) ? aiMetadata.keywords.join(", ") : extracted.keywords,
+      abstract: aiMetadata.abstract || abstract,
+      category: "Computer Studies",
+      sdgTags: [],
+      sdgNames: [],
+      extractedText: documentText,
+      sourceTextLength: documentText.length,
+    };
+  }
+
   const metadata = await maybeAnalyzeWithGenkit({
     title: extracted.title,
     abstract,
@@ -69,6 +111,8 @@ export async function analyzeResearchDocument(file) {
 
   return {
     title: extracted.title,
+    authors: "",
+    adviser: "",
     keywords: extracted.keywords || metadata.keywords.join(", "),
     abstract,
     category: metadata.category,

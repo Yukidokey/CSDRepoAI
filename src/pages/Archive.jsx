@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { FileText, Archive as ArchiveIcon, X } from "lucide-react";
+import { FileText, FolderOpen, Archive as ArchiveIcon, X } from "lucide-react";
 import Layout from "../components/Layout";
 import { PageHeader, EmptyState } from "../components/ui";
 import { getApprovedPapers, getResearchFileUrls, incrementViewCount, incrementDownloadCount, openResearchFile } from "../services/research";
@@ -97,24 +97,48 @@ export default function Archive() {
                   </span>
                 </td>
                 <td>
-                  {getResearchFileUrls(p.file_url).length > 0 && (
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        setFileError("");
-                        try {
-                          await openResearchFile(p);
-                          incrementDownloadCount(p.id);
-                        } catch (error) {
-                          setFileError(error.message);
-                        }
-                      }}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                    >
-                      <FileText size={13} /> View research file
-                    </button>
-                  )}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                    {getResearchFileUrls(p.file_url).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setFileError("");
+                          try {
+                            await openResearchFile(p);
+                            incrementDownloadCount(p.id);
+                          } catch (error) {
+                            setFileError(error.message);
+                          }
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                      >
+                        <FileText size={13} /> View manuscript
+                      </button>
+                    )}
+                    {getResearchFileUrls(p.source_code_url).length > 0 && (
+                      <a
+                        href={getResearchFileUrls(p.source_code_url)[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}
+                      >
+                        <FolderOpen size={13} /> View source code
+                      </a>
+                    )}
+                    {getResearchFileUrls(p.ieee_paper_url).length > 0 && (
+                      <a
+                        href={getResearchFileUrls(p.ieee_paper_url)[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}
+                      >
+                        <FileText size={13} /> View IEEE short paper
+                      </a>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

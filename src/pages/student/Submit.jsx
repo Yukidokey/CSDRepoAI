@@ -120,7 +120,9 @@ export default function Submit() {
         title: analysis.title || current.title,
         abstract: analysis.abstract || current.abstract,
         keywords: analysis.keywords || current.keywords,
-        authors: analysis.authors || current.authors,
+        authors: Array.isArray(analysis.authors)
+          ? analysis.authors.join(", ")
+          : analysis.authors || current.authors,
         adviser: analysis.adviser || current.adviser,
       }));
       setSdgTags((current) => [...new Set([...current, ...analysis.sdgTags])]);

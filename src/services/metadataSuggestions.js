@@ -94,8 +94,8 @@ export async function analyzeResearchDocument(file) {
 
   return {
     title: extracted.title,
-    authors: "",
-    adviser: "",
+    authors: extracted.authors,
+    adviser: extracted.adviser,
     keywords: extracted.keywords || metadata.keywords.join(", "),
     abstract,
     category: metadata.category,
@@ -135,8 +135,10 @@ export async function analyzeResearchDocumentWithAI(file) {
 
   return {
     title: aiMetadata.title || extracted.title,
-    authors: Array.isArray(aiMetadata.authors) ? aiMetadata.authors.join(", ") : "",
-    adviser: aiMetadata.adviser || "",
+    authors: Array.isArray(aiMetadata.authors) && aiMetadata.authors.length
+      ? aiMetadata.authors.join(", ")
+      : extracted.authors.join(", "),
+    adviser: aiMetadata.adviser || extracted.adviser,
     keywords: aiKeywords || extracted.keywords,
     abstract: aiMetadata.abstract || abstract,
     category: aiSuggestions.category,
@@ -234,7 +236,7 @@ function isDocx(file) {
 }
 
 function extractDocumentFields(text) {
-  if (!text) return { title: "", abstract: "", keywords: "" };
+  if (!text) return { title: "", abstract: "", keywords: "", authors: [], adviser: "" };
 
   const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
   const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(line));
@@ -245,9 +247,13 @@ function extractDocumentFields(text) {
   const title = firstPageTitle(lines) || (titleLabel
     ? titleLabel.replace(/^title\s*[:\-]?\s*/i, "").trim()
     : "");
+  const authors = extractAuthors(lines);
+  const adviser = extractAdviser(lines);
 
   return {
     title,
+    authors,
+    adviser,
     abstract,
     keywords: keywordsLine.replace(/[.;]+$/, "").trim(),
   };
@@ -275,7 +281,7 @@ function extractKeywords(lines, startIndex) {
   const firstValue = lines[startIndex].replace(/^keywords?\s*[:\-]?\s*/i, "").trim();
   if (firstValue) values.push(firstValue);
 
-  for (let index = startIndex + 1; index < lines.length; index += 1) {
+  for (let index = startIndex + 1; index < lines.length && index <= startIndex + 3; index += 1) {
     const line = lines[index];
     if (isDocumentHeading(line) || /^abstract\b/i.test(line)) break;
     values.push(line);
@@ -285,16 +291,80 @@ function extractKeywords(lines, startIndex) {
 }
 
 function isDocumentHeading(line) {
-  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents)\b/i.test(line);
+  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledgement|approval sheet|dedication)\b/i.test(line);
 }
 
 function firstPageTitle(lines) {
-  const firstLine = lines[0] || "";
-  if (!firstLine || /^(abstract|keywords?)\b/i.test(firstLine)) return "";
-  return firstLine
-    .replace(/^(title\s*[:\-]?\s*)/i, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const titleLines = [];
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line || /^(abstract|keywords?)\b/i.test(line)) break;
+    if (line.length > 90) break;
+    if (titleLines.length > 0 && isLikelyAuthorOrInstitutionLine(line)) break;
+    if (titleLines.length >= 6) break;
+
+    titleLines.push(line.replace(/^(title\s*[:\-]?\s*)/i, "").trim());
+  }
+
+  return titleLines.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function extractAuthors(lines) {
+  const universityIndex = lines.findIndex((line) => /(university|college|institute|campus)/i.test(line));
+  if (universityIndex <= 0) return [];
+
+  const authors = [];
+  for (let index = universityIndex - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+
+    if (!line || line.length > 60) break;
+    if (/^(abstract|keywords?|approval sheet|thesis adviser|panel chair|panel member|acknowledgement|dedication|chapter)\b/i.test(line)) break;
+    if (/(university|college|institute|campus|bachelor|bs\b|bsc\b|computer science|information technology|year|month|date)/i.test(line)) {
+      continue;
+    }
+    if (!isLikelyAuthorLine(line)) {
+      continue;
+    }
+
+    authors.unshift(line.trim());
+    if (authors.length >= 3) break;
+  }
+
+  return authors;
+}
+
+function extractAdviser(lines) {
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    const line = lines[index];
+    const nextLine = lines[index + 1];
+
+    if (line && /^thesis adviser$/i.test(nextLine || "")) {
+      return line.trim();
+    }
+  }
+
+  return "";
+}
+
+function isLikelyAuthorLine(line) {
+  if (!line || line.length > 50) return false;
+  if (/(university|college|institute|campus|bachelor|bs\b|bsc\b|computer science|information technology)/i.test(line)) {
+    return false;
+  }
+
+  const words = line.split(/\s+/).filter(Boolean);
+  return words.length >= 2 && words.length <= 6;
+}
+
+function isLikelyAuthorOrInstitutionLine(line) {
+  if (!line) return false;
+  if (/(university|college|institute|campus|bachelor|bs\b|bsc\b|computer science|information technology)/i.test(line)) {
+    return true;
+  }
+
+  const words = line.split(/\s+/).filter(Boolean);
+  return line.length <= 55 && words.length <= 5;
 }
 
 function buildAbstract(text, title = "") {

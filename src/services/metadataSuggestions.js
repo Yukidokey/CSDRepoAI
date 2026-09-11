@@ -225,10 +225,17 @@ function joinPdfTextItems(items) {
       lines.push({ y, items: [{ x: item.transform?.[4] ?? 0, text }] });
     }
   }
-  return lines
+
+  const joined = lines
     .sort((a, b) => b.y - a.y)
     .map((line) => line.items.sort((a, b) => a.x - b.x).map((item) => item.text).join(" "))
     .join("\n");
+
+  return collapseHyphenSpacing(joined);
+}
+
+function collapseHyphenSpacing(text) {
+  return text.replace(/(\w)\s*[-–—]\s*(\w)/g, "$1-$2");
 }
 
 function isDocx(file) {
@@ -297,14 +304,13 @@ function isDocumentHeading(line) {
 function firstPageTitle(lines) {
   const titleLines = [];
 
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (!line || /^(abstract|keywords?)\b/i.test(line)) break;
+  for (let index = 0; index < lines.length && index < 8; index += 1) {
+    const line = lines[index].replace(/^(title\s*[:\-]?\s*)/i, "").trim();
+    if (!line) continue;
+    if (/^(abstract|keywords?)\b/i.test(line)) break;
     if (line.length > 90) break;
-    if (titleLines.length > 0 && isLikelyAuthorOrInstitutionLine(line)) break;
-    if (titleLines.length >= 6) break;
 
-    titleLines.push(line.replace(/^(title\s*[:\-]?\s*)/i, "").trim());
+    titleLines.push(line);
   }
 
   return titleLines.join(" ").replace(/\s+/g, " ").trim();

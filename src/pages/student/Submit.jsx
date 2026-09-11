@@ -19,10 +19,10 @@ import { analyzeResearchDocumentWithAI, suggestMetadata } from "../../services/m
 import { SDG_LIST } from "../../lib/sdgList";
 import { getAcademicYears } from "../../services/academicYears";
 
-export default function Submit() {
-  const { user, profile } = useAuth();
-  const navigate = useNavigate();
-  const [form, setForm] = useState({
+const STORAGE_KEY = "csdrepoai-submit-research-draft";
+
+function buildDefaultForm(profile) {
+  return {
     title: "",
     abstract: "",
     authors: profile?.full_name || "",
@@ -31,9 +31,64 @@ export default function Submit() {
     semester: "1st Semester",
     program: profile?.program || "",
     keywords: "",
+  };
+}
+
+function getStoredDraft() {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+async function serializeFile(file) {
+  if (!file) return null;
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      resolve({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: file.lastModified,
+        dataUrl: reader.result,
+      });
+    };
+
+    reader.onerror = () => reject(new Error("Unable to store uploaded file in browser memory."));
+    reader.readAsDataURL(file);
   });
+}
+
+async function restoreFile(fileDescriptor) {
+  if (!fileDescriptor?.dataUrl) return null;
+
+  try {
+    const response = await fetch(fileDescriptor.dataUrl);
+    const blob = await response.blob();
+
+    return new File([blob], fileDescriptor.name, {
+      type: fileDescriptor.type,
+      lastModified: fileDescriptor.lastModified || Date.now(),
+    });
+  } catch {
+    return null;
+  }
+}
+
+export default function Submit() {
+  const { user, profile } = useAuth();
+  const navigate = useNavigate();
+  const [form, setForm] = useState(() => buildDefaultForm(profile));
   const [sdgTags, setSdgTags] = useState([]);
-  const [files, setFiles] = useState({ manuscript: null, sourceCode: null, ieee: null });
+  const [files, setFiles] = useState(() => ({ manuscript: null, sourceCode: null, ieee: null }));
   const [status, setStatus] = useState("idle"); // idle | submitting | done | error
   const [errorMsg, setErrorMsg] = useState("");
   const [related, setRelated] = useState([]);
@@ -41,12 +96,104 @@ export default function Submit() {
   const [documentAnalysis, setDocumentAnalysis] = useState({ status: "idle", message: "" });
   const [submittedPaper, setSubmittedPaper] = useState(null);
   const [academicYears, setAcademicYears] = useState([]);
+  const [draftHydrated, setDraftHydrated] = useState(false);
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })
       .then((items) => setAcademicYears(items.map((year) => year.label)))
       .catch(() => setAcademicYears([]));
   }, []);
+
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      authors: current.authors || profile?.full_name || "",
+      program: current.program || profile?.program || "",
+    }));
+  }, [profile]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function hydrateDraft() {
+      const storedDraft = getStoredDraft();
+      if (!storedDraft) {
+        setDraftHydrated(true);
+        return;
+      }
+
+      const restoredFiles = {
+        manuscript: storedDraft.files?.manuscript ? await restoreFile(storedDraft.files.manuscript) : null,
+        sourceCode: storedDraft.files?.sourceCode ? await restoreFile(storedDraft.files.sourceCode) : null,
+        ieee: storedDraft.files?.ieee ? await restoreFile(storedDraft.files.ieee) : null,
+      };
+
+      if (!isActive) return;
+
+      setForm({ ...buildDefaultForm(profile), ...(storedDraft.form || {}) });
+      setSdgTags(Array.isArray(storedDraft.sdgTags) ? storedDraft.sdgTags : []);
+      setFiles(restoredFiles);
+      setSuggestions(storedDraft.suggestions || null);
+      setDraftHydrated(true);
+    }
+
+    hydrateDraft();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+
+    const storedDraft = getStoredDraft() || {};
+
+    sessionStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...storedDraft,
+        form,
+        sdgTags,
+        suggestions,
+      })
+    );
+  }, [form, sdgTags, suggestions, draftHydrated]);
+
+  useEffect(() => {
+    if (!draftHydrated) return;
+
+    let isActive = true;
+
+    async function persistFiles() {
+      try {
+        const storedDraft = getStoredDraft() || {};
+        const nextFiles = {
+          manuscript: await serializeFile(files.manuscript),
+          sourceCode: await serializeFile(files.sourceCode),
+          ieee: await serializeFile(files.ieee),
+        };
+
+        if (!isActive) return;
+
+        sessionStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify({
+            ...storedDraft,
+            files: nextFiles,
+          })
+        );
+      } catch (error) {
+        console.warn("Failed to persist draft files.", error);
+      }
+    }
+
+    persistFiles();
+
+    return () => {
+      isActive = false;
+    };
+  }, [files, draftHydrated]);
 
   // AI-Assisted Search Module: proactively surface similar existing studies
   // as the student types a title, so they can avoid duplicating a topic

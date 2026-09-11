@@ -18,24 +18,45 @@ export const extractMetadataFlow = ai.defineFlow(
   },
   async ({ documentText }) => {
     const safeDocumentText = documentText.slice(0, 12000);
-    const prompt = `You are an academic document parser.
+    const prompt = `You are extracting metadata from a Philippine university thesis or capstone document.
 
-Your job is to read the raw extracted text of a thesis, research paper, or manuscript and identify the actual metadata.
+These documents follow a consistent structural convention that does NOT use explicit field labels for most fields. Identify fields by their position and role, not by searching for labels such as "Title:" or "Author:".
 
-Return JSON with exactly these keys:
-- title: the real document title, not a running header/footer
-- authors: the full list of student authors as an array of strings
-- adviser: the adviser's name if it is explicitly mentioned; otherwise null
-- abstract: a concise abstract based on the paper's own abstract if present, otherwise a summary of the introduction in roughly 150 words
-- keywords: 5-8 relevant keywords or key phrases
+Structural conventions to expect:
 
-Important rules:
-- Do not guess the adviser if the name is not clearly present in the text.
-- Prefer the paper's own title and abstract when available.
-- Ignore headers, footers, page numbers, and repeated boilerplate.
-- Output valid JSON only.
+TITLE PAGE (usually page 1):
+- The title appears as the first large block of text, often spanning 2-4 lines, with no "Title:" label preceding it.
+- Immediately below the title, one or more author names appear, each typically on its own line, with NO "By:" or "Author(s):" prefix.
+- Below the authors, the university name and degree program usually appear.
+- An adviser's name sometimes appears near the bottom of this page, also unlabeled — but do not treat this as fully reliable; the Approval Sheet is the authoritative source for adviser identity.
 
-Raw manuscript text:
+APPROVAL SHEET (usually page 2, titled "Approval Sheet"):
+- This page lists names followed immediately below (or beside) each name by a role caption, not a label before the name. Look for this exact pattern: a person's name on one line, and the words "Thesis Adviser" on the line directly after it — that name is the adviser.
+- Similarly, a name followed by "Panel Chair" or "Panel Member" identifies committee members — do NOT confuse these with the adviser.
+
+ABSTRACT:
+- Usually appears on its own page headed by the standalone word "Abstract" (no colon). The abstract text follows as one or more paragraphs.
+- Immediately after the abstract paragraph(s), a line beginning with "Keywords:" lists the keywords, typically separated by semicolons.
+
+Given the document text below, extract exactly these fields and return ONLY valid JSON matching this shape:
+{
+  "title": string,
+  "authors": string[],
+  "adviser": string,
+  "abstract": string,
+  "keywords": string[]
+}
+
+Rules:
+- "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
+- Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
+- "authors" should only include the names credited as the researchers/writers of the thesis, listed on the title page — not the adviser, panel, or dean.
+- If a field cannot be confidently identified, return an empty string (or empty array for authors/keywords) rather than guessing.
+- Split "keywords" on semicolons or commas into an array of individual terms.
+- Ignore headers, footers, page numbers, repeated boilerplate, and running text that is not part of the document metadata.
+- Output ONLY valid JSON with no commentary.
+
+Document text:
 ${safeDocumentText}`;
 
     const response = await ai.generate({

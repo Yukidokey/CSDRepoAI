@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { FileText, Check, X, Clock, ClipboardCheck } from "lucide-react";
+import { FileText, FolderOpen, Check, X, Clock, ClipboardCheck } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, EmptyState } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
@@ -56,11 +56,23 @@ export default function ReviewApproval() {
                 </span>
               </div>
               <p style={{ fontSize: 13, marginTop: 10 }}>{p.abstract}</p>
-              {p.file_url && (
-                <a href={p.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4, marginTop: 8 }}>
-                  <FileText size={13} /> View manuscript
-                </a>
-              )}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 8 }}>
+                {p.file_url && (
+                  <a href={p.file_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileText size={13} /> View manuscript
+                  </a>
+                )}
+                {p.source_code_url && (
+                  <a href={p.source_code_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FolderOpen size={13} /> View source code
+                  </a>
+                )}
+                {p.ieee_paper_url && (
+                  <a href={p.ieee_paper_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileText size={13} /> View IEEE short paper
+                  </a>
+                )}
+              </div>
               <textarea
                 placeholder="Review notes (optional)"
                 value={notes[p.id] || ""}

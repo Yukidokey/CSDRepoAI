@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { Search as SearchIcon, FileSearch } from "lucide-react";
+import { Search as SearchIcon, FileSearch, FolderOpen } from "lucide-react";
 import Layout from "../components/Layout";
 import { PageHeader, EmptyState } from "../components/ui";
 import { searchResearch } from "../services/search";
-import { incrementDownloadCount } from "../services/research";
+import { getResearchFileUrls, incrementDownloadCount } from "../services/research";
 
 export default function Search() {
   const [query, setQuery] = useState("");
@@ -77,17 +77,41 @@ export default function Search() {
                 </span>
               ))}
             </div>
-            {r.file_url && (
-              <a
-                href={r.file_url}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => incrementDownloadCount(r.id)}
-                style={{ fontSize: 12.5, fontWeight: 600, marginTop: 10, display: "inline-block" }}
-              >
-                View document →
-              </a>
-            )}
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 10 }}>
+              {getResearchFileUrls(r.file_url).length > 0 && (
+                <a
+                  href={getResearchFileUrls(r.file_url)[0]}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => incrementDownloadCount(r.id)}
+                  style={{ fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  <FileSearch size={13} /> View manuscript
+                </a>
+              )}
+              {getResearchFileUrls(r.source_code_url).length > 0 && (
+                <a
+                  href={getResearchFileUrls(r.source_code_url)[0]}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => incrementDownloadCount(r.id)}
+                  style={{ fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  <FolderOpen size={13} /> View source code
+                </a>
+              )}
+              {getResearchFileUrls(r.ieee_paper_url).length > 0 && (
+                <a
+                  href={getResearchFileUrls(r.ieee_paper_url)[0]}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={() => incrementDownloadCount(r.id)}
+                  style={{ fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  <FileSearch size={13} /> View IEEE short paper
+                </a>
+              )}
+            </div>
           </div>
         ))}
       </div>

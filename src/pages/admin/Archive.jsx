@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { FileText, Archive as ArchiveIcon, Trash2 } from "lucide-react";
+import { FileText, FolderOpen, Archive as ArchiveIcon, Trash2 } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, EmptyState, StatGrid, StatCard } from "../../components/ui";
 import { deleteResearchPaper, getApprovedPapers, getResearchFileUrls, openResearchFile } from "../../services/research";
@@ -94,24 +94,46 @@ export default function Archive() {
                 <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ") || "—"}</td>
                 <td>{p.academic_year || "—"}</td>
                 <td>
-                  {getResearchFileUrls(p.file_url).length > 0 ? (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setFileError("");
-                        try {
-                          await openResearchFile(p);
-                        } catch (error) {
-                          setFileError(error.message);
-                        }
-                      }}
-                      style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                    >
-                      <FileText size={13} /> View research file
-                    </button>
-                  ) : (
-                    <span style={{ color: "var(--ink-300)" }}>—</span>
-                  )}
+                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                    {getResearchFileUrls(p.file_url).length > 0 ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          setFileError("");
+                          try {
+                            await openResearchFile(p);
+                          } catch (error) {
+                            setFileError(error.message);
+                          }
+                        }}
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
+                      >
+                        <FileText size={13} /> View manuscript
+                      </button>
+                    ) : (
+                      <span style={{ color: "var(--ink-300)" }}>—</span>
+                    )}
+                    {getResearchFileUrls(p.source_code_url).length > 0 && (
+                      <a
+                        href={getResearchFileUrls(p.source_code_url)[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}
+                      >
+                        <FolderOpen size={13} /> View source code
+                      </a>
+                    )}
+                    {getResearchFileUrls(p.ieee_paper_url).length > 0 && (
+                      <a
+                        href={getResearchFileUrls(p.ieee_paper_url)[0]}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}
+                      >
+                        <FileText size={13} /> View IEEE short paper
+                      </a>
+                    )}
+                  </div>
                 </td>
                 <td>
                   <button

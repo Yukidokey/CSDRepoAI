@@ -34,7 +34,6 @@ const NAV_ITEMS = {
   ],
   faculty: [
     { to: "/faculty", label: "Dashboard", end: true, icon: LayoutDashboard },
-    { to: "/faculty/my-submissions", label: "My Submissions", icon: FileText },
     { to: "/faculty/archive", label: "Research Archive", icon: ArchiveIcon },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/faculty/archive" },
     { to: "/faculty/search", label: "AI Search", icon: SearchIcon },

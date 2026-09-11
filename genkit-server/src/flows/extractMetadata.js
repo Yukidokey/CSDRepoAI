@@ -5,7 +5,7 @@ import { ai } from "../genkit.config.js";
 const outputSchema = z.object({
   title: z.string(),
   authors: z.array(z.string()),
-  adviser: z.string().nullable(),
+  adviser: z.string(),
   abstract: z.string(),
   keywords: z.array(z.string()),
 });
@@ -13,7 +13,7 @@ const outputSchema = z.object({
 export const extractMetadataFlow = ai.defineFlow(
   {
     name: "extractMetadata",
-    inputSchema: z.object({ documentText: z.string() }),
+    inputSchema: z.object({ documentText: z.string().min(1) }),
     outputSchema,
   },
   async ({ documentText }) => {
@@ -58,10 +58,7 @@ ${safeDocumentText}`;
       authors: Array.isArray(parsed.authors)
         ? parsed.authors.map((author) => String(author).trim()).filter(Boolean)
         : [],
-      adviser:
-        parsed.adviser === null || parsed.adviser === undefined
-          ? null
-          : String(parsed.adviser).trim() || null,
+      adviser: String(parsed.adviser || "").trim(),
       abstract: String(parsed.abstract || "").trim(),
       keywords: Array.isArray(parsed.keywords)
         ? parsed.keywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 8)

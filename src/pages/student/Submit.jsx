@@ -15,7 +15,7 @@ import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { submitResearch } from "../../services/research";
 import { searchResearch } from "../../services/search";
-import { analyzeResearchDocument, suggestMetadata } from "../../services/metadataSuggestions";
+import { analyzeResearchDocumentWithAI, suggestMetadata } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
 import { getAcademicYears } from "../../services/academicYears";
 
@@ -114,7 +114,7 @@ export default function Submit() {
     }
 
     try {
-      const analysis = await analyzeResearchDocument(file);
+      const analysis = await analyzeResearchDocumentWithAI(file);
       setForm((current) => ({
         ...current,
         title: analysis.title || current.title,

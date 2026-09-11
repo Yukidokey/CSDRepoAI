@@ -85,23 +85,6 @@ export async function analyzeResearchDocument(file) {
   const extracted = extractDocumentFields(documentText);
   const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
 
-  const aiMetadata = await extractMetadataWithAI(documentText);
-
-  if (aiMetadata) {
-    return {
-      title: aiMetadata.title || extracted.title,
-      authors: Array.isArray(aiMetadata.authors) ? aiMetadata.authors.join(", ") : "",
-      adviser: aiMetadata.adviser || "",
-      keywords: Array.isArray(aiMetadata.keywords) ? aiMetadata.keywords.join(", ") : extracted.keywords,
-      abstract: aiMetadata.abstract || abstract,
-      category: "Computer Studies",
-      sdgTags: [],
-      sdgNames: [],
-      extractedText: documentText,
-      sourceTextLength: documentText.length,
-    };
-  }
-
   const metadata = await maybeAnalyzeWithGenkit({
     title: extracted.title,
     abstract,
@@ -118,6 +101,47 @@ export async function analyzeResearchDocument(file) {
     category: metadata.category,
     sdgTags: metadata.sdgTags,
     sdgNames: metadata.sdgNames,
+    extractedText: documentText,
+    sourceTextLength: documentText.length,
+  };
+}
+
+export async function analyzeResearchDocumentWithAI(file) {
+  if (!file) return null;
+
+  const documentText = isDocx(file) ? await extractDocxText(file) : await extractPdfText(file);
+  const extracted = extractDocumentFields(documentText);
+  const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
+
+  if (!GENKIT_METADATA_URL) {
+    return analyzeResearchDocument(file);
+  }
+
+  const aiMetadata = await extractMetadataWithAI(documentText);
+
+  if (!aiMetadata) {
+    return analyzeResearchDocument(file);
+  }
+
+  const aiKeywords = Array.isArray(aiMetadata.keywords)
+    ? aiMetadata.keywords.join(", ")
+    : String(aiMetadata.keywords || extracted.keywords || "").trim();
+
+  const aiSuggestions = suggestMetadata({
+    title: aiMetadata.title || extracted.title,
+    abstract: aiMetadata.abstract || abstract,
+    keywords: aiKeywords,
+  });
+
+  return {
+    title: aiMetadata.title || extracted.title,
+    authors: Array.isArray(aiMetadata.authors) ? aiMetadata.authors.join(", ") : "",
+    adviser: aiMetadata.adviser || "",
+    keywords: aiKeywords || extracted.keywords,
+    abstract: aiMetadata.abstract || abstract,
+    category: aiSuggestions.category,
+    sdgTags: aiSuggestions.sdgTags,
+    sdgNames: aiSuggestions.sdgNames,
     extractedText: documentText,
     sourceTextLength: documentText.length,
   };

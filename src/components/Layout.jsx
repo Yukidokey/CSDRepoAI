@@ -36,6 +36,7 @@ const NAV_ITEMS = {
     { to: "/faculty/archive", label: "Research Archive", icon: ArchiveIcon },
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/faculty/archive" },
     { to: "/faculty/search", label: "AI Search", icon: SearchIcon },
+    { to: "/faculty/review", label: "Review & Approval", icon: ClipboardCheck },
     { to: "/faculty/analytics", label: "Research Analytics", icon: BarChart3 },
     { to: "/faculty/profile", label: "Profile", icon: User },
   ],

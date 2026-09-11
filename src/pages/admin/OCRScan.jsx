@@ -169,7 +169,7 @@ function handleFile(e) {
 
     setOcrText(text);
 
-    const extracted = extractMetadata(text);
+    const extracted = await extractMetadata(text);
     setMeta({
       title: extracted.title,
       authors: extracted.authors,

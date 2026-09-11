@@ -3,6 +3,7 @@ import { jsPDF } from "jspdf";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { supabase } from "../lib/supabaseClient";
+import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions";
 
 GlobalWorkerOptions.workerSrc = workerSrc;
 
@@ -312,38 +313,29 @@ async function uploadResearchPdf(files, { onProgress } = {}) {
  * It's a starting point, not a guarantee — the admin reviews and corrects
  * the fields before archiving (see OCRScan.jsx).
  */
-export function extractMetadata(rawText) {
-  const lines = rawText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(Boolean);
+export async function extractMetadata(rawText) {
+  const fallback = extractDocumentFields(rawText);
+  const aiMetadata = await extractMetadataWithAI(rawText);
 
-  const findAfterLabel = (labels) => {
-    for (const line of lines) {
-      for (const label of labels) {
-        const re = new RegExp(`^${label}\\s*[:\\-]\\s*(.+)`, "i");
-        const match = line.match(re);
-        if (match) return match[1].trim();
-      }
-    }
-    return "";
-  };
+  const authors = Array.isArray(aiMetadata?.authors) && aiMetadata.authors.length
+    ? aiMetadata.authors.join(", ")
+    : Array.isArray(fallback.authors) && fallback.authors.length
+      ? fallback.authors.join(", ")
+      : "";
 
-  // Title: usually the longest all-caps-ish line near the top of the page
-  const titleCandidate =
-    lines.slice(0, 12).find((l) => l.length > 15 && l === l.toUpperCase() && /[A-Z]/.test(l)) ||
-    lines.find((l) => l.length > 15) ||
-    "";
-
-  const abstractMatch = rawText.match(/abstract\s*[:\-]?\s*([\s\S]{0,900}?)(?:\n\s*\n|keywords?\s*[:\-]|chapter|introduction)/i);
+  const keywords = Array.isArray(aiMetadata?.keywords) && aiMetadata.keywords.length
+    ? aiMetadata.keywords.join(", ")
+    : typeof aiMetadata?.keywords === "string" && aiMetadata.keywords.trim()
+      ? aiMetadata.keywords
+      : fallback.keywords || "";
 
   return {
-    title: toTitleCase(titleCandidate),
-    authors: findAfterLabel(["by", "author(s)?", "researchers?", "proponents?"]),
-    adviser: findAfterLabel(["adviser", "advisor", "research adviser"]),
-    panelMembers: findAfterLabel(["panel members?", "panelists?", "committee"]),
-    abstract: abstractMatch ? abstractMatch[1].replace(/\s+/g, " ").trim() : "",
-    keywords: findAfterLabel(["keywords?"]),
+    title: aiMetadata?.title || fallback.title || "",
+    authors,
+    adviser: aiMetadata?.adviser || fallback.adviser || "",
+    panelMembers: "",
+    abstract: aiMetadata?.abstract || fallback.abstract || "",
+    keywords,
   };
 }
 

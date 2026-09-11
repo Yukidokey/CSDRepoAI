@@ -242,7 +242,7 @@ function isDocx(file) {
   return file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx$/i.test(file.name);
 }
 
-function extractDocumentFields(text) {
+export function extractDocumentFields(text) {
   if (!text) return { title: "", abstract: "", keywords: "", authors: [], adviser: "" };
 
   const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);

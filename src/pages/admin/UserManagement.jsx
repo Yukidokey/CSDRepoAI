@@ -17,6 +17,7 @@ export default function UserManagement() {
     full_name: "",
     role: "student",
     student_number: "",
+    faculty_number: "",
     program: "",
   });
   const [createError, setCreateError] = useState("");
@@ -83,6 +84,7 @@ export default function UserManagement() {
         full_name: "",
         role: "student",
         student_number: "",
+        faculty_number: "",
         program: "",
       });
       load();
@@ -157,6 +159,7 @@ export default function UserManagement() {
               <tr>
                 <th>Name</th>
                 <th>Student No.</th>
+                <th>Faculty No.</th>
                 <th>Role</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -172,6 +175,7 @@ export default function UserManagement() {
                     </div>
                   </td>
                   <td>{u.student_number || "—"}</td>
+                  <td>{u.faculty_number || "—"}</td>
                   <td>
                     <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)} className="input" style={{ padding: "5px 8px", fontSize: 12.5, width: "auto" }}>
                       <option value="student">Student</option>
@@ -302,6 +306,15 @@ export default function UserManagement() {
                   </select>
                 </Field>
               </>
+            )}
+            {newUser.role === "faculty" && (
+              <Field label="Faculty number">
+                <input
+                  className="input"
+                  value={newUser.faculty_number}
+                  onChange={(e) => setNewUser((prev) => ({ ...prev, faculty_number: e.target.value }))}
+                />
+              </Field>
             )}
             {createError && (
               <p className="auth-error" style={{ gridColumn: "1 / -1" }}>

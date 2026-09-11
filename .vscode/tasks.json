@@ -1,0 +1,250 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "build verification",
+			"type": "shell",
+			"command": "npm run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git status",
+			"type": "shell",
+			"command": "cmd /c \"cd /d c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3 && git status --short\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git status",
+			"type": "shell",
+			"command": "git status --short",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git status test",
+			"type": "shell",
+			"command": "cd /d c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3; git status --short",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git status",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git status --short",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git status check",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git status --short",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git commit and push",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git add src/pages/student/Submit.jsx src/services/metadataSuggestions.js; git commit -m \"Fix submit draft persistence and metadata title cleanup\"; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git commit and push",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git add -- 'src/pages/student/Submit.jsx' 'src/services/metadataSuggestions.js'; git commit -m \"Fix submit draft persistence and metadata title cleanup\"; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git add modified files",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git add -- src/pages/student/Submit.jsx src/services/metadataSuggestions.js",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git commit message",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m \"Fix submit draft persistence and metadata title cleanup\"",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit and push changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Fix-submit-draft-persistence-and-metadata-title-cleanup; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "vercel deploy",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit and push all changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git add -- src/pages/student/MySubmissions.jsx src/pages/student/Submit.jsx; git commit -m \"Show all submitted attachment links in student portal\"; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit and push all changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Show-all-submitted-attachment-links-in-student-portal; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "git status after edits",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git status --short",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit and push student attachment links",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Show-all-submitted-attachment-links-in-student-portal; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy latest changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit archive attachment links",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git add -- src/pages/Archive.jsx; git commit -m \"Show all archive attachment links\"; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit archive attachment links",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Show-all-archive-attachment-links; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit archive attachment links",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Show-all-archive-attachment-links; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit archive attachment links step 2",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Show-all-archive-attachment-links; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy archive attachment changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit role-wide attachment links",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git add -- src/pages/admin/Archive.jsx src/pages/admin/ReviewApproval.jsx src/pages/Search.jsx; git commit -m \"Expose all submitted attachment links across all roles\"; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit role-wide attachment links",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Expose-all-submitted-attachment-links-across-all-roles; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "commit role-wide attachment links final",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git commit -m Expose-all-submitted-attachment-links-across-all-roles; git push origin main",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy role-wide attachment changes",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "test task shell",
+			"type": "shell",
+			"command": "echo hi",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "inspect deployment tooling",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; node -v; npm -v; npx -v; Get-Command npx | Format-List *; Get-Command vercel -All | Format-Table Name,Source,CommandType -AutoSize",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "re-authenticate vercel cli",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel login",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy latest changes to vercel",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify build after analytics fix",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npm run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "redeploy analytics fix",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "verify separated identifier feature build",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npm run build",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "deploy separated identifier update",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; npx vercel --prod --yes",
+			"isBackground": false,
+			"problemMatcher": []
+		},
+		{
+			"label": "push latest changes to github",
+			"type": "shell",
+			"command": "Set-Location 'c:\\Users\\user\\OneDrive\\Documents\\csdrepoai_updated_v3'; git status; git add .; git commit -m \"Separate student and faculty identifier fields\"; git push",
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

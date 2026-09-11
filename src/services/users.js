@@ -28,11 +28,12 @@ export async function getUsers({ role } = {}) {
   return data || [];
 }
 
-export async function createUserAccount({ email, password, full_name, role, student_number, program }) {
+export async function createUserAccount({ email, password, full_name, role, student_number, faculty_number, program }) {
   const metadata = {
     full_name,
     role,
     student_number,
+    faculty_number,
     program,
   };
 

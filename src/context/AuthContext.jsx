@@ -209,7 +209,8 @@ export function AuthProvider({ children }) {
             email,
             full_name: fullName,
             role: normalizedRole,
-            student_number: studentNumber,
+            student_number: normalizedRole === "student" ? studentNumber : null,
+            faculty_number: normalizedRole === "faculty" ? studentNumber : null,
             program,
           });
 

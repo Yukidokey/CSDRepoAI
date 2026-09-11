@@ -78,7 +78,7 @@ export default function Archive() {
           </thead>
           <tbody>
             {records.map((p) => (
-              <tr key={p.id} onClick={() => incrementViewCount(p.id)} style={{ cursor: "pointer" }}>
+              <tr key={p.id}>
                 <td style={{ fontWeight: 600, maxWidth: 280 }}>{p.title}</td>
                 <td style={{ color: "var(--ink-500)" }}>{(p.authors || []).join(", ")}</td>
                 <td>{p.academic_year || "—"}</td>
@@ -106,7 +106,8 @@ export default function Archive() {
                           setFileError("");
                           try {
                             await openResearchFile(p);
-                            incrementDownloadCount(p.id);
+                            await incrementViewCount(p.id);
+                            await incrementDownloadCount(p.id);
                           } catch (error) {
                             setFileError(error.message);
                           }

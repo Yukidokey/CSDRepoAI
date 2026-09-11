@@ -11,6 +11,7 @@ export function buildProfileState(user, profileData = null) {
     full_name: profileData?.full_name || metadata.full_name || null,
     role: inferredRole,
     student_number: profileData?.student_number ?? null,
+    faculty_number: profileData?.faculty_number ?? null,
     program: profileData?.program ?? null,
   };
 }

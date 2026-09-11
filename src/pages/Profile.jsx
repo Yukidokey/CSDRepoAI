@@ -10,6 +10,7 @@ export default function Profile() {
     full_name: profile?.full_name || "",
     program: profile?.program || "",
     student_number: profile?.student_number || "",
+    faculty_number: profile?.faculty_number || "",
   });
   const [saved, setSaved] = useState(false);
 
@@ -44,6 +45,11 @@ export default function Profile() {
                 <input className="input" value={form.student_number} onChange={(e) => setForm((f) => ({ ...f, student_number: e.target.value }))} />
               </Field>
             </>
+          )}
+          {profile?.role === "faculty" && (
+            <Field label="Faculty number">
+              <input className="input" value={form.faculty_number} onChange={(e) => setForm((f) => ({ ...f, faculty_number: e.target.value }))} />
+            </Field>
           )}
           <Field label="Email">
             <input className="input" value={user?.email || ""} disabled style={{ color: "var(--ink-500)", background: "var(--surface-sunken)" }} />

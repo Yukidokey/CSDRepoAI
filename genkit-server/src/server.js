@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { semanticSearchFlow } from "./flows/semanticSearch.js";
 import { embedPaperFlow } from "./flows/embedPaper.js";
+import { metadataAnalysisFlow } from "./flows/metadataAnalysis.js";
 
 const app = express();
 app.use(cors());
@@ -54,6 +55,34 @@ app.post("/embed", async (req, res) => {
   } catch (error) {
     console.error("[genkit] /embed failed:", error);
     res.status(500).json({ error: error.message || "embedding failed" });
+  }
+});
+
+/**
+ * POST /metadata
+ * Body: { title, abstract, keywords, text }
+ * Uses Google Genkit + Gemini to generate research metadata for the
+ * student submission flow. Falls back to the existing local heuristic
+ * analysis if the Genkit endpoint is unavailable.
+ */
+app.post("/metadata", async (req, res) => {
+  const { title, abstract, keywords, text } = req.body || {};
+
+  if (!text || !text.trim()) {
+    return res.status(400).json({ error: "text is required" });
+  }
+
+  try {
+    const result = await metadataAnalysisFlow({
+      title: title || "",
+      abstract: abstract || "",
+      keywords: keywords || "",
+      text,
+    });
+    res.json(result);
+  } catch (error) {
+    console.error("[genkit] /metadata failed:", error);
+    res.status(500).json({ error: error.message || "metadata analysis failed" });
   }
 });
 

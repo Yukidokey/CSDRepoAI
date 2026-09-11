@@ -3,6 +3,8 @@ import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import workerSrc from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import mammoth from "mammoth/mammoth.browser";
 
+const GENKIT_METADATA_URL = import.meta.env.VITE_GENKIT_METADATA_URL;
+
 GlobalWorkerOptions.workerSrc = workerSrc;
 
 const TOPIC_RULES = [
@@ -57,10 +59,12 @@ export async function analyzeResearchDocument(file) {
   const documentText = isDocx(file) ? await extractDocxText(file) : await extractPdfText(file);
   const extracted = extractDocumentFields(documentText);
   const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
-  const metadata = suggestMetadata({
+
+  const metadata = await maybeAnalyzeWithGenkit({
     title: extracted.title,
     abstract,
     keywords: extracted.keywords,
+    text: documentText,
   });
 
   return {
@@ -72,6 +76,49 @@ export async function analyzeResearchDocument(file) {
     sdgNames: metadata.sdgNames,
     extractedText: documentText,
     sourceTextLength: documentText.length,
+  };
+}
+
+async function maybeAnalyzeWithGenkit({ title, abstract, keywords, text }) {
+  if (!GENKIT_METADATA_URL) {
+    return suggestMetadata({ title, abstract, keywords });
+  }
+
+  try {
+    const response = await fetch(GENKIT_METADATA_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title, abstract, keywords, text }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`metadata analysis request failed (${response.status})`);
+    }
+
+    const payload = await response.json();
+    return normalizeMetadataPayload(payload);
+  } catch (error) {
+    console.warn("Google Genkit metadata analysis unavailable, using local heuristic analysis.", error);
+    return suggestMetadata({ title, abstract, keywords });
+  }
+}
+
+function normalizeMetadataPayload(payload) {
+  const fallback = suggestMetadata({ title: payload?.title || "", abstract: payload?.abstract || "", keywords: payload?.keywords || "" });
+
+  return {
+    category: String(payload?.category || fallback.category).trim() || fallback.category,
+    keywords: Array.isArray(payload?.keywords)
+      ? payload.keywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 8)
+      : fallback.keywords,
+    sdgTags: Array.isArray(payload?.sdgTags)
+      ? payload.sdgTags.map((tag) => Number(tag)).filter((tag) => Number.isInteger(tag))
+      : fallback.sdgTags,
+    sdgNames: Array.isArray(payload?.sdgNames)
+      ? payload.sdgNames.map((name) => String(name).trim()).filter(Boolean)
+      : fallback.sdgNames,
   };
 }
 

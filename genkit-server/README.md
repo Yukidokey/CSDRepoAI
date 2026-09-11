@@ -63,6 +63,7 @@ In the project root `.env`:
 ```
 VITE_GENKIT_SEARCH_URL=http://localhost:8787/search
 VITE_GENKIT_EMBED_URL=http://localhost:8787/embed
+VITE_GENKIT_METADATA_URL=http://localhost:8787/metadata
 ```
 
 Restart the Vite dev server after changing `.env`. From here on:

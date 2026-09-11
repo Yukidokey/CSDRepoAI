@@ -42,7 +42,6 @@ export default function App() {
 
           {/* Faculty routes */}
           <Route path="/faculty" element={<ProtectedRoute allowedRoles={["faculty"]}><FacultyDashboard /></ProtectedRoute>} />
-          <Route path="/faculty/submit" element={<ProtectedRoute allowedRoles={["faculty"]}><Submit /></ProtectedRoute>} />
           <Route path="/faculty/my-submissions" element={<ProtectedRoute allowedRoles={["faculty"]}><MySubmissions /></ProtectedRoute>} />
           <Route path="/faculty/archive" element={<ProtectedRoute allowedRoles={["faculty"]}><Archive /></ProtectedRoute>} />
           <Route path="/faculty/search" element={<ProtectedRoute allowedRoles={["faculty"]}><Search /></ProtectedRoute>} />

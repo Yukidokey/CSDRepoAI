@@ -4,7 +4,6 @@ export async function getAcademicYears({ activeOnly = false } = {}) {
   let query = supabase
     .from("academic_years")
     .select("*")
-    .order("sort_order", { ascending: true, nullsFirst: false })
     .order("label", { ascending: true });
 
   if (activeOnly) {

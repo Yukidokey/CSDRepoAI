@@ -1,6 +1,30 @@
 import { supabase } from "../lib/supabaseClient";
 import { jsPDF } from "jspdf";
 
+function buildStoragePath(userId, file) {
+  const originalName = file?.name || "upload";
+  const lastDot = originalName.lastIndexOf(".");
+  const extension = lastDot >= 0 ? originalName.slice(lastDot) : "";
+  const baseName = lastDot >= 0 ? originalName.slice(0, lastDot) : originalName;
+
+  const sanitizedBase = baseName
+    .normalize("NFKD")
+    .replace(/[^\u0000-\u007F]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .trim();
+
+  const sanitizedExtension = extension
+    .normalize("NFKD")
+    .replace(/[^\u0000-\u007F]/g, "")
+    .replace(/[^a-zA-Z0-9.]+/g, "");
+
+  const sanitizedName = `${sanitizedBase || "file"}${sanitizedExtension || ""}`.slice(0, 180) || `upload${sanitizedExtension || ""}`;
+
+  return `${userId}/${Date.now()}_${sanitizedName}`;
+}
+
 /** Research Submission Module: student submits a new paper + files */
 export async function submitResearch({
   title,
@@ -42,7 +66,7 @@ export async function submitResearch({
     ieee_paper_url: ieeeFile,
   })) {
     if (!file) continue;
-    const path = `${userId}/${Date.now()}_${file.name}`;
+    const path = buildStoragePath(userId, file);
     const { error: uploadError } = await supabase.storage
       .from("research-files")
       .upload(path, file);

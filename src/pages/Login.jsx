@@ -183,20 +183,6 @@ export default function Login() {
         </header>
 
         <div className="auth-body">
-          <div className="auth-tabs" aria-label="Authentication mode">
-            <button
-              type="button"
-              className="auth-tab active"
-              onClick={() => {
-                setError("");
-                setInfo("");
-                setShowResetPrompt(false);
-              }}
-            >
-              Sign in
-            </button>
-          </div>
-
           <form onSubmit={handleSubmit} className="auth-form">
             <h2>{recoveryActive ? "Set a new password" : showResetPrompt ? "Reset your password" : "Sign in to your account"}</h2>
             <p className="auth-form-sub">

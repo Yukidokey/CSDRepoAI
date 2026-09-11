@@ -41,6 +41,10 @@ export async function scanDocument(imageFileOrUrl, onProgress) {
 }
 
 export async function expandUploadedFiles(files) {
+  return normalizeFilesForArchive(files);
+}
+
+async function normalizeFilesForArchive(files) {
   const expanded = [];
 
   for (const file of files || []) {
@@ -52,7 +56,10 @@ export async function expandUploadedFiles(files) {
     if (isPdfFile(file)) {
       const pdfPageFiles = await pdfFileToPageImageFiles(file);
       expanded.push(...pdfPageFiles);
+      continue;
     }
+
+    throw new Error("Document digitization requires scanned image files or PDF uploads.");
   }
 
   return expanded;
@@ -371,9 +378,11 @@ export async function digitizeAndArchive({
   adminId,
   onProgress,
 }) {
-  const filesToUpload = imageFiles?.length ? imageFiles : imageFile ? [imageFile] : [];
-  if (!filesToUpload.length || filesToUpload.some((file) => !file.type?.startsWith("image/"))) {
-    throw new Error("Document digitization accepts scanned image files only.");
+  const rawFiles = imageFiles?.length ? imageFiles : imageFile ? [imageFile] : [];
+  const filesToUpload = await normalizeFilesForArchive(rawFiles);
+
+  if (!filesToUpload.length) {
+    throw new Error("Document digitization requires at least one scanned image or PDF file.");
   }
 
   const actorId = adminId;

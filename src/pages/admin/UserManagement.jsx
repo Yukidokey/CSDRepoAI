@@ -14,7 +14,9 @@ export default function UserManagement() {
   const [newUser, setNewUser] = useState({
     email: "",
     password: "",
-    full_name: "",
+    first_name: "",
+    middle_name: "",
+    last_name: "",
     role: "student",
     student_number: "",
     faculty_number: "",
@@ -61,7 +63,7 @@ export default function UserManagement() {
     setCreateSuccess("");
     setCreating(true);
 
-    if (!newUser.email || !newUser.full_name) {
+    if (!newUser.email || !newUser.first_name || !newUser.last_name) {
       setCreateError("Please fill in the required fields.");
       setCreating(false);
       return;
@@ -81,7 +83,9 @@ export default function UserManagement() {
       setNewUser({
         email: "",
         password: "",
-        full_name: "",
+        first_name: "",
+        middle_name: "",
+        last_name: "",
         role: "student",
         student_number: "",
         faculty_number: "",
@@ -222,11 +226,26 @@ export default function UserManagement() {
               alignItems: "end",
             }}
           >
-            <Field label="Full name">
+            <Field label="First name">
               <input
                 className="input"
-                value={newUser.full_name}
-                onChange={(e) => setNewUser((prev) => ({ ...prev, full_name: e.target.value }))}
+                value={newUser.first_name}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, first_name: e.target.value }))}
+                required
+              />
+            </Field>
+            <Field label="Middle name">
+              <input
+                className="input"
+                value={newUser.middle_name}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, middle_name: e.target.value }))}
+              />
+            </Field>
+            <Field label="Last name">
+              <input
+                className="input"
+                value={newUser.last_name}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, last_name: e.target.value }))}
                 required
               />
             </Field>

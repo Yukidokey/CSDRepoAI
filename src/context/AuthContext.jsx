@@ -174,7 +174,7 @@ export function AuthProvider({ children }) {
     return { data, error, friendlyError: formatAuthError(error) };
   }
 
-  async function signUp({ email, password, fullName, role, studentNumber, program }) {
+  async function signUp({ email, password, fullName, firstName, middleName, lastName, role, studentNumber, program }) {
     const normalizedEmail = normalizeEmail(email);
     const passwordCheck = validatePassword(password);
     if (!passwordCheck.ok) {
@@ -182,6 +182,10 @@ export function AuthProvider({ children }) {
     }
 
     const normalizedRole = role === "faculty" ? "faculty" : "student";
+    const resolvedFirstName = firstName ?? (fullName ? fullName.trim().split(/\s+/)[0] || "" : "");
+    const resolvedMiddleName = middleName ?? "";
+    const resolvedLastName = lastName ?? (fullName ? fullName.trim().split(/\s+/).slice(1).join(" ") || "" : "");
+    const resolvedFullName = [resolvedFirstName, resolvedMiddleName, resolvedLastName].filter(Boolean).join(" ").trim();
 
     try {
       const { data, error } = await supabase.auth.signUp({
@@ -190,7 +194,10 @@ export function AuthProvider({ children }) {
         options: {
           emailRedirectTo: window.location.origin,
           data: {
-            full_name: fullName,
+            full_name: resolvedFullName,
+            first_name: resolvedFirstName,
+            middle_name: resolvedMiddleName,
+            last_name: resolvedLastName,
             role: normalizedRole,
           },
         },
@@ -207,7 +214,10 @@ export function AuthProvider({ children }) {
           .upsert({
             id: data.user.id,
             email,
-            full_name: fullName,
+            full_name: resolvedFullName,
+            first_name: resolvedFirstName,
+            middle_name: resolvedMiddleName,
+            last_name: resolvedLastName,
             role: normalizedRole,
             student_number: normalizedRole === "student" ? studentNumber : null,
             faculty_number: normalizedRole === "faculty" ? studentNumber : null,

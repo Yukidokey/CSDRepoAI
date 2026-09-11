@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Layout from "../components/Layout";
 import { PageHeader, Field } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
@@ -7,16 +7,30 @@ import { updateProfile } from "../services/users";
 export default function Profile() {
   const { profile, user } = useAuth();
   const [form, setForm] = useState({
-    full_name: profile?.full_name || "",
+    first_name: profile?.first_name || "",
+    middle_name: profile?.middle_name || "",
+    last_name: profile?.last_name || "",
     program: profile?.program || "",
     student_number: profile?.student_number || "",
     faculty_number: profile?.faculty_number || "",
   });
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    setForm({
+      first_name: profile?.first_name || "",
+      middle_name: profile?.middle_name || "",
+      last_name: profile?.last_name || "",
+      program: profile?.program || "",
+      student_number: profile?.student_number || "",
+      faculty_number: profile?.faculty_number || "",
+    });
+  }, [profile]);
+
   async function handleSave(e) {
     e.preventDefault();
-    await updateProfile(user.id, form);
+    const full_name = [form.first_name, form.middle_name, form.last_name].filter(Boolean).join(" ").trim();
+    await updateProfile(user.id, { ...form, full_name });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   }
@@ -33,8 +47,14 @@ export default function Profile() {
             <p>Update the details used across your research submissions.</p>
           </div>
           <form onSubmit={handleSave} className="profile-form">
-          <Field label="Full name">
-            <input className="input" value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
+          <Field label="First name">
+            <input className="input" value={form.first_name} onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))} />
+          </Field>
+          <Field label="Middle name">
+            <input className="input" value={form.middle_name} onChange={(e) => setForm((f) => ({ ...f, middle_name: e.target.value }))} />
+          </Field>
+          <Field label="Last name">
+            <input className="input" value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} />
           </Field>
           {profile?.role === "student" && (
             <>

@@ -8,6 +8,9 @@
 create table if not exists profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text not null,
+  first_name text,
+  middle_name text,
+  last_name text,
   role text not null check (role in ('student', 'faculty', 'admin')),
   student_number text,
   faculty_number text,
@@ -22,10 +25,33 @@ create table if not exists profiles (
 create or replace function handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, full_name, role, student_number, faculty_number, program)
+  insert into public.profiles (
+    id,
+    full_name,
+    first_name,
+    middle_name,
+    last_name,
+    role,
+    student_number,
+    faculty_number,
+    program
+  )
   values (
     new.id,
-    coalesce(new.raw_user_meta_data->>'full_name', new.email),
+    coalesce(
+      new.raw_user_meta_data->>'full_name',
+      trim(
+        concat_ws(
+          ' ',
+          coalesce(new.raw_user_meta_data->>'first_name', ''),
+          coalesce(new.raw_user_meta_data->>'middle_name', ''),
+          coalesce(new.raw_user_meta_data->>'last_name', '')
+        )
+      )
+    ),
+    new.raw_user_meta_data->>'first_name',
+    new.raw_user_meta_data->>'middle_name',
+    new.raw_user_meta_data->>'last_name',
     coalesce(new.raw_user_meta_data->>'role', 'student'),
     new.raw_user_meta_data->>'student_number',
     new.raw_user_meta_data->>'faculty_number',
@@ -35,6 +61,9 @@ begin
 end;
 $$ language plpgsql security definer;
 
+alter table if exists profiles add column if not exists first_name text;
+alter table if exists profiles add column if not exists middle_name text;
+alter table if exists profiles add column if not exists last_name text;
 alter table if exists profiles add column if not exists faculty_number text;
 
 drop trigger if exists on_auth_user_created on auth.users;

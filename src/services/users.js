@@ -28,13 +28,14 @@ export async function getUsers({ role } = {}) {
   return data || [];
 }
 
-export async function createUserAccount({ email, password, full_name, first_name, middle_name, last_name, role, student_number, faculty_number, program }) {
-  const resolvedFullName = [first_name, middle_name, last_name].filter(Boolean).join(" ").trim() || full_name || "";
+export async function createUserAccount({ email, password, full_name, first_name, middle_name, last_name, suffix, role, student_number, faculty_number, program }) {
+  const resolvedFullName = [first_name, middle_name, last_name, suffix].filter(Boolean).join(" ").trim() || full_name || "";
   const metadata = {
     full_name: resolvedFullName,
     first_name,
     middle_name,
     last_name,
+    suffix,
     role,
     student_number,
     faculty_number,

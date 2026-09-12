@@ -17,6 +17,7 @@ export default function UserManagement() {
     first_name: "",
     middle_name: "",
     last_name: "",
+    suffix: "",
     role: "student",
     student_number: "",
     faculty_number: "",
@@ -86,6 +87,7 @@ export default function UserManagement() {
         first_name: "",
         middle_name: "",
         last_name: "",
+        suffix: "",
         role: "student",
         student_number: "",
         faculty_number: "",
@@ -248,6 +250,20 @@ export default function UserManagement() {
                 onChange={(e) => setNewUser((prev) => ({ ...prev, last_name: e.target.value }))}
                 required
               />
+            </Field>
+            <Field label="Suffix">
+              <select
+                className="input"
+                value={newUser.suffix}
+                onChange={(e) => setNewUser((prev) => ({ ...prev, suffix: e.target.value }))}
+              >
+                <option value="">None</option>
+                <option value="Jr">Jr</option>
+                <option value="Sr">Sr</option>
+                <option value="II">II</option>
+                <option value="III">III</option>
+                <option value="IV">IV</option>
+              </select>
             </Field>
             <Field label="Email">
               <input

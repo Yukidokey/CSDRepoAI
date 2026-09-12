@@ -9,6 +9,7 @@ export function applyAuthenticatedSession({ session, user, setSession, setProfil
     first_name: user?.user_metadata?.first_name ?? null,
     middle_name: user?.user_metadata?.middle_name ?? null,
     last_name: user?.user_metadata?.last_name ?? null,
+    suffix: user?.user_metadata?.suffix ?? null,
     role: user?.user_metadata?.role ?? null,
     student_number: user?.user_metadata?.student_number ?? null,
     faculty_number: user?.user_metadata?.faculty_number ?? null,

@@ -10,6 +10,7 @@ export default function Profile() {
     first_name: profile?.first_name || "",
     middle_name: profile?.middle_name || "",
     last_name: profile?.last_name || "",
+    suffix: profile?.suffix || "",
     program: profile?.program || "",
     student_number: profile?.student_number || "",
     faculty_number: profile?.faculty_number || "",
@@ -21,6 +22,7 @@ export default function Profile() {
       first_name: profile?.first_name || "",
       middle_name: profile?.middle_name || "",
       last_name: profile?.last_name || "",
+      suffix: profile?.suffix || "",
       program: profile?.program || "",
       student_number: profile?.student_number || "",
       faculty_number: profile?.faculty_number || "",
@@ -29,7 +31,7 @@ export default function Profile() {
 
   async function handleSave(e) {
     e.preventDefault();
-    const full_name = [form.first_name, form.middle_name, form.last_name].filter(Boolean).join(" ").trim();
+    const full_name = [form.first_name, form.middle_name, form.last_name, form.suffix].filter(Boolean).join(" ").trim();
     await updateProfile(user.id, { ...form, full_name });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -55,6 +57,16 @@ export default function Profile() {
           </Field>
           <Field label="Last name">
             <input className="input" value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} />
+          </Field>
+          <Field label="Suffix">
+            <select className="input" value={form.suffix} onChange={(e) => setForm((f) => ({ ...f, suffix: e.target.value }))}>
+              <option value="">None</option>
+              <option value="Jr">Jr</option>
+              <option value="Sr">Sr</option>
+              <option value="II">II</option>
+              <option value="III">III</option>
+              <option value="IV">IV</option>
+            </select>
           </Field>
           {profile?.role === "student" && (
             <>

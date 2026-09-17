@@ -214,7 +214,7 @@ async function extractPdfText(file) {
   for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    pages.push(joinPdfTextItems(content.items));
+    pages.push(joinPdfTextItems(content.items, content.styles));
   }
 
   return pages.join("\n\n").trim();
@@ -282,26 +282,47 @@ function getItalicDocxParagraphs(html) {
   return italicLines;
 }
 
-function joinPdfTextItems(items) {
+function joinPdfTextItems(items, styles = {}) {
   const lines = [];
+  const maxFontSize = Math.max(...items.map((item) => getPdfFontSize(item)), 0);
   for (const item of items) {
     const text = item.str?.trim();
     if (!text) continue;
     const y = item.transform?.[5] ?? 0;
+    const fontSize = getPdfFontSize(item);
     const line = lines.find((candidate) => Math.abs(candidate.y - y) < 3);
     if (line) {
-      line.items.push({ x: item.transform?.[4] ?? 0, text });
+      line.items.push({ x: item.transform?.[4] ?? 0, text, width: item.width ?? 0, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) });
     } else {
-      lines.push({ y, items: [{ x: item.transform?.[4] ?? 0, text }] });
+      lines.push({ y, items: [{ x: item.transform?.[4] ?? 0, text, width: item.width ?? 0, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) }] });
     }
   }
 
   const joined = lines
     .sort((a, b) => b.y - a.y)
-    .map((line) => line.items.sort((a, b) => a.x - b.x).map((item) => item.text).join(" "))
+    .map((line) => {
+      const itemsInOrder = line.items.sort((a, b) => a.x - b.x);
+      const text = itemsInOrder.reduce((result, item, index) => {
+        if (index === 0) return item.text;
+        const previous = itemsInOrder[index - 1];
+        const gap = item.x - (previous.x + previous.width);
+        return `${result}${gap > 1 ? " " : ""}${item.text}`;
+      }, "");
+      return line.items.some((item) => item.bold) ? `__PDF_BOLD__${text}` : text;
+    })
     .join("\n");
 
   return collapseHyphenSpacing(joined);
+}
+
+function isPdfBoldItem(item, styles, fontSize, maxFontSize) {
+  const style = styles?.[item.fontName] || {};
+  const fontName = `${item.fontName || ""} ${style.fontFamily || ""}`;
+  return /bold|black|semibold|demi/i.test(fontName) || (maxFontSize > 0 && fontSize >= maxFontSize);
+}
+
+function getPdfFontSize(item) {
+  return Math.hypot(item.transform?.[0] ?? 0, item.transform?.[1] ?? 0);
 }
 
 function collapseHyphenSpacing(text) {
@@ -337,10 +358,17 @@ export function extractDocumentFields(text) {
 }
 
 function extractTitle(lines) {
-  const boldTitle = lines
+  const boldTitleIndex = lines
     .slice(0, 12)
-    .find((line) => line.startsWith("__DOCX_BOLD__") && !isDocumentHeading(cleanMetadataLine(line)));
-  if (boldTitle) return cleanMetadataLine(boldTitle);
+    .findIndex((line) => isBoldMetadataLine(line) && !isDocumentHeading(cleanMetadataLine(line)));
+  if (boldTitleIndex >= 0) {
+    const titleLines = [];
+    for (let index = boldTitleIndex; index < Math.min(lines.length, 12); index += 1) {
+      if (!isBoldMetadataLine(lines[index])) break;
+      titleLines.push(cleanMetadataLine(lines[index]));
+    }
+    if (titleLines.length > 0) return titleLines.join(" ").replace(/\s+/g, " ").trim();
+  }
 
   const titleIndex = lines.findIndex((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
   if (titleIndex >= 0) {
@@ -421,7 +449,7 @@ function extractAuthors(lines) {
   const labeledAuthors = extractLabeledAuthors(lines);
   if (labeledAuthors.length > 0) return labeledAuthors;
 
-  const titleIndex = lines.findIndex((line) => line.startsWith("__DOCX_BOLD__"));
+  const titleIndex = lines.findIndex((line) => isBoldMetadataLine(line));
   const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(cleanMetadataLine(line)));
   const authorStart = titleIndex >= 0 ? titleIndex + 1 : 0;
   const searchEnd = universityIndex > 0 ? universityIndex : Math.min(lines.length, 12);
@@ -449,7 +477,11 @@ function extractAuthors(lines) {
 }
 
 function cleanMetadataLine(line) {
-  return line.replace(/^__DOCX_(?:BOLD|ITALIC)__/, "").trim();
+  return line.replace(/^__(?:DOCX|PDF)_(?:BOLD|ITALIC)__/, "").trim();
+}
+
+function isBoldMetadataLine(line) {
+  return /^__(?:DOCX|PDF)_BOLD__/.test(line);
 }
 
 function extractLabeledAuthors(lines) {

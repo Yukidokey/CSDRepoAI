@@ -83,6 +83,19 @@ test('extractDocumentFields prioritizes the bold first-page title and reads up t
   assert.equal(fields.adviser, 'Vince Marc B. Sabado, MSIT');
 });
 
+test('extractDocumentFields uses PDF bold markers for multi-line titles', () => {
+  const fields = extractDocumentFields(`
+    __PDF_BOLD__DESIGN AND DEVELOPMENT OF A
+    __PDF_BOLD__CAMPUS RESEARCH REPOSITORY
+    Juan Dela Cruz
+    Maria Santos
+    Notre Dame of Marbel University
+  `);
+
+  assert.equal(fields.title, 'DESIGN AND DEVELOPMENT OF A CAMPUS RESEARCH REPOSITORY');
+  assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos']);
+});
+
 test('extractDocumentFields reads keywords from the Keywords line at the end of the abstract', () => {
   const fields = extractDocumentFields(`
     Abstract

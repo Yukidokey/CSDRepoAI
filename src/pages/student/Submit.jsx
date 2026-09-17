@@ -337,6 +337,7 @@ export default function Submit() {
     classification: sdgTags.length > 0 && form.keywords.trim().length > 0,
     files: Boolean(files.manuscript),
   };
+  const ieeeAttachmentOnly = Boolean(files.ieee && !files.manuscript);
 
   return (
     <Layout>
@@ -364,10 +365,10 @@ export default function Submit() {
                 <input className="input" value={form.title} onChange={update("title")} required />
               </Field>
               <Field label="Abstract">
-                <textarea className="input" value={form.abstract} onChange={update("abstract")} required rows={4} />
+                <textarea className="input" value={form.abstract} onChange={update("abstract")} required={!ieeeAttachmentOnly} rows={4} />
               </Field>
               <Field label="Authors (comma-separated)">
-                <input className="input" value={form.authors} onChange={update("authors")} required />
+                <input className="input" value={form.authors} onChange={update("authors")} required={!ieeeAttachmentOnly} />
               </Field>
               <Field label="Adviser">
                 <input className="input" value={form.adviser} onChange={update("adviser")} />
@@ -375,7 +376,7 @@ export default function Submit() {
 
               <div className="form-grid-2">
                 <Field label="Academic year">
-                  <select className="input" value={form.academicYear} onChange={update("academicYear")} required>
+                  <select className="input" value={form.academicYear} onChange={update("academicYear")} required={!ieeeAttachmentOnly}>
                     <option value="">Select academic year</option>
                     {academicYears.map((year) => (
                       <option key={year} value={year}>
@@ -394,7 +395,7 @@ export default function Submit() {
               </div>
 
               <Field label="Program">
-                <select className="input" value={form.program} onChange={update("program")} required>
+                <select className="input" value={form.program} onChange={update("program")} required={!ieeeAttachmentOnly}>
                   <option value="">Select program</option>
                   <option value="BSIT">Bachelor of Science in Information Technology (BSIT)</option>
                   <option value="BSCS">Bachelor of Science in Computer Science (BSCS)</option>
@@ -469,9 +470,9 @@ export default function Submit() {
                 <Dropzone
                   accept=".pdf,.docx"
                   file={files.manuscript}
-                  required
+                  required={!files.ieee}
                   onChange={handleManuscriptChange}
-                  hint="Full research paper, PDF or DOCX"
+                  hint="Full research paper, PDF or DOCX. Leave this empty to attach an IEEE version to an existing title."
                 />
               </Field>
               {documentAnalysis.status !== "idle" && (
@@ -493,7 +494,7 @@ export default function Submit() {
                   accept=".pdf"
                   file={files.ieee}
                   onChange={(file) => setFiles((f) => ({ ...f, ieee: file }))}
-                  hint="Optional — conference-format short paper"
+                  hint="Optional — upload with the same title to attach it to an existing research record"
                 />
               </Field>
               <Field label="ACM style paper (PDF)">

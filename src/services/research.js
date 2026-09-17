@@ -57,6 +57,36 @@ export async function submitResearch({
 
   if (titleCheckError) throw titleCheckError;
   if (existingTitle) {
+    if (ieeeFile && !manuscriptFile) {
+      const { data: ownedPaper, error: ownedPaperError } = await supabase
+        .from("research_papers")
+        .select("id")
+        .eq("id", existingTitle.id)
+        .eq("submitted_by", userId)
+        .maybeSingle();
+
+      if (ownedPaperError) throw ownedPaperError;
+      if (ownedPaper) {
+        const ieeeUrl = await uploadResearchAttachment(userId, ieeeFile);
+        const { data: attachedPaper, error: attachError } = await supabase
+          .from("research_papers")
+          .update({ ieee_paper_url: ieeeUrl })
+          .eq("id", ownedPaper.id)
+          .select()
+          .single();
+
+        if (attachError) throw attachError;
+
+        await supabase.from("submission_logs").insert({
+          paper_id: attachedPaper.id,
+          action: "attachment_added",
+          actor_id: userId,
+          detail: { attachment: "ieee_paper_url" },
+        });
+
+        return attachedPaper;
+      }
+    }
     throw new Error("A research paper with this title already exists. Please choose a different title.");
   }
 
@@ -115,6 +145,17 @@ export async function submitResearch({
   triggerEmbedding(data.id);
 
   return data;
+}
+
+async function uploadResearchAttachment(userId, file) {
+  const path = buildStoragePath(userId, file);
+  const { error: uploadError } = await supabase.storage
+    .from("research-files")
+    .upload(path, file);
+  if (uploadError) throw uploadError;
+
+  const { data: pub } = supabase.storage.from("research-files").getPublicUrl(path);
+  return pub.publicUrl;
 }
 
 /** Fire-and-forget: asks the Genkit server to embed a paper for semantic

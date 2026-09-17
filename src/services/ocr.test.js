@@ -68,14 +68,17 @@ test('extractDocumentFields supports labeled title and authors', () => {
 test('extractDocumentFields prioritizes the bold first-page title and reads up to four following authors', () => {
   const fields = extractDocumentFields(`
     __DOCX_BOLD__SMART CAMPUS RESEARCH REPOSITORY
-    Juan Dela Cruz
-    Maria Santos
-    Pedro Reyes
-    Ana Garcia
+    JUAN DELA CRUZ
+    MARIA SANTOS
+    PEDRO REYES
+    ANA GARCIA
     Notre Dame of Marbel University
     Bachelor of Science in Computer Science
+    __DOCX_BOLD__Vince Marc B. Sabado, MSIT
+    __DOCX_BOLD__Thesis Adviser
   `);
 
   assert.equal(fields.title, 'SMART CAMPUS RESEARCH REPOSITORY');
-  assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos', 'Pedro Reyes', 'Ana Garcia']);
+  assert.deepEqual(fields.authors, ['JUAN DELA CRUZ', 'MARIA SANTOS', 'PEDRO REYES', 'ANA GARCIA']);
+  assert.equal(fields.adviser, 'Vince Marc B. Sabado, MSIT');
 });

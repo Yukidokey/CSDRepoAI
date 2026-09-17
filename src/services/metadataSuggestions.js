@@ -291,11 +291,11 @@ export function extractDocumentFields(text) {
   const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
   const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(line));
   const keywordsIndex = lines.findIndex((line) => /^keywords?\s*[:\-]?/i.test(line));
-  const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(line));
+  const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
   const keywordsLine = extractKeywords(lines, keywordsIndex);
   const title = extractTitle(lines) || (titleLabel
-    ? titleLabel.replace(/^title\s*[:\-]?\s*/i, "").trim()
+    ? cleanMetadataLine(titleLabel).replace(/^title\s*[:\-]?\s*/i, "").trim()
     : "");
   const authors = extractAuthors(lines);
   const adviser = extractAdviser(lines);
@@ -305,7 +305,7 @@ export function extractDocumentFields(text) {
     authors,
     adviser,
     abstract,
-    keywords: keywordsLine.replace(/[.;]+$/, "").trim(),
+    keywords: cleanMetadataLine(keywordsLine).replace(/[.;]+$/, "").trim(),
   };
 }
 
@@ -315,11 +315,11 @@ function extractTitle(lines) {
     .find((line) => line.startsWith("__DOCX_BOLD__") && !isDocumentHeading(cleanMetadataLine(line)));
   if (boldTitle) return cleanMetadataLine(boldTitle);
 
-  const titleIndex = lines.findIndex((line) => /^title\s*[:\-]/i.test(line));
+  const titleIndex = lines.findIndex((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
   if (titleIndex >= 0) {
-    const inlineTitle = lines[titleIndex].replace(/^title\s*[:\-]?\s*/i, "").trim();
+    const inlineTitle = cleanMetadataLine(lines[titleIndex]).replace(/^title\s*[:\-]?\s*/i, "").trim();
     if (inlineTitle) return inlineTitle;
-    const nextTitleLine = lines[titleIndex + 1];
+    const nextTitleLine = cleanMetadataLine(lines[titleIndex + 1] || "");
     if (nextTitleLine && !isDocumentHeading(nextTitleLine)) return nextTitleLine;
   }
 
@@ -337,12 +337,13 @@ function extractSection(lines, startIndex, stopPatterns) {
   const content = [];
   for (let index = startIndex; index < lines.length; index += 1) {
     if (index === startIndex) {
-      const inline = lines[index].replace(/^(abstract|keywords?)\s*[:\-]?\s*/i, "");
+      const inline = cleanMetadataLine(lines[index]).replace(/^(abstract|keywords?)\s*[:\-]?\s*/i, "");
       if (inline) content.push(inline);
       continue;
     }
-    if (stopPatterns.some((pattern) => new RegExp(`^${pattern}\\b`, "i").test(lines[index]))) break;
-    content.push(lines[index]);
+    const line = cleanMetadataLine(lines[index]);
+    if (stopPatterns.some((pattern) => new RegExp(`^${pattern}\\b`, "i").test(line))) break;
+    content.push(line);
   }
   return content.join(" ").replace(/\s+/g, " ").trim();
 }
@@ -351,11 +352,11 @@ function extractKeywords(lines, startIndex) {
   if (startIndex < 0) return "";
 
   const values = [];
-  const firstValue = lines[startIndex].replace(/^keywords?\s*[:\-]?\s*/i, "").trim();
+  const firstValue = cleanMetadataLine(lines[startIndex]).replace(/^keywords?\s*[:\-]?\s*/i, "").trim();
   if (firstValue) values.push(firstValue);
 
   for (let index = startIndex + 1; index < lines.length && index <= startIndex + 3; index += 1) {
-    const line = lines[index];
+    const line = cleanMetadataLine(lines[index]);
     if (isDocumentHeading(line) || /^abstract\b/i.test(line)) break;
     values.push(line);
   }
@@ -403,8 +404,8 @@ function extractAuthors(lines) {
 
     if (!line || line.length > 60) continue;
     if (/^(abstract|keywords?|approval sheet|thesis adviser|panel chair|panel member|acknowledgement|dedication|chapter)\b/i.test(line)) break;
-    if (isInstitutionLine(line)) continue;
-    if (!isLikelyAuthorNameLine(line)) continue;
+    if (isInstitutionLine(line)) break;
+    if (!isAuthorCandidate(line)) continue;
 
     authors.push(line.trim());
   }
@@ -413,7 +414,7 @@ function extractAuthors(lines) {
 
   for (let index = searchEnd - 1; index >= 0 && authors.length < 4; index -= 1) {
     const line = cleanMetadataLine(lines[index]);
-    if (isLikelyAuthorNameLine(line)) authors.unshift(line);
+    if (isAuthorCandidate(line)) authors.unshift(line);
   }
 
   return authors;
@@ -435,8 +436,9 @@ function extractLabeledAuthors(lines) {
       authors.push(...splitPeople(match[2]));
     } else {
       for (let nextIndex = index + 1; nextIndex < lines.length && nextIndex < index + 7; nextIndex += 1) {
-        if (isInstitutionLine(lines[nextIndex]) || isDocumentHeading(lines[nextIndex])) break;
-        if (isLikelyAuthorNameLine(lines[nextIndex])) authors.push(lines[nextIndex]);
+        const line = cleanMetadataLine(lines[nextIndex]);
+        if (isInstitutionLine(line) || isDocumentHeading(line)) break;
+        if (isAuthorCandidate(line)) authors.push(line);
       }
     }
     break;
@@ -450,6 +452,18 @@ function splitPeople(value) {
     .split(/\s*(?:;|\||\band\b)\s*|\s*,\s*(?=[A-Z][a-z])/i)
     .map((author) => author.trim())
     .filter((author) => isLikelyAuthorNameLine(author));
+}
+
+function isAuthorCandidate(line) {
+  const candidate = cleanMetadataLine(line);
+  if (!candidate || candidate.length > 60 || isInstitutionLine(candidate)) return false;
+  if (/^(abstract|keywords?|title|authors?|researchers?|prepared by|by|approval sheet|thesis adviser|panel chair|panel member|chapter|introduction|background|methodology|references?)\b/i.test(candidate)) {
+    return false;
+  }
+
+  const words = candidate.replace(/[,:;]/g, "").split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 6) return false;
+  return words.every((word) => word.replace(/[^A-Za-z.'-]/g, "").length >= 2);
 }
 
 function isInstitutionLine(line) {
@@ -475,8 +489,8 @@ function isAllCapsLine(line) {
 
 function extractAdviser(lines) {
   for (let index = 0; index < lines.length - 1; index += 1) {
-    const line = lines[index];
-    const nextLine = lines[index + 1];
+    const line = cleanMetadataLine(lines[index]);
+    const nextLine = cleanMetadataLine(lines[index + 1] || "");
 
     if (line && /^thesis adviser$/i.test(nextLine || "")) {
       return line.trim();

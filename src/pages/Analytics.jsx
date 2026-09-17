@@ -5,8 +5,10 @@ import Layout from "../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../components/ui";
 import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../services/analytics";
 
-const PIE_COLORS = ["#1f3557", "#b38b52", "#2f6f6b", "#7d2f3b", "#6f7c52", "#4d6478", "#d97a4a"]; 
-const BAR_COLORS = { total: "#4a4f54", published: "#b38b52", program: "#5d6d7d", keyword: "#8a6a4a" };
+const PIE_COLORS = ["var(--analytics-pie-1)", "var(--analytics-pie-2)", "var(--analytics-pie-3)", "var(--analytics-pie-4)", "var(--analytics-pie-5)", "var(--analytics-pie-6)", "var(--analytics-pie-7)"];
+const BAR_COLORS = { total: "var(--analytics-total)", published: "var(--analytics-published)", program: "var(--analytics-program)", keyword: "var(--analytics-keyword)" };
+const TOOLTIP_STYLE = { fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-900)" };
+const LEGEND_STYLE = { fontSize: 12, color: "var(--ink-700)" };
 
 export default function Analytics() {
   const [data, setData] = useState(null);
@@ -67,8 +69,8 @@ export default function Analytics() {
           <BarChart data={data.byYear}>
             <XAxis dataKey="name" fontSize={11} stroke="var(--ink-500)" />
             <YAxis allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
-            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Legend wrapperStyle={LEGEND_STYLE} />
             <Bar dataKey="total" name="Total submitted" fill={BAR_COLORS.total} radius={[4, 4, 0, 0]} />
             <Bar dataKey="published" name="Published" fill={BAR_COLORS.published} radius={[4, 4, 0, 0]} />
           </BarChart>
@@ -84,7 +86,7 @@ export default function Analytics() {
             <BarChart data={data.byProgram}>
               <XAxis dataKey="name" fontSize={11} stroke="var(--ink-500)" />
               <YAxis allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
               <Bar dataKey="count" fill={BAR_COLORS.program} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -97,12 +99,12 @@ export default function Analytics() {
           ) : (
             <ResponsiveContainer width="100%" height={240}>
               <PieChart>
-                <Pie data={data.sdgCounts} dataKey="count" nameKey="sdg" outerRadius={85} label>
+                <Pie data={data.sdgCounts} dataKey="count" nameKey="sdg" outerRadius={85} label={{ fill: "var(--ink-700)", fontSize: 11 }}>
                   {data.sdgCounts.map((_, i) => (
                     <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -117,7 +119,7 @@ export default function Analytics() {
               <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <XAxis type="number" allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
                 <YAxis type="category" dataKey="keyword" width={180} fontSize={10.5} stroke="var(--ink-500)" />
-                <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
+                <Tooltip contentStyle={TOOLTIP_STYLE} />
                 <Bar dataKey="count" fill={BAR_COLORS.keyword} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>

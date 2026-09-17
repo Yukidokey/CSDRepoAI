@@ -2471,6 +2471,11 @@ table.table tbody tr:hover {
 [data-theme="dark"] .sidebar-link.active,
 [data-theme="dark"] .sidebar-sublink.active,
 [data-theme="dark"] .sidebar-group-toggle.active,
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .sidebar-sublink.active {
+  color: #fffaf0 !important;
+}
+
 [data-theme="dark"] .tag.selected,
 [data-theme="dark"] .sdg-chip.selected,
 [data-theme="dark"] .active-sdg-filter {
@@ -2484,7 +2489,7 @@ table.table tbody tr:hover {
 
 [data-theme="dark"] .sidebar-link.active svg,
 [data-theme="dark"] .sidebar-sublink.active svg {
-  color: #18201c !important;
+  color: #fffaf0 !important;
 }
 
 [data-theme="dark"] .sdg-chip.selected .sdg-chip-num {

@@ -21,11 +21,6 @@ import { SDG_LIST } from "../../lib/sdgList";
 import { wrapReceiptValue } from "../../lib/receiptFormatting";
 import { getAcademicYears } from "../../services/academicYears";
 
-const STORAGE_KEY = "csdrepoai-submit-research-draft";
-const FILE_DB_NAME = "csdrepoai-submit-research-files";
-const FILE_STORE_NAME = "files";
-const FILE_KEYS = ["manuscript", "sourceCode", "ieee", "acm", "apa"];
-
 function buildDefaultForm(profile) {
   return {
     title: "",
@@ -37,114 +32,6 @@ function buildDefaultForm(profile) {
     program: profile?.program || "",
     keywords: "",
   };
-}
-
-function getStoredDraft() {
-  if (typeof window === "undefined") {
-    return null;
-  }
-
-  try {
-    return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || "null");
-  } catch {
-    return null;
-  }
-}
-
-async function serializeFile(file) {
-  if (!file) return null;
-
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      resolve({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        lastModified: file.lastModified,
-        dataUrl: reader.result,
-      });
-    };
-
-    reader.onerror = () => reject(new Error("Unable to store uploaded file in browser memory."));
-    reader.readAsDataURL(file);
-  });
-}
-
-async function restoreFile(fileDescriptor) {
-  if (!fileDescriptor?.dataUrl) return null;
-
-  try {
-    const response = await fetch(fileDescriptor.dataUrl);
-    const blob = await response.blob();
-
-    return new File([blob], fileDescriptor.name, {
-      type: fileDescriptor.type,
-      lastModified: fileDescriptor.lastModified || Date.now(),
-    });
-  } catch {
-    return null;
-  }
-}
-
-function openFileDraftDb() {
-  return new Promise((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      reject(new Error("IndexedDB is unavailable."));
-      return;
-    }
-
-    const request = indexedDB.open(FILE_DB_NAME, 1);
-    request.onupgradeneeded = () => request.result.createObjectStore(FILE_STORE_NAME);
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error || new Error("Unable to open file draft storage."));
-  });
-}
-
-async function loadDraftFiles() {
-  const database = await openFileDraftDb();
-  try {
-    const transaction = database.transaction(FILE_STORE_NAME, "readonly");
-    const store = transaction.objectStore(FILE_STORE_NAME);
-    const records = await Promise.all(FILE_KEYS.map((key) => new Promise((resolve, reject) => {
-      const request = store.get(key);
-      request.onsuccess = () => resolve([key, request.result || null]);
-      request.onerror = () => reject(request.error);
-    })));
-
-    return Object.fromEntries(records.map(([key, record]) => [
-      key,
-      record?.blob
-        ? new File([record.blob], record.name, { type: record.type, lastModified: record.lastModified })
-        : null,
-    ]));
-  } finally {
-    database.close();
-  }
-}
-
-async function saveDraftFiles(files) {
-  const database = await openFileDraftDb();
-  try {
-    await new Promise((resolve, reject) => {
-      const transaction = database.transaction(FILE_STORE_NAME, "readwrite");
-      const store = transaction.objectStore(FILE_STORE_NAME);
-      FILE_KEYS.forEach((key) => {
-        const file = files[key];
-        if (file) {
-          store.put({ blob: file, name: file.name, type: file.type, lastModified: file.lastModified }, key);
-        } else {
-          store.delete(key);
-        }
-      });
-      transaction.oncomplete = resolve;
-      transaction.onerror = () => reject(transaction.error);
-      transaction.onabort = () => reject(transaction.error || new Error("Unable to save file draft."));
-    });
-  } finally {
-    database.close();
-  }
 }
 
 export default function Submit() {
@@ -160,7 +47,6 @@ export default function Submit() {
   const [documentAnalysis, setDocumentAnalysis] = useState({ status: "idle", message: "" });
   const [submittedPaper, setSubmittedPaper] = useState(null);
   const [academicYears, setAcademicYears] = useState([]);
-  const [draftHydrated, setDraftHydrated] = useState(false);
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })
@@ -175,97 +61,6 @@ export default function Submit() {
       program: current.program || profile?.program || "",
     }));
   }, [profile]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    async function hydrateDraft() {
-      const storedDraft = getStoredDraft();
-      if (!storedDraft) {
-        setDraftHydrated(true);
-        return;
-      }
-
-      let restoredFiles = null;
-      try {
-        restoredFiles = await loadDraftFiles();
-      } catch {
-        restoredFiles = null;
-      }
-
-      if (!restoredFiles || !Object.values(restoredFiles).some(Boolean)) {
-        restoredFiles = {
-          manuscript: storedDraft.files?.manuscript ? await restoreFile(storedDraft.files.manuscript) : null,
-          sourceCode: storedDraft.files?.sourceCode ? await restoreFile(storedDraft.files.sourceCode) : null,
-          ieee: storedDraft.files?.ieee ? await restoreFile(storedDraft.files.ieee) : null,
-          acm: storedDraft.files?.acm ? await restoreFile(storedDraft.files.acm) : null,
-          apa: storedDraft.files?.apa ? await restoreFile(storedDraft.files.apa) : null,
-        };
-      }
-
-      if (!isActive) return;
-
-      setForm({ ...buildDefaultForm(profile), ...(storedDraft.form || {}) });
-      setSdgTags(Array.isArray(storedDraft.sdgTags) ? storedDraft.sdgTags : []);
-      setFiles(restoredFiles);
-      setSuggestions(storedDraft.suggestions || null);
-      setDraftHydrated(true);
-    }
-
-    hydrateDraft();
-
-    return () => {
-      isActive = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!draftHydrated) return;
-
-    const storedDraft = getStoredDraft() || {};
-
-    sessionStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({
-        ...storedDraft,
-        files: undefined,
-        form,
-        sdgTags,
-        suggestions,
-      })
-    );
-  }, [form, sdgTags, suggestions, draftHydrated]);
-
-  useEffect(() => {
-    if (!draftHydrated) return;
-
-    let isActive = true;
-
-    async function persistFiles() {
-      try {
-        const storedDraft = getStoredDraft() || {};
-        await saveDraftFiles(files);
-
-        if (!isActive) return;
-
-        sessionStorage.setItem(
-          STORAGE_KEY,
-          JSON.stringify({
-            ...storedDraft,
-            files: undefined,
-          })
-        );
-      } catch (error) {
-        console.warn("Failed to persist draft files.", error);
-      }
-    }
-
-    persistFiles();
-
-    return () => {
-      isActive = false;
-    };
-  }, [files, draftHydrated]);
 
   // AI-Assisted Search Module: proactively surface similar existing studies
   // as the student types a title, so they can avoid duplicating a topic

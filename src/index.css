@@ -185,6 +185,34 @@ a {
   border-color: var(--brass-600);
 }
 
+.analytics-tooltip {
+  min-width: 112px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-900);
+  box-shadow: var(--shadow-md);
+  font-size: 12px;
+}
+
+.analytics-tooltip-label {
+  margin-bottom: 5px;
+  color: var(--ink-700);
+  font-weight: 600;
+}
+
+.analytics-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  color: var(--ink-700);
+}
+
+.analytics-tooltip-row strong {
+  color: var(--ink-900);
+}
+
 [data-theme="dark"] .sidebar {
   background: #08120d;
   border-right-color: #203328;

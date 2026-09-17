@@ -7,7 +7,6 @@ import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../serv
 
 const PIE_COLORS = ["var(--analytics-pie-1)", "var(--analytics-pie-2)", "var(--analytics-pie-3)", "var(--analytics-pie-4)", "var(--analytics-pie-5)", "var(--analytics-pie-6)", "var(--analytics-pie-7)"];
 const BAR_COLORS = { total: "var(--analytics-total)", published: "var(--analytics-published)", program: "var(--analytics-program)", keyword: "var(--analytics-keyword)" };
-const TOOLTIP_STYLE = { fontSize: 12, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-900)" };
 const LEGEND_STYLE = { fontSize: 12, color: "var(--ink-700)" };
 
 export default function Analytics() {
@@ -69,7 +68,7 @@ export default function Analytics() {
           <BarChart data={data.byYear}>
             <XAxis dataKey="name" fontSize={11} stroke="var(--ink-500)" />
             <YAxis allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-            <Tooltip contentStyle={TOOLTIP_STYLE} />
+            <Tooltip content={<AnalyticsTooltip />} />
             <Legend wrapperStyle={LEGEND_STYLE} />
             <Bar dataKey="total" name="Total submitted" fill={BAR_COLORS.total} radius={[4, 4, 0, 0]} />
             <Bar dataKey="published" name="Published" fill={BAR_COLORS.published} radius={[4, 4, 0, 0]} />
@@ -86,7 +85,7 @@ export default function Analytics() {
             <BarChart data={data.byProgram}>
               <XAxis dataKey="name" fontSize={11} stroke="var(--ink-500)" />
               <YAxis allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Tooltip content={<AnalyticsTooltip />} />
               <Bar dataKey="count" fill={BAR_COLORS.program} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -104,7 +103,7 @@ export default function Analytics() {
                     <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Tooltip content={<AnalyticsTooltip />} />
               </PieChart>
             </ResponsiveContainer>
           )}
@@ -119,7 +118,7 @@ export default function Analytics() {
               <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10, right: 20 }}>
                 <XAxis type="number" allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
                 <YAxis type="category" dataKey="keyword" width={180} fontSize={10.5} stroke="var(--ink-500)" />
-                <Tooltip contentStyle={TOOLTIP_STYLE} />
+                <Tooltip content={<AnalyticsTooltip />} />
                 <Bar dataKey="count" fill={BAR_COLORS.keyword} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
@@ -184,6 +183,22 @@ function SectionTitle({ children }) {
     <h2 style={{ fontSize: 13, fontFamily: "var(--font-mono)", letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--brass-700)", margin: "30px 0 14px" }}>
       {children}
     </h2>
+  );
+}
+
+function AnalyticsTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+
+  return (
+    <div className="analytics-tooltip">
+      {label && <div className="analytics-tooltip-label">{label}</div>}
+      {payload.map((entry) => (
+        <div key={entry.dataKey || entry.name} className="analytics-tooltip-row">
+          <span>{entry.name || entry.dataKey}</span>
+          <strong>{entry.value}</strong>
+        </div>
+      ))}
+    </div>
   );
 }
 

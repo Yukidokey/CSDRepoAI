@@ -25,7 +25,7 @@ function buildDefaultForm(profile) {
   return {
     title: "",
     abstract: "",
-    authors: profile?.full_name || "",
+    authors: "",
     adviser: "",
     academicYear: "",
     semester: "1st Semester",
@@ -57,7 +57,6 @@ export default function Submit() {
   useEffect(() => {
     setForm((current) => ({
       ...current,
-      authors: current.authors || profile?.full_name || "",
       program: current.program || profile?.program || "",
     }));
   }, [profile]);

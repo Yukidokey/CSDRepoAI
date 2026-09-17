@@ -98,6 +98,13 @@ function matches(text, terms) {
   return terms.some((term) => text.includes(term));
 }
 
+function isLikelyNonTitle(title, adviser = "") {
+  if (!title) return false;
+  const normalized = title.toLowerCase();
+  return /(bachelor of|university|college|institute|department of|school of)/i.test(title)
+    || Boolean(adviser && normalized.includes(adviser.toLowerCase()));
+}
+
 export function suggestMetadata({ title = "", abstract = "", keywords = "" }) {
   const source = normalize(`${title} ${abstract} ${keywords}`);
   const topicMatches = TOPIC_RULES.filter((rule) => matches(source, rule.terms));
@@ -131,8 +138,10 @@ export async function analyzeResearchDocument(file) {
     text: documentText,
   });
 
+  const title = isLikelyNonTitle(extracted.title, extracted.adviser) ? "" : extracted.title;
+
   return {
-    title: extracted.title,
+    title,
     authors: extracted.authors,
     adviser: extracted.adviser,
     keywords: extracted.keywords || metadata.keywords.join(", "),
@@ -174,8 +183,13 @@ export async function analyzeResearchDocumentWithAI(file) {
     keywords: aiKeywords,
   });
 
+  const localTitle = isLikelyNonTitle(extracted.title, extracted.adviser) ? "" : extracted.title;
+  const aiTitle = isLikelyNonTitle(aiMetadata.title, aiMetadata.adviser || extracted.adviser)
+    ? ""
+    : aiMetadata.title;
+
   return {
-    title: extracted.title || aiMetadata.title,
+    title: localTitle || aiTitle,
     authors: Array.isArray(aiMetadata.authors) && aiMetadata.authors.length
       ? aiMetadata.authors.join(", ")
       : extracted.authors.join(", "),

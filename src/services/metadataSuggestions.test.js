@@ -39,3 +39,17 @@ test('extractDocumentFields keeps complete wrapped titles for DOCX and PDF marke
   assert.equal(docxFields.title, 'A COMPLETE THESIS TITLE ABOUT RESEARCH AND DEVELOPMENT');
   assert.equal(pdfFields.title, 'A COMPLETE THESIS TITLE ABOUT RESEARCH AND DEVELOPMENT');
 });
+
+test('extractDocumentFields keeps institutional lines out of wrapped title candidates', () => {
+  const fields = extractDocumentFields(`
+    __DOCX_BOLD__A REAL RESEARCH TITLE ABOUT STUDENT SERVICES
+    Jane Doe
+    Notre Dame of Marbel University
+    Bachelor of Science in Information Technology
+    __DOCX_BOLD__Brenda M. Balala, MIT
+    __DOCX_BOLD__Thesis Adviser
+  `);
+
+  assert.equal(fields.title, 'A REAL RESEARCH TITLE ABOUT STUDENT SERVICES');
+  assert.deepEqual(fields.authors, ['Jane Doe']);
+});

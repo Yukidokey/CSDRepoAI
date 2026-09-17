@@ -55,6 +55,24 @@ This study presents a Tboli-to-English speech translation Android application us
   assert.equal(metadata.keywords, 'speech recognition; machine translation; Tboli-English');
 });
 
+test('extractMetadata reads panel members from the Page 2 Approval Sheet', async () => {
+  const metadata = await extractMetadata(`--- Page 1 ---
+END-TO-END SPEECH TRANSLATION
+Chrissandra Marchelle L. Bautista
+Notre Dame of Marbel University
+
+--- Page 2 ---
+Vince Marc B. Sabado, MSIT
+Thesis Adviser
+Maria Santos
+Panel Chair
+Juan Dela Cruz
+Panel Member
+`);
+
+  assert.equal(metadata.panelMembers, 'Maria Santos, Juan Dela Cruz');
+});
+
 test('extractDocumentFields does not use page-marker lines as title or author candidates', () => {
   const fields = extractDocumentFields(stripPageMarkers(fakeMultiPageText));
 

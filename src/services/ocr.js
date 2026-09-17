@@ -351,12 +351,13 @@ export async function extractMetadata(rawText) {
   const fallbackAbstract = String(fallback.abstract || "").trim();
   const aiAbstract = String(aiMetadata?.abstract || "").trim();
   const abstract = fallbackAbstract.length >= 80 ? fallbackAbstract : aiAbstract || fallbackAbstract;
+  const panelMembers = Array.isArray(fallback.panelMembers) ? fallback.panelMembers.join(", ") : "";
 
   return {
     title,
     authors,
     adviser: String(fallback.adviser || aiMetadata?.adviser || "").trim(),
-    panelMembers: "",
+    panelMembers,
     abstract,
     keywords,
   };

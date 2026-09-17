@@ -377,7 +377,7 @@ function isDocx(file) {
 }
 
 export function extractDocumentFields(text) {
-  if (!text) return { title: "", abstract: "", keywords: "", authors: [], adviser: "" };
+  if (!text) return { title: "", abstract: "", keywords: "", authors: [], adviser: "", panelMembers: [] };
 
   const lines = normalizeThesisBoilerplate(text)
     .split("\n")
@@ -391,11 +391,13 @@ export function extractDocumentFields(text) {
   const title = extractTitle(lines);
   const authors = extractAuthors(lines);
   const adviser = extractAdviser(lines);
+  const panelMembers = extractPanelMembers(lines);
 
   return {
     title,
     authors,
     adviser,
+    panelMembers,
     abstract,
     keywords: cleanMetadataLine(keywordsLine).replace(/[.;]+$/, "").trim(),
   };
@@ -729,6 +731,22 @@ function extractAdviser(lines) {
   }
 
   return "";
+}
+
+function extractPanelMembers(lines) {
+  const panelMembers = [];
+  const panelRolePattern = /^(?:panel\s*(?:chair|member)|chair(?:person)?\s*of\s*the\s*panel)$/i;
+  const inlinePanelPattern = /^(.*?)\s+(?:panel\s*(?:chair|member)|chair(?:person)?\s*of\s*the\s*panel)$/i;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = cleanMetadataLine(lines[index]);
+    const nextLine = cleanMetadataLine(lines[index + 1] || "");
+    const inlineMatch = line.match(inlinePanelPattern);
+    const name = panelRolePattern.test(nextLine) ? line : inlineMatch?.[1] || "";
+    if (name && isLikelyAuthorNameLine(name)) panelMembers.push(name.trim());
+  }
+
+  return [...new Set(panelMembers)];
 }
 
 function isLikelyAuthorLine(line) {

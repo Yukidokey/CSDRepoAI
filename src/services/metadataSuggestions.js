@@ -372,7 +372,7 @@ export function extractDocumentFields(text) {
     .flatMap((line) => splitConcatenatedNames(line).split("\n"))
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean);
-  const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(line));
+  const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(cleanMetadataLine(line)));
   const keywordsIndex = findKeywordsIndex(lines, abstractIndex);
   const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
@@ -486,7 +486,13 @@ function extractAuthors(lines) {
 
   const titleIndex = lines.findIndex((line) => isBoldMetadataLine(line));
   const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(cleanMetadataLine(line)));
-  const authorStart = titleIndex >= 0 ? titleIndex + 1 : 0;
+  let authorStart = 0;
+  if (titleIndex >= 0) {
+    authorStart = titleIndex + 1;
+    while (authorStart < lines.length && isBoldMetadataLine(lines[authorStart])) {
+      authorStart += 1;
+    }
+  }
   const searchEnd = universityIndex > 0 ? universityIndex : Math.min(lines.length, 12);
 
   const authors = [];

@@ -17,6 +17,8 @@ import {
   Target,
   ChevronDown,
   ClipboardList,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { SDG_LIST } from "../lib/sdgList";
@@ -66,6 +68,7 @@ export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({});
   const [logoutPending, setLogoutPending] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("csdrepoai-theme") === "dark");
   const items = NAV_ITEMS[role] || [];
   const initials = (profile?.full_name || "?")
     .split(" ")
@@ -87,6 +90,11 @@ export default function Layout({ children }) {
     };
   }, [menuOpen]);
 
+  useEffect(() => {
+    document.documentElement.dataset.theme = darkMode ? "dark" : "light";
+    localStorage.setItem("csdrepoai-theme", darkMode ? "dark" : "light");
+  }, [darkMode]);
+
   async function handleLogout() {
     setLogoutPending(true);
   }
@@ -104,6 +112,14 @@ export default function Layout({ children }) {
           <span className="mobile-topbar-title">CSDRepoAI</span>
         </div>
         <div className="mobile-topbar-actions">
+          <button
+            className="mobile-menu-btn"
+            onClick={() => setDarkMode((value) => !value)}
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+            title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
           <button
             className="mobile-menu-btn"
             onClick={handleLogout}
@@ -206,6 +222,15 @@ export default function Layout({ children }) {
             <span className="sidebar-user-avatar">{initials}</span>
             <span>{profile?.full_name}</span>
           </div>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={() => setDarkMode((value) => !value)}
+            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
+          >
+            {darkMode ? <Sun size={15} /> : <Moon size={15} />}
+            {darkMode ? "Light mode" : "Dark mode"}
+          </button>
           <button
             type="button"
             className="sidebar-logout"

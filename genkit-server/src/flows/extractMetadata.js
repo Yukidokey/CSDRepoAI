@@ -25,7 +25,7 @@ These documents follow a consistent structural convention that does NOT use expl
 Structural conventions to expect:
 
 TITLE PAGE (usually page 1):
-- The title appears as the first large block of text, often spanning 2-4 lines, with no "Title:" label preceding it.
+- The title appears as the first large block of text and often wraps across 2-4 consecutive lines due to page width — this is one continuous title, not separate lines or separate titles. You MUST join every line of this title block into a single string, in reading order, separated by a single space, before the author names begin. Do NOT return only the last line or a fragment of the title.
 - Immediately below the title, one or more author names appear, each typically on its own line, with NO "By:" or "Author(s):" prefix.
 - Below the authors, the university name and degree program usually appear.
 - An adviser's name sometimes appears near the bottom of this page, also unlabeled — but do not treat this as fully reliable; the Approval Sheet is the authoritative source for adviser identity.
@@ -49,6 +49,7 @@ Given the document text below, extract exactly these fields and return ONLY vali
 
 Rules:
 - "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
+- "title" must be the FULL title, reconstructed by concatenating all wrapped lines of the title block into one continuous string (joined with spaces, no line breaks). Never output a partial title consisting of only the final line — check that your extracted title captures the complete first sentence/phrase before the author names appear on the title page.
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
 - "authors" should only include the names credited as the researchers/writers of the thesis, listed on the title page — not the adviser, panel, or dean.
 - If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".

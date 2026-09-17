@@ -493,19 +493,56 @@ function isPageMarkerLine(line) {
 }
 
 function firstPageTitle(lines) {
+  const firstPageLines = getFirstPageLines(lines);
+  const inlineTitle = extractInlineFirstPageTitle(firstPageLines);
+  if (inlineTitle) return inlineTitle;
+
   const titleLines = [];
 
-  for (let index = 0; index < lines.length && index < 20; index += 1) {
-    const line = cleanMetadataLine(lines[index]).replace(/^(title\s*[:\-]?\s*)/i, "").trim();
+  for (let index = 0; index < firstPageLines.length && index < 20; index += 1) {
+    const line = cleanMetadataLine(firstPageLines[index]).replace(/^(title\s*[:\-]?\s*)/i, "").trim();
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
-    if (isTitlePageAuthorBoundary(lines, index)) break;
+    if (isTitlePageAuthorBoundary(firstPageLines, index)) break;
     if (titleLines.length > 0 && isInstitutionLine(line) && !isAllCapsLine(line)) break;
     titleLines.push(line);
   }
 
   return titleLines.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function getFirstPageLines(lines) {
+  const firstPage = [];
+  for (const line of lines) {
+    if (isPageMarkerLine(line) && /page\s+[2-9]\d*/i.test(line)) break;
+    firstPage.push(line);
+  }
+  return firstPage;
+}
+
+function extractInlineFirstPageTitle(lines) {
+  const contentLines = lines.filter((line) => !isPageMarkerLine(line));
+  if (contentLines[0]?.length <= 100) return "";
+
+  const pageText = contentLines
+    .map((line) => cleanMetadataLine(line))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!pageText) return "";
+
+  const institutionMatch = pageText.search(/\b(?:Notre Dame of Marbel University|University|College|Institute|Bachelor of|Master of)\b/i);
+  const titlePageText = institutionMatch >= 0 ? pageText.slice(0, institutionMatch).trim() : pageText;
+  if (!titlePageText || titlePageText.includes("\n")) return "";
+
+  const authorMatch = titlePageText.search(/\b(?!Pair\b|Language\b|Translation\b|Machine\b|Neural\b|Speech\b|Text\b|Low\b|Resource\b|End\b|the\b|for\b|and\b|of\b)[A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+[A-Z]\.\s+[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?/);
+  if (authorMatch > 0) {
+    const title = titlePageText.slice(0, authorMatch).trim();
+    if (title && !isDocumentHeading(title)) return title;
+  }
+
+  return "";
 }
 
 function isTitlePageAuthorBoundary(lines, index) {
@@ -523,12 +560,39 @@ function isTitlePageAuthorBoundary(lines, index) {
   return false;
 }
 
+function extractInlineFirstPageAuthors(lines, title) {
+  if (!title) return [];
+
+  const contentLines = getFirstPageLines(lines).filter((line) => !isPageMarkerLine(line));
+  if (contentLines[0]?.length <= 100) return [];
+
+  const pageText = contentLines
+    .map((line) => cleanMetadataLine(line))
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const titleEnd = pageText.indexOf(title);
+  if (titleEnd < 0) return [];
+
+  const afterTitle = pageText.slice(titleEnd + title.length);
+  const institutionMatch = afterTitle.search(/\b(?:Notre Dame of Marbel University|University|College|Institute|Bachelor of|Master of)\b/i);
+  const authorText = (institutionMatch >= 0 ? afterTitle.slice(0, institutionMatch) : afterTitle).trim();
+  const authors = splitConcatenatedNames(authorText)
+    .split("\n")
+    .map((line) => cleanMetadataLine(line).trim())
+    .filter((line) => isAuthorCandidate(line) || isLikelyAuthorNameLine(line));
+
+  return [...new Set(authors)].slice(0, 6);
+}
+
 function extractAuthors(lines) {
   const labeledAuthors = extractLabeledAuthors(lines);
   if (labeledAuthors.length > 0) return labeledAuthors;
 
   const titleIndex = lines.findIndex((line) => isBoldMetadataLine(line));
   const title = extractTitle(lines);
+  const inlineAuthors = extractInlineFirstPageAuthors(lines, title);
+  if (inlineAuthors.length > 0) return inlineAuthors;
   const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(cleanMetadataLine(line)));
   let authorStart = 0;
   if (titleIndex >= 0) {
@@ -627,7 +691,10 @@ function isAuthorCandidate(line) {
 
   const words = candidate.replace(/[,:;]/g, "").split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 6) return false;
-  return words.every((word) => word.replace(/[^A-Za-z.'-]/g, "").length >= 2);
+  return words.every((word) => {
+    const letters = word.replace(/[^A-Za-z.'-]/g, "");
+    return letters.length >= 2 || /^[A-Za-z]\.?$/.test(word);
+  });
 }
 
 function isInstitutionLine(line) {

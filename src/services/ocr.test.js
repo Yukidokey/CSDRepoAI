@@ -130,6 +130,21 @@ test('extractDocumentFields reads the complete transformer translation title and
   assert.equal(fields.keywords, 'speech recognition; machine translation; Tboli-English');
 });
 
+test('extractDocumentFields reads the title from a flattened Page 1 OCR line', () => {
+  const fields = extractDocumentFields(`
+    --- Page 1 ---
+    End-to-End Transformer-Based Speech-to-Text Neural Machine Translation for the Low-Resource Tboli-English Language Pair Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado Notre Dame of Marbel University Bachelor of Science in Computer Science Vince Marc B. Sabado, MSIT February 2026
+    --- Page 2 ---
+    Approval Sheet Vince Marc B. Sabado, MSIT Thesis Adviser
+  `);
+
+  assert.equal(
+    fields.title,
+    'End-to-End Transformer-Based Speech-to-Text Neural Machine Translation for the Low-Resource Tboli-English Language Pair'
+  );
+  assert.deepEqual(fields.authors, ['Chrissandra Marchelle L. Bautista', 'Crislyn Joy D. Delgado']);
+});
+
 test('extractDocumentFields prioritizes the bold first-page title and reads up to four following authors', () => {
   const fields = extractDocumentFields(`
     __DOCX_BOLD__SMART CAMPUS RESEARCH REPOSITORY

@@ -38,3 +38,29 @@ test('extractDocumentFields does not use page-marker lines as title or author ca
   assert.equal(fields.title.includes('---'), false);
   assert.equal(fields.authors.some((author) => author.includes('Page') || author.includes('---')), false);
 });
+
+test('extractDocumentFields separates a DOCX-style title page from authors and institution', () => {
+  const fields = extractDocumentFields(`
+    DESIGN AND DEVELOPMENT OF A CAMPUS RESEARCH REPOSITORY
+    Juan Dela Cruz
+    Maria Santos
+    Notre Dame of Marbel University
+    Bachelor of Science in Information Technology
+    Abstract
+    This study presents a research repository for organizing academic papers.
+  `);
+
+  assert.equal(fields.title, 'DESIGN AND DEVELOPMENT OF A CAMPUS RESEARCH REPOSITORY');
+  assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos']);
+});
+
+test('extractDocumentFields supports labeled title and authors', () => {
+  const fields = extractDocumentFields(`
+    Title: A Smart Campus Research System
+    Authors: Juan Dela Cruz; Maria Santos
+    Abstract: This study presents a smart campus research system.
+  `);
+
+  assert.equal(fields.title, 'A Smart Campus Research System');
+  assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos']);
+});

@@ -264,7 +264,7 @@ export function extractDocumentFields(text) {
   const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(line));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
   const keywordsLine = extractKeywords(lines, keywordsIndex);
-  const title = firstPageTitle(lines) || (titleLabel
+  const title = extractTitle(lines) || (titleLabel
     ? titleLabel.replace(/^title\s*[:\-]?\s*/i, "").trim()
     : "");
   const authors = extractAuthors(lines);
@@ -277,6 +277,24 @@ export function extractDocumentFields(text) {
     abstract,
     keywords: keywordsLine.replace(/[.;]+$/, "").trim(),
   };
+}
+
+function extractTitle(lines) {
+  const titleIndex = lines.findIndex((line) => /^title\s*[:\-]/i.test(line));
+  if (titleIndex >= 0) {
+    const inlineTitle = lines[titleIndex].replace(/^title\s*[:\-]?\s*/i, "").trim();
+    if (inlineTitle) return inlineTitle;
+    const nextTitleLine = lines[titleIndex + 1];
+    if (nextTitleLine && !isDocumentHeading(nextTitleLine)) return nextTitleLine;
+  }
+
+  const authorLabelIndex = lines.findIndex((line) => /^(authors?|researchers?|prepared by|by)\s*[:\-]?\s*/i.test(line));
+  if (authorLabelIndex > 0) {
+    const beforeAuthors = lines.slice(0, authorLabelIndex).filter((line) => !isPageMarkerLine(line));
+    if (beforeAuthors.length > 0) return beforeAuthors.slice(-3).join(" ").trim();
+  }
+
+  return firstPageTitle(lines);
 }
 
 function extractSection(lines, startIndex, stopPatterns) {
@@ -326,6 +344,7 @@ function firstPageTitle(lines) {
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
+    if (isLikelyAuthorNameLine(line) || (isInstitutionLine(line) && !isAllCapsLine(line))) break;
     if (line.length > 90) break;
 
     titleLines.push(line);
@@ -335,27 +354,76 @@ function firstPageTitle(lines) {
 }
 
 function extractAuthors(lines) {
-  const universityIndex = lines.findIndex((line) => /(university|college|institute|campus)/i.test(line));
-  if (universityIndex <= 0) return [];
+  const labeledAuthors = extractLabeledAuthors(lines);
+  if (labeledAuthors.length > 0) return labeledAuthors;
+
+  const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(line));
+  const searchEnd = universityIndex > 0 ? universityIndex : Math.min(lines.length, 12);
 
   const authors = [];
-  for (let index = universityIndex - 1; index >= 0; index -= 1) {
+  for (let index = searchEnd - 1; index >= 0; index -= 1) {
     const line = lines[index];
 
-    if (!line || line.length > 60) break;
+    if (!line || line.length > 60) continue;
     if (/^(abstract|keywords?|approval sheet|thesis adviser|panel chair|panel member|acknowledgement|dedication|chapter)\b/i.test(line)) break;
-    if (/(university|college|institute|campus|bachelor|bs\b|bsc\b|computer science|information technology|year|month|date)/i.test(line)) {
-      continue;
-    }
-    if (!isLikelyAuthorLine(line)) {
-      continue;
-    }
+    if (isInstitutionLine(line)) continue;
+    if (!isLikelyAuthorNameLine(line)) continue;
 
     authors.unshift(line.trim());
-    if (authors.length >= 3) break;
+    if (authors.length >= 6) break;
   }
 
   return authors;
+}
+
+function extractLabeledAuthors(lines) {
+  const authors = [];
+  const labelPattern = /^(authors?|researchers?|prepared by|by)\s*[:\-]?\s*(.*)$/i;
+
+  for (let index = 0; index < lines.length && index < 20; index += 1) {
+    const match = lines[index].match(labelPattern);
+    if (!match) continue;
+
+    if (match[2].trim()) {
+      authors.push(...splitPeople(match[2]));
+    } else {
+      for (let nextIndex = index + 1; nextIndex < lines.length && nextIndex < index + 7; nextIndex += 1) {
+        if (isInstitutionLine(lines[nextIndex]) || isDocumentHeading(lines[nextIndex])) break;
+        if (isLikelyAuthorNameLine(lines[nextIndex])) authors.push(lines[nextIndex]);
+      }
+    }
+    break;
+  }
+
+  return [...new Set(authors.map((author) => author.trim()).filter(Boolean))].slice(0, 6);
+}
+
+function splitPeople(value) {
+  return value
+    .split(/\s*(?:;|\||\band\b)\s*|\s*,\s*(?=[A-Z][a-z])/i)
+    .map((author) => author.trim())
+    .filter((author) => isLikelyAuthorNameLine(author));
+}
+
+function isInstitutionLine(line) {
+  return /(university|college|institute|campus|bachelor|bs\b|bsc\b|computer science|information technology|school of|department of|year|month|date)/i.test(line);
+}
+
+function isLikelyAuthorNameLine(line) {
+  if (!isLikelyAuthorLine(line) || isInstitutionLine(line)) return false;
+  if (isAllCapsLine(line)) return false;
+  if (/^(abstract|keywords?|title|approval sheet|thesis adviser|panel chair|panel member|chapter|introduction|background|methodology|references?)\b/i.test(line)) {
+    return false;
+  }
+
+  const words = line.replace(/[,:;]/g, "").split(/\s+/).filter(Boolean);
+  const nameLikeWords = words.filter((word) => /^[A-Z][A-Za-z.'-]*$/.test(word));
+  return nameLikeWords.length >= 2 || /\b[A-Z][a-z]+,\s*[A-Z]/.test(line);
+}
+
+function isAllCapsLine(line) {
+  const lettersOnly = line.replace(/[^A-Za-z]/g, "");
+  return Boolean(lettersOnly) && lettersOnly === lettersOnly.toUpperCase();
 }
 
 function extractAdviser(lines) {

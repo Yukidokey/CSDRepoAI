@@ -2466,3 +2466,28 @@ table.table tbody tr:hover {
     animation: none !important;
   }
 }
+
+/* Final dark-mode contrast overrides for selected navigation and filters. */
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .sidebar-sublink.active,
+[data-theme="dark"] .sidebar-group-toggle.active,
+[data-theme="dark"] .tag.selected,
+[data-theme="dark"] .sdg-chip.selected,
+[data-theme="dark"] .active-sdg-filter {
+  color: #18201c !important;
+}
+
+[data-theme="dark"] .active-sdg-filter button {
+  color: #18201c !important;
+  background: rgba(24, 32, 28, 0.14) !important;
+}
+
+[data-theme="dark"] .sidebar-link.active svg,
+[data-theme="dark"] .sidebar-sublink.active svg {
+  color: #18201c !important;
+}
+
+[data-theme="dark"] .sdg-chip.selected .sdg-chip-num {
+  color: #18201c !important;
+  background: rgba(24, 32, 28, 0.14) !important;
+}

@@ -63,7 +63,7 @@
   --analytics-keyword: #9a7652;
   --analytics-pie-1: #365b87;
   --analytics-pie-2: #b38b52;
-  --analytics-pie-3: #3f817e;
+  --analytics-pie-3: #b76558;
   --analytics-pie-4: #a55362;
   --analytics-pie-5: #7d9161;
   --analytics-pie-6: #63809b;
@@ -107,7 +107,7 @@
   --analytics-keyword: #d2a477;
   --analytics-pie-1: #78a9df;
   --analytics-pie-2: #e2b968;
-  --analytics-pie-3: #67c1b7;
+  --analytics-pie-3: #e58b7b;
   --analytics-pie-4: #e78b9c;
   --analytics-pie-5: #a9c982;
   --analytics-pie-6: #91b9d7;
@@ -211,6 +211,13 @@ a {
 
 .analytics-tooltip-row strong {
   color: var(--ink-900);
+}
+
+[data-theme="dark"] .analytics-tooltip,
+[data-theme="dark"] .analytics-tooltip-label,
+[data-theme="dark"] .analytics-tooltip-row,
+[data-theme="dark"] .analytics-tooltip-row strong {
+  color: #fffaf0;
 }
 
 [data-theme="dark"] .sidebar {

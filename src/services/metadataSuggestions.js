@@ -175,7 +175,7 @@ export async function analyzeResearchDocumentWithAI(file) {
   });
 
   return {
-    title: aiMetadata.title || extracted.title,
+    title: extracted.title || aiMetadata.title,
     authors: Array.isArray(aiMetadata.authors) && aiMetadata.authors.length
       ? aiMetadata.authors.join(", ")
       : extracted.authors.join(", "),

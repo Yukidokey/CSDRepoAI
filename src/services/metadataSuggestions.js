@@ -138,7 +138,7 @@ export async function analyzeResearchDocument(file) {
     text: documentText,
   });
 
-  const title = isLikelyNonTitle(extracted.title, extracted.adviser) ? "" : extracted.title;
+  const title = resolveDocumentTitle(extracted.title, file, extracted.adviser);
 
   return {
     title,
@@ -183,13 +183,11 @@ export async function analyzeResearchDocumentWithAI(file) {
     keywords: aiKeywords,
   });
 
-  const localTitle = isLikelyNonTitle(extracted.title, extracted.adviser) ? "" : extracted.title;
-  const aiTitle = isLikelyNonTitle(aiMetadata.title, aiMetadata.adviser || extracted.adviser)
-    ? ""
-    : aiMetadata.title;
+  const localTitle = resolveDocumentTitle(extracted.title, null, extracted.adviser);
+  const aiTitle = resolveDocumentTitle(aiMetadata.title, null, aiMetadata.adviser || extracted.adviser);
 
   return {
-    title: localTitle || aiTitle,
+    title: localTitle || aiTitle || titleFromFilename(file),
     authors: Array.isArray(aiMetadata.authors) && aiMetadata.authors.length
       ? aiMetadata.authors.join(", ")
       : extracted.authors.join(", "),
@@ -388,12 +386,9 @@ export function extractDocumentFields(text) {
     .filter(Boolean);
   const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(cleanMetadataLine(line)));
   const keywordsIndex = findKeywordsIndex(lines, abstractIndex);
-  const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
   const keywordsLine = extractKeywords(lines, keywordsIndex);
-  const title = extractTitle(lines) || (titleLabel
-    ? cleanMetadataLine(titleLabel).replace(/^title\s*[:\-]?\s*/i, "").trim()
-    : "");
+  const title = extractTitle(lines);
   const authors = extractAuthors(lines);
   const adviser = extractAdviser(lines);
 
@@ -407,6 +402,14 @@ export function extractDocumentFields(text) {
 }
 
 function extractTitle(lines) {
+  const titleIndex = lines.findIndex((line) => /^title\s*(?:[:\-].*|)$/i.test(cleanMetadataLine(line)));
+  if (titleIndex >= 0) {
+    const inlineTitle = cleanMetadataLine(lines[titleIndex]).replace(/^title\s*[:\-]?\s*/i, "").trim();
+    if (inlineTitle) return inlineTitle;
+    const nextTitleLine = cleanMetadataLine(lines[titleIndex + 1] || "");
+    if (nextTitleLine && !isDocumentHeading(nextTitleLine)) return nextTitleLine;
+  }
+
   const boldTitleIndex = lines
     .slice(0, 12)
     .findIndex((line) => isBoldMetadataLine(line) && !isDocumentHeading(cleanMetadataLine(line)));
@@ -419,14 +422,6 @@ function extractTitle(lines) {
     if (titleLines.length > 0) return titleLines.join(" ").replace(/\s+/g, " ").trim();
   }
 
-  const titleIndex = lines.findIndex((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
-  if (titleIndex >= 0) {
-    const inlineTitle = cleanMetadataLine(lines[titleIndex]).replace(/^title\s*[:\-]?\s*/i, "").trim();
-    if (inlineTitle) return inlineTitle;
-    const nextTitleLine = cleanMetadataLine(lines[titleIndex + 1] || "");
-    if (nextTitleLine && !isDocumentHeading(nextTitleLine)) return nextTitleLine;
-  }
-
   const authorLabelIndex = lines.findIndex((line) => /^(authors?|researchers?|prepared by|by)\s*[:\-]?\s*/i.test(line));
   if (authorLabelIndex > 0) {
     const beforeAuthors = lines.slice(0, authorLabelIndex).filter((line) => !isPageMarkerLine(line));
@@ -434,6 +429,26 @@ function extractTitle(lines) {
   }
 
   return firstPageTitle(lines);
+}
+
+function resolveDocumentTitle(title, file, adviser = "") {
+  const cleanedTitle = cleanMetadataLine(String(title || "")).replace(/\s+/g, " ").trim();
+  if (cleanedTitle && !isPlaceholderTitle(cleanedTitle) && !isLikelyNonTitle(cleanedTitle, adviser)) return cleanedTitle;
+  return file ? titleFromFilename(file) : "";
+}
+
+function isPlaceholderTitle(title) {
+  return /^(string|title|document|manuscript|research paper|untitled|unknown|n\/a|null|undefined)$/i.test(title.trim());
+}
+
+function titleFromFilename(file) {
+  const filename = String(file?.name || "")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[._+\-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!filename || /^(document|manuscript|research|thesis|paper|file|untitled)(\s*\d+)?$/i.test(filename)) return "";
+  return filename;
 }
 
 function extractSection(lines, startIndex, stopPatterns) {
@@ -480,18 +495,32 @@ function isPageMarkerLine(line) {
 function firstPageTitle(lines) {
   const titleLines = [];
 
-  for (let index = 0; index < lines.length && index < 8; index += 1) {
+  for (let index = 0; index < lines.length && index < 20; index += 1) {
     const line = cleanMetadataLine(lines[index]).replace(/^(title\s*[:\-]?\s*)/i, "").trim();
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
-    if (isLikelyAuthorNameLine(line) || (isInstitutionLine(line) && !isAllCapsLine(line))) break;
-    if (line.length > 90) break;
-
+    if (isTitlePageAuthorBoundary(lines, index)) break;
+    if (titleLines.length > 0 && isInstitutionLine(line) && !isAllCapsLine(line)) break;
     titleLines.push(line);
   }
 
   return titleLines.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function isTitlePageAuthorBoundary(lines, index) {
+  const line = cleanMetadataLine(lines[index]);
+  if (!isLikelyAuthorNameLine(line)) return false;
+  if (/\b(?:a|an|and|for|from|in|of|on|the|to|with)\b/i.test(line)) return false;
+
+  for (let nextIndex = index + 1; nextIndex <= index + 3 && nextIndex < lines.length; nextIndex += 1) {
+    const nextLine = cleanMetadataLine(lines[nextIndex]);
+    if (isInstitutionLine(nextLine) || /^(bachelor|master|bs\b|ms\b|approval sheet)\b/i.test(nextLine)) return true;
+    if (isLikelyAuthorNameLine(nextLine)) continue;
+    if (isDocumentHeading(nextLine)) break;
+  }
+
+  return false;
 }
 
 function extractAuthors(lines) {
@@ -499,6 +528,7 @@ function extractAuthors(lines) {
   if (labeledAuthors.length > 0) return labeledAuthors;
 
   const titleIndex = lines.findIndex((line) => isBoldMetadataLine(line));
+  const title = extractTitle(lines);
   const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(cleanMetadataLine(line)));
   let authorStart = 0;
   if (titleIndex >= 0) {
@@ -506,6 +536,10 @@ function extractAuthors(lines) {
     while (authorStart < lines.length && isBoldMetadataLine(lines[authorStart])) {
       authorStart += 1;
     }
+  }
+  if (authorStart === 0) {
+    const titleEndIndex = findTitleEndIndex(lines, title);
+    if (titleEndIndex > 0) authorStart = titleEndIndex;
   }
   const searchEnd = universityIndex > 0 ? universityIndex : Math.min(lines.length, 12);
 
@@ -529,6 +563,21 @@ function extractAuthors(lines) {
   }
 
   return authors;
+}
+
+function findTitleEndIndex(lines, title) {
+  if (!title) return -1;
+
+  let combined = "";
+  for (let index = 0; index < Math.min(lines.length, 20); index += 1) {
+    const line = cleanMetadataLine(lines[index]);
+    if (isPageMarkerLine(line)) continue;
+    combined = `${combined} ${line}`.trim();
+    if (combined === title) return index + 1;
+    if (!title.startsWith(combined)) return -1;
+  }
+
+  return -1;
 }
 
 function cleanMetadataLine(line) {
@@ -626,7 +675,7 @@ function isLikelyAuthorLine(line) {
 
   return words.every((word) => {
     const letters = word.replace(/[^A-Za-z]/g, "");
-    return letters.length >= 2 && /[A-Za-z]{2,}/.test(letters);
+    return (letters.length >= 2 || /^[A-Za-z]\.?$/.test(word)) && /[A-Za-z]{1,}/.test(letters);
   });
 }
 

@@ -69,6 +69,67 @@ test('extractDocumentFields supports labeled title and authors', () => {
   assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos']);
 });
 
+test('extractDocumentFields gives an explicit Title heading priority over other cover text', () => {
+  const fields = extractDocumentFields(`
+    __DOCX_BOLD__Notre Dame of Marbel University
+    Title
+    A Smart Campus Research System
+    Juan Dela Cruz
+    Notre Dame of Marbel University
+  `);
+
+  assert.equal(fields.title, 'A Smart Campus Research System');
+});
+
+test('extractDocumentFields keeps a long unmarked title from the first page', () => {
+  const fields = extractDocumentFields(`
+    DEVELOPMENT OF A MOBILE APPLICATION FOR FINANCIAL TRANSPARENCY, ACCOUNTABILITY, PAYMENT TRACKING, AND STUDENT ORGANIZATION MANAGEMENT
+    Khryz Ervyn L. Carreon
+    Notre Dame of Marbel University
+  `);
+
+  assert.equal(
+    fields.title,
+    'DEVELOPMENT OF A MOBILE APPLICATION FOR FINANCIAL TRANSPARENCY, ACCOUNTABILITY, PAYMENT TRACKING, AND STUDENT ORGANIZATION MANAGEMENT'
+  );
+});
+
+test('extractDocumentFields preserves wrapped title-case titles before authors and institution', () => {
+  const fields = extractDocumentFields(`
+    Development of a Mobile Application
+    for Financial Transparency and Payment Tracking
+    Khryz Ervyn L. Carreon
+    Notre Dame of Marbel University
+  `);
+
+  assert.equal(
+    fields.title,
+    'Development of a Mobile Application for Financial Transparency and Payment Tracking'
+  );
+  assert.deepEqual(fields.authors, ['Khryz Ervyn L. Carreon']);
+});
+
+test('extractDocumentFields reads the complete transformer translation title and all title-page authors', () => {
+  const fields = extractDocumentFields(`
+    End-to-End Transformer-Based Speech-to-Text Neural Machine Translation
+    for the Low-Resource Tboli-English Language Pair
+    Chrissandra Marchelle L. Bautista
+    Crislyn Joy D. Delgado
+    Notre Dame of Marbel University
+    Bachelor of Science in Information Technology
+    Abstract
+    This study presents the development of a Tboli-to-English speech translation Android application.
+    Keywords: speech recognition; machine translation; Tboli-English
+  `);
+
+  assert.equal(
+    fields.title,
+    'End-to-End Transformer-Based Speech-to-Text Neural Machine Translation for the Low-Resource Tboli-English Language Pair'
+  );
+  assert.deepEqual(fields.authors, ['Chrissandra Marchelle L. Bautista', 'Crislyn Joy D. Delgado']);
+  assert.equal(fields.keywords, 'speech recognition; machine translation; Tboli-English');
+});
+
 test('extractDocumentFields prioritizes the bold first-page title and reads up to four following authors', () => {
   const fields = extractDocumentFields(`
     __DOCX_BOLD__SMART CAMPUS RESEARCH REPOSITORY

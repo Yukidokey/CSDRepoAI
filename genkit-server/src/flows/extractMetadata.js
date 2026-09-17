@@ -17,8 +17,10 @@ export const extractMetadataFlow = ai.defineFlow(
     outputSchema,
   },
   async ({ documentText }) => {
-    const safeDocumentText = documentText.slice(0, 12000);
-    const prompt = `You are extracting metadata from a Philippine university thesis or capstone document.
+    const safeDocumentText = buildMetadataContext(documentText);
+    const prompt = `You are extracting metadata from OCR output of a Philippine university thesis or capstone document.
+
+The OCR may contain spelling mistakes, misplaced line breaks, duplicated lines, and sections that are out of visual order. The OCR is organized below into labeled sections: the document start, an approval-sheet section when found, and an abstract-plus-keywords section when found. These labels are instructions only and must never appear in the extracted output.
 
 These documents follow a consistent structural convention that does NOT use explicit field labels for most fields. Identify fields by their position and role, not by searching for labels such as "Title:" or "Author:".
 
@@ -29,14 +31,17 @@ TITLE PAGE (usually page 1):
 - Immediately below the title, one or more author names appear, each typically on its own line, with NO "By:" or "Author(s):" prefix.
 - Below the authors, the university name and degree program usually appear.
 - An adviser's name sometimes appears near the bottom of this page, also unlabeled — but do not treat this as fully reliable; the Approval Sheet is the authoritative source for adviser identity.
+- The title MUST be drawn only from the DOCUMENT START section. Never use text from the approval-sheet or abstract sections as the title.
+- Never mistake a body-text sentence about weeks, timelines, ethics review, data collection procedures, methodology, or a data collection plan for the title. If the top of the document appears procedural, keep looking earlier in the DOCUMENT START section; if no credible title-page title is present, return an empty title instead of substituting unrelated body text.
 
 APPROVAL SHEET (usually page 2, titled "Approval Sheet"):
-- This page lists names followed immediately below (or beside) each name by a role caption, not a label before the name. Look for this exact pattern: a person's name on one line, and the words "Thesis Adviser" on the line directly after it — that name is the adviser.
+- This page lists names followed immediately below (or beside) each name by a role caption, not a label before the name. Use fuzzy OCR-tolerant matching for captions such as "Thesis Adviser", "Thesis Advisor", "Thesis Advis0r", or similar spacing/spelling variants. The name attached to that caption is the adviser, and this section is authoritative over the title page.
 - Similarly, a name followed by "Panel Chair" or "Panel Member" identifies committee members — do NOT confuse these with the adviser.
 
 ABSTRACT:
 - Usually appears on its own page headed by the standalone word "Abstract" (no colon). The abstract text follows as one or more paragraphs.
-- Immediately after the abstract paragraph(s), a line beginning with "Keywords:" lists the keywords, typically separated by semicolons.
+- Immediately after the abstract paragraph(s), a line beginning with "Keywords:" lists the keywords, typically separated by semicolons. Also accept OCR variants such as "Key words", a same-line label and list, and italic- or asterisk-wrapped labels such as "*Keywords:*".
+- If the OCR repeats or overlaps sentences or paragraphs in the abstract, deduplicate them and return one coherent abstract.
 
 Given the document text below, extract exactly these fields and return ONLY valid JSON matching this shape:
 {
@@ -51,7 +56,7 @@ Rules:
 - "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
 - "title" must be the FULL title, reconstructed by concatenating all wrapped lines of the title block into one continuous string (joined with spaces, no line breaks). Never output a partial title consisting of only the final line — check that your extracted title captures the complete first sentence/phrase before the author names appear on the title page.
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
-- "authors" should only include the names credited as the researchers/writers of the thesis, listed on the title page — not the adviser, panel, or dean.
+- "authors" must include ALL names credited as the researchers/writers of the thesis on the title page, not just the first name — not the adviser, panel, or dean.
 - If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".
 - If a field cannot be confidently identified, return an empty string (or empty array for authors/keywords) rather than guessing.
 - Split "keywords" on semicolons or commas into an array of individual terms.
@@ -89,6 +94,25 @@ ${safeDocumentText}`;
     };
   }
 );
+
+export function buildMetadataContext(documentText) {
+  const text = String(documentText || "");
+  const head = text.slice(0, 6000);
+  const rest = text.slice(6000);
+  const sections = [`[DOCUMENT START]\n${head}`];
+
+  const approvalMatch = rest.match(/thesis\s+advis(?:e|o)r|approval\s+sheet/i);
+  if (approvalMatch) {
+    sections.push(`[APPROVAL SHEET SECTION]\n${rest.slice(approvalMatch.index, approvalMatch.index + 4000)}`);
+  }
+
+  const abstractMatch = rest.match(/\babstract\b/i);
+  if (abstractMatch) {
+    sections.push(`[ABSTRACT + KEYWORDS SECTION]\n${rest.slice(abstractMatch.index, abstractMatch.index + 4000)}`);
+  }
+
+  return sections.join("\n\n").slice(0, 20000);
+}
 
 export async function extractMetadata(documentText) {
   return extractMetadataFlow({ documentText });

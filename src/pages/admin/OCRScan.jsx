@@ -57,6 +57,7 @@ export default function OCRScan() {
   const [previewZoom, setPreviewZoom] = useState(1);
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [academicYears, setAcademicYears] = useState([]);
+  const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -85,15 +86,20 @@ async function loadFiles(list) {
   const selected = Array.from(list || []);
   if (!selected.length) return;
 
-  const expandedFiles = await expandUploadedFiles(selected);
-  if (!expandedFiles.length) return;
+  setUploadError("");
+  try {
+    const expandedFiles = await expandUploadedFiles(selected);
+    if (!expandedFiles.length) throw new Error("No readable pages were found in the selected file.");
 
-  setFiles((prev) => [...prev, ...expandedFiles]);
-  setPreviews((prev) => [...prev, ...expandedFiles.map((file) => URL.createObjectURL(file))]);
-  setOcrText("");
-  setStep("idle");
-  setDonePages(0);
-  setCurrentPage(1);
+    setFiles((prev) => [...prev, ...expandedFiles]);
+    setPreviews((prev) => [...prev, ...expandedFiles.map((file) => URL.createObjectURL(file))]);
+    setOcrText("");
+    setStep("idle");
+    setDonePages(0);
+    setCurrentPage(1);
+  } catch (error) {
+    setUploadError(error.message || "Could not read that file. Please choose a PDF or image file.");
+  }
 }
 
 function handleFile(e) {
@@ -155,32 +161,38 @@ function handleFile(e) {
   async function handleScan() {
     if (!files.length) return;
     setStep("scanning");
+    setUploadError("");
     setProgress(0);
     setDonePages(0);
     setTotalPages(files.length);
     setCurrentPage(1);
 
-    const { text, pages } = await scanDocuments(files, (pageProgress, page, total) => {
-      setCurrentPage(page);
-      setTotalPages(total);
-      setProgress(pageProgress);
-      if (pageProgress >= 1) setDonePages(page);
-    });
+    try {
+      const { text } = await scanDocuments(files, (pageProgress, page, total) => {
+        setCurrentPage(page);
+        setTotalPages(total);
+        setProgress(pageProgress);
+        if (pageProgress >= 1) setDonePages(page);
+      });
 
-    setOcrText(text);
+      setOcrText(text);
 
-    const extracted = await extractMetadata(text);
-    setMeta({
-      title: extracted.title,
-      authors: extracted.authors,
-      academicYear: "",
-      adviser: extracted.adviser,
-      panelMembers: extracted.panelMembers,
-      abstract: extracted.abstract,
-      keywords: extracted.keywords,
-    });
+      const extracted = await extractMetadata(text);
+      setMeta({
+        title: extracted.title,
+        authors: extracted.authors,
+        academicYear: "",
+        adviser: extracted.adviser,
+        panelMembers: extracted.panelMembers,
+        abstract: extracted.abstract,
+        keywords: extracted.keywords,
+      });
 
-    setStep("scanned");
+      setStep("scanned");
+    } catch (error) {
+      setStep("idle");
+      setUploadError(error.message || "OCR could not read the selected document. Please try again.");
+    }
   }
 
   async function handleArchive(e) {
@@ -280,6 +292,12 @@ function handleFile(e) {
                 <UploadCloud size={14} /> Select files
               </button>
             </>
+          )}
+
+          {uploadError && (
+            <p className="auth-error" role="alert" style={{ marginTop: 12 }}>
+              {uploadError}
+            </p>
           )}
 
           {previews.length > 0 && step !== "scanning" && (

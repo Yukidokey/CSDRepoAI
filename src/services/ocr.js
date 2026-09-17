@@ -1,6 +1,6 @@
 import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
-import { getDocument } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import { supabase } from "../lib/supabaseClient.js";
 import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions.js";
 import { stripPageMarkers } from "./ocrTextUtils.js";
@@ -171,22 +171,24 @@ function isPdfFile(file) {
 }
 
 async function pdfFileToPageImageFiles(file) {
+  await configurePdfWorker();
   const pdfData = await file.arrayBuffer();
   const pdf = await getDocument({ data: pdfData }).promise;
   const pageFiles = [];
 
   for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
-    const viewport = page.getViewport({ scale: 1.5 });
+    const viewport = page.getViewport({ scale: 2 });
     const canvas = document.createElement("canvas");
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
     const context = canvas.getContext("2d");
+    if (!context) throw new Error("Your browser could not prepare a canvas for the PDF page.");
     await page.render({ canvasContext: context, viewport }).promise;
 
     const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
-    if (!blob) continue;
+    if (!blob) throw new Error(`Could not convert PDF page ${pageNumber} into an OCR image.`);
 
     const baseName = file.name.replace(/\.pdf$/i, "");
     pageFiles.push(
@@ -197,6 +199,13 @@ async function pdfFileToPageImageFiles(file) {
   }
 
   return pageFiles;
+}
+
+async function configurePdfWorker() {
+  if (GlobalWorkerOptions.workerSrc) return;
+
+  const workerModule = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+  GlobalWorkerOptions.workerSrc = workerModule.default || workerModule;
 }
 
 async function prepareOcrImage(file) {
@@ -325,26 +334,41 @@ export async function extractMetadata(rawText) {
   const fallback = extractDocumentFields(cleanedText);
   const aiMetadata = await extractMetadataWithAI(cleanedText);
 
-  const authors = Array.isArray(aiMetadata?.authors) && aiMetadata.authors.length
-    ? aiMetadata.authors.join(", ")
-    : Array.isArray(fallback.authors) && fallback.authors.length
-      ? fallback.authors.join(", ")
-      : "";
+  const fallbackAuthors = Array.isArray(fallback.authors) ? fallback.authors.filter(Boolean) : [];
+  const aiAuthors = Array.isArray(aiMetadata?.authors) ? aiMetadata.authors.filter(Boolean) : [];
+  const authors = (fallbackAuthors.length >= aiAuthors.length ? fallbackAuthors : aiAuthors).join(", ");
 
-  const keywords = Array.isArray(aiMetadata?.keywords) && aiMetadata.keywords.length
-    ? aiMetadata.keywords.join(", ")
-    : typeof aiMetadata?.keywords === "string" && aiMetadata.keywords.trim()
-      ? aiMetadata.keywords
-      : fallback.keywords || "";
+  const fallbackKeywords = String(fallback.keywords || "").trim();
+  const aiKeywords = Array.isArray(aiMetadata?.keywords)
+    ? aiMetadata.keywords.filter(Boolean).join(", ")
+    : String(aiMetadata?.keywords || "").trim();
+  const keywords = fallbackKeywords || aiKeywords;
+
+  const fallbackTitle = isUsableMetadataTitle(fallback.title) ? fallback.title : "";
+  const aiTitle = isUsableMetadataTitle(aiMetadata?.title) ? String(aiMetadata.title).trim() : "";
+  const title = fallbackTitle || aiTitle;
+
+  const fallbackAbstract = String(fallback.abstract || "").trim();
+  const aiAbstract = String(aiMetadata?.abstract || "").trim();
+  const abstract = fallbackAbstract.length >= 80 ? fallbackAbstract : aiAbstract || fallbackAbstract;
 
   return {
-    title: aiMetadata?.title || fallback.title || "",
+    title,
     authors,
-    adviser: aiMetadata?.adviser || fallback.adviser || "",
+    adviser: String(fallback.adviser || aiMetadata?.adviser || "").trim(),
     panelMembers: "",
-    abstract: aiMetadata?.abstract || fallback.abstract || "",
+    abstract,
     keywords,
   };
+}
+
+function isUsableMetadataTitle(value) {
+  const title = String(value || "").replace(/\s+/g, " ").trim();
+  if (!title || title.length > 180 || title.split(/\s+/).length > 24) return false;
+  if (/^(string|title|document|manuscript|research paper|untitled|unknown|n\/a|null|undefined)$/i.test(title)) return false;
+  if (/^\d+\s+(?:weeks?|days?|months?)\b/i.test(title)) return false;
+  if (/\b(?:data collection plan|prior to data collection|this study will|the research team will)\b/i.test(title)) return false;
+  return !/[.!?]$/.test(title);
 }
 
 function toTitleCase(str) {

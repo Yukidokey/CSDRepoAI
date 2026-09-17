@@ -82,3 +82,25 @@ test('extractDocumentFields prioritizes the bold first-page title and reads up t
   assert.deepEqual(fields.authors, ['JUAN DELA CRUZ', 'MARIA SANTOS', 'PEDRO REYES', 'ANA GARCIA']);
   assert.equal(fields.adviser, 'Vince Marc B. Sabado, MSIT');
 });
+
+test('extractDocumentFields reads keywords from the Keywords line at the end of the abstract', () => {
+  const fields = extractDocumentFields(`
+    Abstract
+    This study presents a smart campus research system for organizing academic papers.
+    Keywords: smart campus; research repository; academic papers
+    Introduction
+    Keywords: this later line must not be selected
+  `);
+
+  assert.equal(fields.keywords, 'smart campus; research repository; academic papers');
+});
+
+test('extractDocumentFields supports italic-style Keywords labels', () => {
+  const fields = extractDocumentFields(`
+    Abstract
+    This study presents a smart campus research system for organizing academic papers.
+    __DOCX_ITALIC__Keywords: smart campus, research repository, academic papers
+  `);
+
+  assert.equal(fields.keywords, 'smart campus, research repository, academic papers');
+});

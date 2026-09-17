@@ -227,9 +227,14 @@ async function extractDocxText(file) {
     mammoth.convertToHtml({ arrayBuffer }),
   ]);
   const boldLines = getBoldDocxParagraphs(html);
+  const italicLines = getItalicDocxParagraphs(html);
   const rawLines = value.replace(/\r/g, "").split("\n");
   const lines = rawLines.map((line) => line.trim()).filter(Boolean);
-  const markedLines = lines.map((line) => (boldLines.has(line) ? `__DOCX_BOLD__${line}` : line));
+  const markedLines = lines.map((line) => {
+    if (boldLines.has(line)) return `__DOCX_BOLD__${line}`;
+    if (italicLines.has(line)) return `__DOCX_ITALIC__${line}`;
+    return line;
+  });
   return markedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
@@ -253,6 +258,28 @@ function getBoldDocxParagraphs(html) {
   }
 
   return boldLines;
+}
+
+function getItalicDocxParagraphs(html) {
+  const italicLines = new Set();
+  const paragraphs = html.match(/<p[\s\S]*?<\/p>/gi) || [];
+
+  for (const paragraph of paragraphs) {
+    if (!/<em\b|<i\b/i.test(paragraph)) continue;
+    const text = paragraph
+      .replace(/<br\s*\/?\s*>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (text) italicLines.add(text);
+  }
+
+  return italicLines;
 }
 
 function joinPdfTextItems(items) {
@@ -290,7 +317,7 @@ export function extractDocumentFields(text) {
 
   const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
   const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(line));
-  const keywordsIndex = lines.findIndex((line) => /^keywords?\s*[:\-]?/i.test(line));
+  const keywordsIndex = findKeywordsIndex(lines, abstractIndex);
   const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
   const keywordsLine = extractKeywords(lines, keywordsIndex);
@@ -351,17 +378,18 @@ function extractSection(lines, startIndex, stopPatterns) {
 function extractKeywords(lines, startIndex) {
   if (startIndex < 0) return "";
 
-  const values = [];
-  const firstValue = cleanMetadataLine(lines[startIndex]).replace(/^keywords?\s*[:\-]?\s*/i, "").trim();
-  if (firstValue) values.push(firstValue);
+  return cleanMetadataLine(lines[startIndex])
+    .replace(/^\*?\s*keywords?\s*\*?\s*[:\-]?\s*/i, "")
+    .replace(/\*+\s*$/, "")
+    .replace(/[.;]+$/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  for (let index = startIndex + 1; index < lines.length && index <= startIndex + 3; index += 1) {
-    const line = cleanMetadataLine(lines[index]);
-    if (isDocumentHeading(line) || /^abstract\b/i.test(line)) break;
-    values.push(line);
-  }
-
-  return values.join(" ").replace(/[.;]+$/, "").replace(/\s+/g, " ").trim();
+function findKeywordsIndex(lines, abstractIndex) {
+  const startIndex = abstractIndex >= 0 ? abstractIndex + 1 : 0;
+  const keywordPattern = /^\*?\s*keywords?\s*\*?\s*[:\-]/i;
+  return lines.findIndex((line, index) => index >= startIndex && keywordPattern.test(cleanMetadataLine(line)));
 }
 
 function isDocumentHeading(line) {
@@ -421,7 +449,7 @@ function extractAuthors(lines) {
 }
 
 function cleanMetadataLine(line) {
-  return line.replace(/^__DOCX_BOLD__/, "").trim();
+  return line.replace(/^__DOCX_(?:BOLD|ITALIC)__/, "").trim();
 }
 
 function extractLabeledAuthors(lines) {

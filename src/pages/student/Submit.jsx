@@ -21,6 +21,9 @@ import { SDG_LIST } from "../../lib/sdgList";
 import { getAcademicYears } from "../../services/academicYears";
 
 const STORAGE_KEY = "csdrepoai-submit-research-draft";
+const FILE_DB_NAME = "csdrepoai-submit-research-files";
+const FILE_STORE_NAME = "files";
+const FILE_KEYS = ["manuscript", "sourceCode", "ieee", "acm", "apa"];
 
 function buildDefaultForm(profile) {
   return {
@@ -84,6 +87,65 @@ async function restoreFile(fileDescriptor) {
   }
 }
 
+function openFileDraftDb() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("IndexedDB is unavailable."));
+      return;
+    }
+
+    const request = indexedDB.open(FILE_DB_NAME, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore(FILE_STORE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Unable to open file draft storage."));
+  });
+}
+
+async function loadDraftFiles() {
+  const database = await openFileDraftDb();
+  try {
+    const transaction = database.transaction(FILE_STORE_NAME, "readonly");
+    const store = transaction.objectStore(FILE_STORE_NAME);
+    const records = await Promise.all(FILE_KEYS.map((key) => new Promise((resolve, reject) => {
+      const request = store.get(key);
+      request.onsuccess = () => resolve([key, request.result || null]);
+      request.onerror = () => reject(request.error);
+    })));
+
+    return Object.fromEntries(records.map(([key, record]) => [
+      key,
+      record?.blob
+        ? new File([record.blob], record.name, { type: record.type, lastModified: record.lastModified })
+        : null,
+    ]));
+  } finally {
+    database.close();
+  }
+}
+
+async function saveDraftFiles(files) {
+  const database = await openFileDraftDb();
+  try {
+    await new Promise((resolve, reject) => {
+      const transaction = database.transaction(FILE_STORE_NAME, "readwrite");
+      const store = transaction.objectStore(FILE_STORE_NAME);
+      FILE_KEYS.forEach((key) => {
+        const file = files[key];
+        if (file) {
+          store.put({ blob: file, name: file.name, type: file.type, lastModified: file.lastModified }, key);
+        } else {
+          store.delete(key);
+        }
+      });
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error || new Error("Unable to save file draft."));
+    });
+  } finally {
+    database.close();
+  }
+}
+
 export default function Submit() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
@@ -123,13 +185,22 @@ export default function Submit() {
         return;
       }
 
-      const restoredFiles = {
-        manuscript: storedDraft.files?.manuscript ? await restoreFile(storedDraft.files.manuscript) : null,
-        sourceCode: storedDraft.files?.sourceCode ? await restoreFile(storedDraft.files.sourceCode) : null,
-        ieee: storedDraft.files?.ieee ? await restoreFile(storedDraft.files.ieee) : null,
-        acm: storedDraft.files?.acm ? await restoreFile(storedDraft.files.acm) : null,
-        apa: storedDraft.files?.apa ? await restoreFile(storedDraft.files.apa) : null,
-      };
+      let restoredFiles = null;
+      try {
+        restoredFiles = await loadDraftFiles();
+      } catch {
+        restoredFiles = null;
+      }
+
+      if (!restoredFiles || !Object.values(restoredFiles).some(Boolean)) {
+        restoredFiles = {
+          manuscript: storedDraft.files?.manuscript ? await restoreFile(storedDraft.files.manuscript) : null,
+          sourceCode: storedDraft.files?.sourceCode ? await restoreFile(storedDraft.files.sourceCode) : null,
+          ieee: storedDraft.files?.ieee ? await restoreFile(storedDraft.files.ieee) : null,
+          acm: storedDraft.files?.acm ? await restoreFile(storedDraft.files.acm) : null,
+          apa: storedDraft.files?.apa ? await restoreFile(storedDraft.files.apa) : null,
+        };
+      }
 
       if (!isActive) return;
 
@@ -156,6 +227,7 @@ export default function Submit() {
       STORAGE_KEY,
       JSON.stringify({
         ...storedDraft,
+        files: undefined,
         form,
         sdgTags,
         suggestions,
@@ -171,13 +243,7 @@ export default function Submit() {
     async function persistFiles() {
       try {
         const storedDraft = getStoredDraft() || {};
-        const nextFiles = {
-          manuscript: await serializeFile(files.manuscript),
-          sourceCode: await serializeFile(files.sourceCode),
-          ieee: await serializeFile(files.ieee),
-          acm: await serializeFile(files.acm),
-          apa: await serializeFile(files.apa),
-        };
+        await saveDraftFiles(files);
 
         if (!isActive) return;
 
@@ -185,7 +251,7 @@ export default function Submit() {
           STORAGE_KEY,
           JSON.stringify({
             ...storedDraft,
-            files: nextFiles,
+            files: undefined,
           })
         );
       } catch (error) {

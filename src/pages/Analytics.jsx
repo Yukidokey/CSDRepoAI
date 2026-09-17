@@ -5,7 +5,8 @@ import Layout from "../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../components/ui";
 import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../services/analytics";
 
-const PIE_COLORS = ["#a9812e", "#14213d", "#35577a", "#2f6846", "#9c6b14", "#a23b2e", "#57648a"];
+const PIE_COLORS = ["#b38b52", "#2f3d42", "#6f7c66", "#c18d5a", "#7d5a45", "#8a8d7b", "#5d6d7d"]; 
+const BAR_COLORS = { total: "#4a4f54", published: "#b38b52", program: "#5d6d7d", keyword: "#8a6a4a" };
 
 export default function Analytics() {
   const [data, setData] = useState(null);
@@ -68,8 +69,8 @@ export default function Analytics() {
             <YAxis allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
             <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="total" name="Total submitted" fill="#57648a" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="published" name="Published" fill="#a9812e" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="total" name="Total submitted" fill={BAR_COLORS.total} radius={[4, 4, 0, 0]} />
+            <Bar dataKey="published" name="Published" fill={BAR_COLORS.published} radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -84,7 +85,7 @@ export default function Analytics() {
               <XAxis dataKey="name" fontSize={11} stroke="var(--ink-500)" />
               <YAxis allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
-              <Bar dataKey="count" fill="#14213d" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" fill={BAR_COLORS.program} radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -117,7 +118,7 @@ export default function Analytics() {
                 <XAxis type="number" allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
                 <YAxis type="category" dataKey="keyword" width={180} fontSize={10.5} stroke="var(--ink-500)" />
                 <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid var(--line)" }} />
-                <Bar dataKey="count" fill="#9c6b14" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" fill={BAR_COLORS.keyword} radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           )}

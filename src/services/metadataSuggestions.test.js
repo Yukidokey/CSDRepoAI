@@ -77,3 +77,17 @@ test('extractDocumentFields keeps institutional lines out of wrapped title candi
   assert.equal(fields.title, 'A REAL RESEARCH TITLE ABOUT STUDENT SERVICES');
   assert.deepEqual(fields.authors, ['Jane Doe']);
 });
+
+test('extractDocumentFields separates same-line abstract and keyword OCR text', () => {
+  const fields = extractDocumentFields(`
+    A PLAIN OCR THESIS TITLE ABOUT SPEECH TRANSLATION
+    Jane Doe
+    Notre Dame of Marbel University
+    Thesis Adviser: Maria Santos
+    Abstract This study presents a speech translation system for a low-resource language. Key words: speech recognition; machine translation
+  `);
+
+  assert.match(fields.abstract, /This study presents a speech translation system/);
+  assert.equal(fields.keywords, 'speech recognition; machine translation');
+  assert.equal(fields.adviser, 'Maria Santos');
+});

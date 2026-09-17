@@ -469,7 +469,13 @@ function extractSection(lines, startIndex, stopPatterns) {
       continue;
     }
     const line = cleanMetadataLine(lines[index]);
-    if (stopPatterns.some((pattern) => pattern === "keywords?" ? isKeywordsHeading(line) : new RegExp(`^${pattern}\\b`, "i").test(line))) break;
+    const keywordPosition = line.search(/\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i);
+    if (stopPatterns.includes("keywords?") && keywordPosition >= 0) {
+      const beforeKeywords = line.slice(0, keywordPosition).trim();
+      if (beforeKeywords) content.push(beforeKeywords);
+      break;
+    }
+    if (stopPatterns.some((pattern) => pattern !== "keywords?" && new RegExp(`^${pattern}\\b`, "i").test(line))) break;
     content.push(line);
   }
   return content.join(" ").replace(/\s+/g, " ").trim();
@@ -478,7 +484,9 @@ function extractSection(lines, startIndex, stopPatterns) {
 function extractKeywords(lines, startIndex) {
   if (startIndex < 0) return "";
 
-  return stripKeywordsHeading(cleanMetadataLine(lines[startIndex]))
+  const line = cleanMetadataLine(lines[startIndex]);
+  const keywordStart = line.search(/\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i);
+  return stripKeywordsHeading(keywordStart >= 0 ? line.slice(keywordStart) : line)
     .replace(/\*+\s*$/, "")
     .replace(/[.;]+$/, "")
     .replace(/\s+/g, " ")
@@ -486,8 +494,11 @@ function extractKeywords(lines, startIndex) {
 }
 
 function findKeywordsIndex(lines, abstractIndex) {
+  if (abstractIndex >= 0 && /\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i.test(cleanMetadataLine(lines[abstractIndex]))) {
+    return abstractIndex;
+  }
   const startIndex = abstractIndex >= 0 ? abstractIndex + 1 : 0;
-  return lines.findIndex((line, index) => index >= startIndex && isKeywordsHeading(cleanMetadataLine(line)));
+  return lines.findIndex((line, index) => index >= startIndex && /\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i.test(cleanMetadataLine(line)));
 }
 
 function findAbstractIndex(lines) {
@@ -752,7 +763,9 @@ function extractAdviser(lines) {
 
     const sameLine = extractSameLineAdviser(line);
     if (sameLine) return sameLine;
-    if (!isPageMarkerLine(line) && isAdviserCaption(nextLine)) return line.replace(/[\s,:;-]+$/, "").trim();
+    if (!isPageMarkerLine(line) && isAdviserCaption(nextLine) && !extractSameLineAdviser(nextLine)) {
+      return line.replace(/[\s,:;-]+$/, "").trim();
+    }
   }
 
   return "";

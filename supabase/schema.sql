@@ -93,6 +93,8 @@ create table if not exists research_papers (
   file_url text,                          -- full manuscript (PDF)
   source_code_url text,
   ieee_paper_url text,
+  acm_paper_url text,
+  apa_paper_url text,
   status text not null default 'pending'  -- pending | under_review | approved | rejected
     check (status in ('pending', 'under_review', 'approved', 'rejected')),
   review_notes text,
@@ -109,6 +111,11 @@ create index if not exists idx_research_status on research_papers(status);
 create index if not exists idx_research_submitted_by on research_papers(submitted_by);
 create index if not exists idx_research_keywords on research_papers using gin(keywords);
 create index if not exists idx_research_sdg on research_papers using gin(sdg_tags);
+
+-- Additional citation-style attachments supported by the submission form.
+alter table research_papers add column if not exists acm_paper_url text;
+alter table research_papers add column if not exists apa_paper_url text;
+
 drop index if exists idx_research_unique_normalized_title;
 create unique index idx_research_unique_normalized_title
   on research_papers (lower(trim(title)))

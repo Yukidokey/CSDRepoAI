@@ -40,6 +40,8 @@ export async function submitResearch({
   manuscriptFile,
   sourceCodeFile,
   ieeeFile,
+  acmFile,
+  apaFile,
   userId,
 }) {
   const normalizedTitle = title.trim().replace(/\s+/g, " ");
@@ -64,6 +66,8 @@ export async function submitResearch({
     file_url: manuscriptFile,
     source_code_url: sourceCodeFile,
     ieee_paper_url: ieeeFile,
+    acm_paper_url: acmFile,
+    apa_paper_url: apaFile,
   })) {
     if (!file) continue;
     const path = buildStoragePath(userId, file);
@@ -154,7 +158,7 @@ export async function getApprovedPapers({ limit = 50 } = {}) {
 }
 
 export async function deleteResearchPaper(paper) {
-  const fileUrls = [paper.file_url, paper.source_code_url, paper.ieee_paper_url]
+  const fileUrls = [paper.file_url, paper.source_code_url, paper.ieee_paper_url, paper.acm_paper_url, paper.apa_paper_url]
     .flatMap(getResearchFileUrls);
   const storagePaths = fileUrls
     .map((url) => getResearchStoragePath(url))

@@ -88,7 +88,7 @@ export default function Submit() {
   const navigate = useNavigate();
   const [form, setForm] = useState(() => buildDefaultForm(profile));
   const [sdgTags, setSdgTags] = useState([]);
-  const [files, setFiles] = useState(() => ({ manuscript: null, sourceCode: null, ieee: null }));
+  const [files, setFiles] = useState(() => ({ manuscript: null, sourceCode: null, ieee: null, acm: null, apa: null }));
   const [status, setStatus] = useState("idle"); // idle | submitting | done | error
   const [errorMsg, setErrorMsg] = useState("");
   const [related, setRelated] = useState([]);
@@ -126,6 +126,8 @@ export default function Submit() {
         manuscript: storedDraft.files?.manuscript ? await restoreFile(storedDraft.files.manuscript) : null,
         sourceCode: storedDraft.files?.sourceCode ? await restoreFile(storedDraft.files.sourceCode) : null,
         ieee: storedDraft.files?.ieee ? await restoreFile(storedDraft.files.ieee) : null,
+        acm: storedDraft.files?.acm ? await restoreFile(storedDraft.files.acm) : null,
+        apa: storedDraft.files?.apa ? await restoreFile(storedDraft.files.apa) : null,
       };
 
       if (!isActive) return;
@@ -172,6 +174,8 @@ export default function Submit() {
           manuscript: await serializeFile(files.manuscript),
           sourceCode: await serializeFile(files.sourceCode),
           ieee: await serializeFile(files.ieee),
+          acm: await serializeFile(files.acm),
+          apa: await serializeFile(files.apa),
         };
 
         if (!isActive) return;
@@ -306,6 +310,8 @@ export default function Submit() {
         manuscriptFile: files.manuscript,
         sourceCodeFile: files.sourceCode,
         ieeeFile: files.ieee,
+        acmFile: files.acm,
+        apaFile: files.apa,
         userId: user.id,
       });
       setSubmittedPaper(result);
@@ -408,7 +414,7 @@ export default function Submit() {
                 </div>
               </div>
 
-              {(submittedPaper?.file_url || submittedPaper?.source_code_url || submittedPaper?.ieee_paper_url) && (
+              {(submittedPaper?.file_url || submittedPaper?.source_code_url || submittedPaper?.ieee_paper_url || submittedPaper?.acm_paper_url || submittedPaper?.apa_paper_url) && (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 16 }}>
                   {submittedPaper?.file_url && (
                     <a href={submittedPaper.file_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -423,6 +429,16 @@ export default function Submit() {
                   {submittedPaper?.ieee_paper_url && (
                     <a href={submittedPaper.ieee_paper_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                       View IEEE short paper
+                    </a>
+                  )}
+                  {submittedPaper?.acm_paper_url && (
+                    <a href={submittedPaper.acm_paper_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      View ACM style paper
+                    </a>
+                  )}
+                  {submittedPaper?.apa_paper_url && (
+                    <a href={submittedPaper.apa_paper_url} target="_blank" rel="noreferrer" className="btn btn-outline" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      View APA style paper
                     </a>
                   )}
                 </div>
@@ -611,6 +627,22 @@ export default function Submit() {
                   file={files.ieee}
                   onChange={(file) => setFiles((f) => ({ ...f, ieee: file }))}
                   hint="Optional — conference-format short paper"
+                />
+              </Field>
+              <Field label="ACM style paper (PDF)">
+                <Dropzone
+                  accept=".pdf"
+                  file={files.acm}
+                  onChange={(file) => setFiles((f) => ({ ...f, acm: file }))}
+                  hint="Optional — ACM conference-format paper"
+                />
+              </Field>
+              <Field label="APA style paper (PDF)">
+                <Dropzone
+                  accept=".pdf"
+                  file={files.apa}
+                  onChange={(file) => setFiles((f) => ({ ...f, apa: file }))}
+                  hint="Optional — APA academic paper"
                 />
               </Field>
             </div>

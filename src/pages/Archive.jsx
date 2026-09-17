@@ -139,6 +139,16 @@ export default function Archive() {
                         <FileText size={13} /> View IEEE short paper
                       </a>
                     )}
+                    {getResearchFileUrls(p.acm_paper_url).length > 0 && (
+                      <a href={getResearchFileUrls(p.acm_paper_url)[0]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}>
+                        <FileText size={13} /> View ACM style paper
+                      </a>
+                    )}
+                    {getResearchFileUrls(p.apa_paper_url).length > 0 && (
+                      <a href={getResearchFileUrls(p.apa_paper_url)[0]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}>
+                        <FileText size={13} /> View APA style paper
+                      </a>
+                    )}
                   </div>
                 </td>
               </tr>

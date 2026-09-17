@@ -91,6 +91,16 @@ export default function MySubmissions() {
                     <FileText size={13} /> View IEEE short paper
                   </a>
                 )}
+                {s.acm_paper_url && (
+                  <a href={s.acm_paper_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileText size={13} /> View ACM style paper
+                  </a>
+                )}
+                {s.apa_paper_url && (
+                  <a href={s.apa_paper_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileText size={13} /> View APA style paper
+                  </a>
+                )}
               </div>
             </div>
           ))}

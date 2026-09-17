@@ -111,6 +111,16 @@ export default function Search() {
                   <FileSearch size={13} /> View IEEE short paper
                 </a>
               )}
+              {getResearchFileUrls(r.acm_paper_url).length > 0 && (
+                <a href={getResearchFileUrls(r.acm_paper_url)[0]} target="_blank" rel="noreferrer" onClick={() => incrementDownloadCount(r.id)} style={{ fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <FileSearch size={13} /> View ACM style paper
+                </a>
+              )}
+              {getResearchFileUrls(r.apa_paper_url).length > 0 && (
+                <a href={getResearchFileUrls(r.apa_paper_url)[0]} target="_blank" rel="noreferrer" onClick={() => incrementDownloadCount(r.id)} style={{ fontSize: 12.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                  <FileSearch size={13} /> View APA style paper
+                </a>
+              )}
             </div>
           </div>
         ))}

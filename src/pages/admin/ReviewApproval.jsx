@@ -72,6 +72,16 @@ export default function ReviewApproval() {
                     <FileText size={13} /> View IEEE short paper
                   </a>
                 )}
+                {p.acm_paper_url && (
+                  <a href={p.acm_paper_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileText size={13} /> View ACM style paper
+                  </a>
+                )}
+                {p.apa_paper_url && (
+                  <a href={p.apa_paper_url} target="_blank" rel="noreferrer" style={{ fontSize: 12.5, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+                    <FileText size={13} /> View APA style paper
+                  </a>
+                )}
               </div>
               <textarea
                 placeholder="Review notes (optional)"

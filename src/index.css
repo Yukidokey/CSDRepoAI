@@ -835,6 +835,28 @@ table.table tbody tr:hover {
   margin-top: 2px;
 }
 
+.dropzone-remove {
+  position: relative;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface);
+  color: var(--ink-500);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.dropzone-remove:hover {
+  color: var(--danger-700);
+  border-color: var(--danger-500);
+  background: var(--danger-100);
+}
+
 .dropzone input[type="file"] {
   position: absolute;
   inset: 0;

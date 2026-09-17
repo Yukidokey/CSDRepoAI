@@ -9,6 +9,7 @@ import {
   Tag as TagIcon,
   Paperclip,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
@@ -738,6 +739,20 @@ function Dropzone({ accept, file, onChange, hint, required }) {
           {file ? "Click to replace this file" : hint}
         </div>
       </div>
+      {file && (
+        <button
+          type="button"
+          className="dropzone-remove"
+          aria-label={`Remove ${file.name}`}
+          title="Remove file"
+          onClick={(event) => {
+            event.stopPropagation();
+            onChange(null);
+          }}
+        >
+          <X size={15} />
+        </button>
+      )}
       <input
         type="file"
         accept={accept}

@@ -5,7 +5,7 @@ import Layout from "../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../components/ui";
 import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../services/analytics";
 
-const PIE_COLORS = ["#b38b52", "#2f3d42", "#6f7c66", "#c18d5a", "#7d5a45", "#8a8d7b", "#5d6d7d"]; 
+const PIE_COLORS = ["#1f3557", "#b38b52", "#2f6f6b", "#7d2f3b", "#6f7c52", "#4d6478", "#d97a4a"]; 
 const BAR_COLORS = { total: "#4a4f54", published: "#b38b52", program: "#5d6d7d", keyword: "#8a6a4a" };
 
 export default function Analytics() {

@@ -175,6 +175,58 @@ a {
   background: rgba(224, 185, 94, 0.14);
 }
 
+[data-theme="dark"] .sidebar-subtitle,
+[data-theme="dark"] .sidebar-group-label {
+  color: rgba(245, 241, 231, 0.72);
+}
+
+[data-theme="dark"] .sidebar-link,
+[data-theme="dark"] .sidebar-sublink {
+  color: rgba(245, 241, 231, 0.9);
+}
+
+[data-theme="dark"] .sidebar-link:hover,
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .sidebar-sublink:hover,
+[data-theme="dark"] .sidebar-sublink.active,
+[data-theme="dark"] .sidebar-logout:hover {
+  color: #fffaf0;
+}
+
+[data-theme="dark"] .sidebar-user {
+  color: rgba(245, 241, 231, 0.96);
+}
+
+[data-theme="dark"] .sidebar-logout {
+  color: rgba(245, 241, 231, 0.92);
+  border-color: rgba(245, 241, 231, 0.24);
+}
+
+[data-theme="dark"] .sidebar-sublink-num {
+  color: #f4d68a;
+  background: rgba(224, 185, 94, 0.2);
+}
+
+[data-theme="dark"] .btn-primary {
+  color: #101614;
+}
+
+[data-theme="dark"] .btn-brass,
+[data-theme="dark"] .btn-danger,
+[data-theme="dark"] .btn-success {
+  color: #171b18;
+}
+
+[data-theme="dark"] .input::placeholder,
+[data-theme="dark"] textarea::placeholder {
+  color: #aaa99f;
+  opacity: 1;
+}
+
+[data-theme="dark"] .avatar {
+  color: #101614;
+}
+
 [data-theme="dark"] .sidebar-logout,
 [data-theme="dark"] .mobile-topbar {
   background: #101b15;

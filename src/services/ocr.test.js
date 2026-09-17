@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { extractMetadata, stripPageMarkers } from './ocr.js';
-import { extractDocumentFields } from './metadataSuggestions.js';
+import {
+  extractDocumentFields,
+  normalizeThesisBoilerplate,
+  splitConcatenatedNames,
+} from './metadataSuggestions.js';
 
 const fakeMultiPageText = `--- Page 1 ---
 SOME LONG ALL CAPS TITLE
@@ -116,4 +120,21 @@ test('extractDocumentFields supports italic-style Keywords labels', () => {
   `);
 
   assert.equal(fields.keywords, 'smart campus, research repository, academic papers');
+});
+
+test('normalizeThesisBoilerplate separates merged institution, degree, and adviser fields', () => {
+  const normalized = normalizeThesisBoilerplate(
+    'Notre Dame of Marbel University Bachelor of Science in Information Technology Vince Marc B. Sabado Thesis Adviser'
+  );
+
+  assert.equal(
+    normalized,
+    'Notre Dame of Marbel University\nBachelor of Science in Information Technology Vince Marc B. Sabado\nThesis Adviser'
+  );
+});
+
+test('splitConcatenatedNames separates merged author names', () => {
+  const split = splitConcatenatedNames('Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado');
+
+  assert.equal(split, 'Chrissandra Marchelle L. Bautista\nCrislyn Joy D. Delgado');
 });

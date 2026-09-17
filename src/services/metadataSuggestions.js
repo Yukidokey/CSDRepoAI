@@ -5,10 +5,35 @@ import mammoth from "mammoth/mammoth.browser.js";
 const viteEnv = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
 const GENKIT_METADATA_URL = viteEnv.VITE_GENKIT_METADATA_URL;
 
+export const THESIS_BOILERPLATE_ANCHORS = [
+  "Notre Dame of Marbel University",
+  "Bachelor of Science in",
+  "Thesis Adviser",
+  "Panel Chair",
+  "Panel Member",
+];
+
+export function normalizeThesisBoilerplate(text) {
+  return THESIS_BOILERPLATE_ANCHORS.reduce((normalized, anchor) => {
+    const escapedAnchor = anchor.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const anchorPattern = new RegExp(`([^\\n_])\\s*(${escapedAnchor})`, "gi");
+    return normalized.replace(anchorPattern, "$1\n$2");
+  }, String(text || ""));
+}
+
+const CONCATENATED_NAME_PATTERN = "[A-Z][a-z]+(?:\\s[A-Z][a-z]+)*\\s[A-Z]\\.\\s[A-Z][a-z]+";
+
+export function splitConcatenatedNames(line) {
+  const concatenatedNames = new RegExp(`(${CONCATENATED_NAME_PATTERN})\\s+(?=${CONCATENATED_NAME_PATTERN})`, "g");
+  return String(line || "").replace(concatenatedNames, "$1\n");
+}
+
 export async function extractMetadataWithAI(documentText) {
   if (!GENKIT_METADATA_URL) {
     return null;
   }
+
+  const normalizedDocumentText = normalizeThesisBoilerplate(documentText);
 
   try {
     const response = await fetch(GENKIT_METADATA_URL, {
@@ -16,7 +41,7 @@ export async function extractMetadataWithAI(documentText) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ documentText }),
+      body: JSON.stringify({ documentText: normalizedDocumentText }),
     });
 
     if (!response.ok) {
@@ -93,7 +118,9 @@ export function suggestMetadata({ title = "", abstract = "", keywords = "" }) {
 export async function analyzeResearchDocument(file) {
   if (!file) return null;
 
-  const documentText = isDocx(file) ? await extractDocxText(file) : await extractPdfText(file);
+  const documentText = normalizeThesisBoilerplate(
+    isDocx(file) ? await extractDocxText(file) : await extractPdfText(file)
+  );
   const extracted = extractDocumentFields(documentText);
   const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
 
@@ -121,7 +148,9 @@ export async function analyzeResearchDocument(file) {
 export async function analyzeResearchDocumentWithAI(file) {
   if (!file) return null;
 
-  const documentText = isDocx(file) ? await extractDocxText(file) : await extractPdfText(file);
+  const documentText = normalizeThesisBoilerplate(
+    isDocx(file) ? await extractDocxText(file) : await extractPdfText(file)
+  );
   const extracted = extractDocumentFields(documentText);
   const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
 
@@ -336,7 +365,11 @@ function isDocx(file) {
 export function extractDocumentFields(text) {
   if (!text) return { title: "", abstract: "", keywords: "", authors: [], adviser: "" };
 
-  const lines = text.split("\n").map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+  const lines = normalizeThesisBoilerplate(text)
+    .split("\n")
+    .flatMap((line) => splitConcatenatedNames(line).split("\n"))
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
   const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(line));
   const keywordsIndex = findKeywordsIndex(lines, abstractIndex);
   const titleLabel = lines.find((line) => /^title\s*[:\-]/i.test(cleanMetadataLine(line)));

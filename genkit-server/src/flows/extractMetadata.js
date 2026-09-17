@@ -51,6 +51,7 @@ Rules:
 - "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
 - "authors" should only include the names credited as the researchers/writers of the thesis, listed on the title page — not the adviser, panel, or dean.
+- If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".
 - If a field cannot be confidently identified, return an empty string (or empty array for authors/keywords) rather than guessing.
 - Split "keywords" on semicolons or commas into an array of individual terms.
 - Ignore headers, footers, page numbers, repeated boilerplate, and running text that is not part of the document metadata.

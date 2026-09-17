@@ -333,6 +333,13 @@ export async function extractMetadata(rawText) {
   const cleanedText = stripPageMarkers(rawText);
   const fallback = extractDocumentFields(cleanedText);
   const aiMetadata = await extractMetadataWithAI(cleanedText);
+  const aiStatus = aiMetadata?.unavailable
+    ? "not_configured"
+    : aiMetadata?.failed
+      ? "failed"
+      : hasUsableAiMetadata(aiMetadata)
+        ? "ok"
+        : "failed";
 
   const fallbackAuthors = Array.isArray(fallback.authors) ? fallback.authors.filter(Boolean) : [];
   const aiAuthors = Array.isArray(aiMetadata?.authors) ? aiMetadata.authors.filter(Boolean) : [];
@@ -360,7 +367,18 @@ export async function extractMetadata(rawText) {
     panelMembers,
     abstract,
     keywords,
+    aiStatus,
   };
+}
+
+function hasUsableAiMetadata(metadata) {
+  return Boolean(metadata && (
+    metadata.title
+    || metadata.abstract
+    || metadata.adviser
+    || (Array.isArray(metadata.authors) && metadata.authors.length)
+    || (Array.isArray(metadata.keywords) && metadata.keywords.length)
+  ));
 }
 
 function isUsableMetadataTitle(value) {

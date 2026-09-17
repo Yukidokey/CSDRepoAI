@@ -52,6 +52,7 @@ export default function OCRScan() {
   const [donePages, setDonePages] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [meta, setMeta] = useState({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
+  const [aiStatus, setAiStatus] = useState("idle");
   const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
   const [previewIndex, setPreviewIndex] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
@@ -187,6 +188,7 @@ function handleFile(e) {
         abstract: extracted.abstract,
         keywords: extracted.keywords,
       });
+      setAiStatus(extracted.aiStatus || "failed");
 
       setStep("scanned");
     } catch (error) {
@@ -468,6 +470,11 @@ function handleFile(e) {
             <h3 style={{ fontSize: 13.5 }}>Auto-Suggested Metadata</h3>
             <span className="ocr-ai-tag"><Sparkles size={9} /> AI extracted</span>
           </div>
+          {aiStatus !== "ok" && aiStatus !== "idle" && (
+            <div className="metadata-analysis error" role="status">
+              AI extraction unavailable — fields below were parsed with basic pattern matching and may need more manual correction than usual.
+            </div>
+          )}
           <p style={{ fontSize: 11.5, color: "var(--ink-500)", marginTop: -8 }}>
             Fields below were parsed from the title page. Please review and correct before archiving.
           </p>

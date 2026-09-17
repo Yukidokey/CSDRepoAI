@@ -73,6 +73,26 @@ Panel Member
   assert.equal(metadata.panelMembers, 'Maria Santos, Juan Dela Cruz');
 });
 
+test('extractMetadata reports not_configured while returning heuristic fields', async () => {
+  const metadata = await extractMetadata(`--- Page 1 ---
+END-TO-END SPEECH TRANSLATION
+Chrissandra Marchelle L. Bautista
+Crislyn Joy D. Delgado
+Notre Dame of Marbel University
+--- Page 2 ---
+Vince Marc B. Sabado, MSIT, Thesis Adviser
+--- Page 3 ---
+Abstrac This study presents a Tboli-to-English speech translation Android application using automatic speech recognition and machine translation for a low-resource indigenous language.
+*Key words:* speech recognition; machine translation; Tboli-English`);
+
+  assert.equal(metadata.aiStatus, 'not_configured');
+  assert.ok(metadata.title);
+  assert.ok(metadata.authors);
+  assert.ok(metadata.adviser);
+  assert.ok(metadata.abstract);
+  assert.ok(metadata.keywords);
+});
+
 test('extractDocumentFields does not use page-marker lines as title or author candidates', () => {
   const fields = extractDocumentFields(stripPageMarkers(fakeMultiPageText));
 

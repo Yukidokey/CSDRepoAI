@@ -2,6 +2,30 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { extractDocumentFields } from './metadataSuggestions.js';
 
+test('extractDocumentFields handles noisy unformatted OCR metadata', () => {
+  const fields = extractDocumentFields(`
+    --- Page 1 ---
+    END-TO-END TRANSFORMER-BASED SPEECH-TO-TEXT NEURAL MACHINE TRANSLATION
+    FOR THE LOW-RESOURCE TBOLI-ENGLISH LANGUAGE PAIR
+    Chrissandra Marchelle L. Bautista
+    Crislyn Joy D. Delgado
+    Notre Dame of Marbel University
+    Bachelor of Science in Computer Science
+    --- Page 2 ---
+    Vince Marc B. Sabado, MSIT, Thesis Adviscr
+    Maria Santos Panel Chair
+    --- Page 3 ---
+    Abstrac This study presents a Tboli-to-English speech translation Android application using automatic speech recognition and machine translation for a low-resource indigenous language.
+    *Key words:* speech recognition; machine translation; Tboli-English
+  `);
+
+  assert.equal(fields.title, 'END-TO-END TRANSFORMER-BASED SPEECH-TO-TEXT NEURAL MACHINE TRANSLATION FOR THE LOW-RESOURCE TBOLI-ENGLISH LANGUAGE PAIR');
+  assert.deepEqual(fields.authors, ['Chrissandra Marchelle L. Bautista', 'Crislyn Joy D. Delgado']);
+  assert.equal(fields.adviser, 'Vince Marc B. Sabado, MSIT');
+  assert.match(fields.abstract, /This study presents a Tboli-to-English speech translation Android application/);
+  assert.equal(fields.keywords, 'speech recognition; machine translation; Tboli-English');
+});
+
 test('extractDocumentFields handles wrapped titles and marked abstract metadata', () => {
   const fields = extractDocumentFields(`
     __DOCX_BOLD__DESIGN AND DEVELOPMENT OF A CAMPUS

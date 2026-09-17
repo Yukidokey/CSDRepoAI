@@ -30,7 +30,7 @@ export function splitConcatenatedNames(line) {
 
 export async function extractMetadataWithAI(documentText) {
   if (!GENKIT_METADATA_URL) {
-    return null;
+    return { unavailable: true };
   }
 
   const normalizedDocumentText = normalizeThesisBoilerplate(documentText);
@@ -51,7 +51,7 @@ export async function extractMetadataWithAI(documentText) {
     return await response.json();
   } catch (error) {
     console.warn("Genkit semantic search unavailable, using fallback text search.", error);
-    return null;
+    return { failed: true };
   }
 }
 
@@ -168,6 +168,9 @@ export async function analyzeResearchDocumentWithAI(file) {
   }
 
   const aiMetadata = await extractMetadataWithAI(documentText);
+  if (aiMetadata?.unavailable || aiMetadata?.failed) {
+    return analyzeResearchDocument(file);
+  }
 
   if (!aiMetadata) {
     return analyzeResearchDocument(file);
@@ -384,7 +387,7 @@ export function extractDocumentFields(text) {
     .flatMap((line) => splitConcatenatedNames(line).split("\n"))
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean);
-  const abstractIndex = lines.findIndex((line) => /^abstract\b\s*[:\-]?/i.test(cleanMetadataLine(line)));
+  const abstractIndex = findAbstractIndex(lines);
   const keywordsIndex = findKeywordsIndex(lines, abstractIndex);
   const abstract = extractSection(lines, abstractIndex, ["keywords?", "introduction", "chapter", "table of contents"]);
   const keywordsLine = extractKeywords(lines, keywordsIndex);
@@ -411,6 +414,9 @@ function extractTitle(lines) {
     const nextTitleLine = cleanMetadataLine(lines[titleIndex + 1] || "");
     if (nextTitleLine && !isDocumentHeading(nextTitleLine)) return nextTitleLine;
   }
+
+  const hasBoldMarkers = lines.some(isBoldMetadataLine);
+  if (!hasBoldMarkers) return firstPageTitle(lines);
 
   const boldTitleIndex = lines
     .slice(0, 12)
@@ -458,12 +464,12 @@ function extractSection(lines, startIndex, stopPatterns) {
   const content = [];
   for (let index = startIndex; index < lines.length; index += 1) {
     if (index === startIndex) {
-      const inline = cleanMetadataLine(lines[index]).replace(/^(abstract|keywords?)\s*[:\-]?\s*/i, "");
+      const inline = stripAbstractHeading(cleanMetadataLine(lines[index]));
       if (inline) content.push(inline);
       continue;
     }
     const line = cleanMetadataLine(lines[index]);
-    if (stopPatterns.some((pattern) => new RegExp(`^${pattern}\\b`, "i").test(line))) break;
+    if (stopPatterns.some((pattern) => pattern === "keywords?" ? isKeywordsHeading(line) : new RegExp(`^${pattern}\\b`, "i").test(line))) break;
     content.push(line);
   }
   return content.join(" ").replace(/\s+/g, " ").trim();
@@ -472,8 +478,7 @@ function extractSection(lines, startIndex, stopPatterns) {
 function extractKeywords(lines, startIndex) {
   if (startIndex < 0) return "";
 
-  return cleanMetadataLine(lines[startIndex])
-    .replace(/^\*?\s*key\s*words?\s*\*?\s*[:\-]?\s*\*?\s*/i, "")
+  return stripKeywordsHeading(cleanMetadataLine(lines[startIndex]))
     .replace(/\*+\s*$/, "")
     .replace(/[.;]+$/, "")
     .replace(/\s+/g, " ")
@@ -482,8 +487,28 @@ function extractKeywords(lines, startIndex) {
 
 function findKeywordsIndex(lines, abstractIndex) {
   const startIndex = abstractIndex >= 0 ? abstractIndex + 1 : 0;
-  const keywordPattern = /^\*?\s*key\s*words?\s*\*?\s*[:\-]/i;
-  return lines.findIndex((line, index) => index >= startIndex && keywordPattern.test(cleanMetadataLine(line)));
+  return lines.findIndex((line, index) => index >= startIndex && isKeywordsHeading(cleanMetadataLine(line)));
+}
+
+function findAbstractIndex(lines) {
+  return lines.findIndex((line) => isAbstractHeading(cleanMetadataLine(line)));
+}
+
+function isAbstractHeading(line) {
+  const normalized = line.toLowerCase().replace(/[^a-z]/g, "");
+  return /^(abstract|abstrac|abstrct)/.test(normalized);
+}
+
+function stripAbstractHeading(line) {
+  return line.replace(/^\s*[*_\s-]*(?:abstract|abstrac|abstrct)\s*[:\-]?\s*/i, "").trim();
+}
+
+function isKeywordsHeading(line) {
+  return /^\s*[*_\s-]*key\s*(?:words?|wrods?|wods?)\s*[*_\s]*[:\-]?/i.test(line);
+}
+
+function stripKeywordsHeading(line) {
+  return line.replace(/^\s*[*_\s-]*key\s*(?:words?|wrods?|wods?)\s*[*_\s]*[:\-]?\s*[*_\s]*/i, "").trim();
 }
 
 function isDocumentHeading(line) {
@@ -721,13 +746,13 @@ function isAllCapsLine(line) {
 }
 
 function extractAdviser(lines) {
-  for (let index = 0; index < lines.length - 1; index += 1) {
+  for (let index = 0; index < lines.length; index += 1) {
     const line = cleanMetadataLine(lines[index]);
     const nextLine = cleanMetadataLine(lines[index + 1] || "");
 
-    if (line && /^thesis adviser$/i.test(nextLine || "")) {
-      return line.trim();
-    }
+    const sameLine = extractSameLineAdviser(line);
+    if (sameLine) return sameLine;
+    if (!isPageMarkerLine(line) && isAdviserCaption(nextLine)) return line.replace(/[\s,:;-]+$/, "").trim();
   }
 
   return "";
@@ -783,4 +808,21 @@ function buildAbstract(text, title = "") {
     .slice(0, 3)
     .join(" ")
     .slice(0, 900);
+}
+
+function isAdviserCaption(line) {
+  const normalized = line.toLowerCase().replace(/[^a-z]/g, "");
+  return normalized.includes("thesisadviser")
+    || normalized.includes("thesisadvisor")
+    || normalized.includes("thesisadviscr")
+    || normalized.includes("thesisadviaer");
+}
+
+function extractSameLineAdviser(line) {
+  const match = line.match(/^(.*?)\bthesis\s+advis(?:er|or|cr|aer)\b\s*[:\-,]?\s*(.*)$/i);
+  if (!match) {
+    const reversed = line.match(/^\s*thesis\s+advis(?:er|or|cr|aer)\b\s*[:\-,]?\s*(.+)$/i);
+    return reversed?.[1]?.trim() || "";
+  }
+  return (match[1].trim() || match[2].trim()).replace(/[\s,:;-]+$/, "").trim();
 }

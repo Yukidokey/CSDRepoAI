@@ -18,6 +18,7 @@ import { submitResearch } from "../../services/research";
 import { searchResearch } from "../../services/search";
 import { analyzeResearchDocumentWithAI, suggestMetadata } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
+import { wrapReceiptValue } from "../../lib/receiptFormatting";
 import { getAcademicYears } from "../../services/academicYears";
 
 const STORAGE_KEY = "csdrepoai-submit-research-draft";
@@ -414,15 +415,20 @@ export default function Submit() {
     ];
 
     lines.forEach(([label, value]) => {
+      const wrappedValue = wrapReceiptValue(value, 36);
       doc.setFont(undefined, "bold");
       doc.text(label, 42, y);
       doc.setFont(undefined, "normal");
-      doc.text(String(value || "—"), 150, y, { maxWidth: 310 });
-      y += 18;
+
+      wrappedValue.forEach((line, index) => {
+        doc.text(String(line), 150, y + index * 14, { maxWidth: 300 });
+      });
+
+      y += Math.max(18, wrappedValue.length * 14);
     });
 
     doc.setFont(undefined, "bold");
-    doc.text("This receipt confirms that your research submission has been received.", 42, y + 28);
+    doc.text("This receipt confirms that your research submission has been received.", 42, y + 20, { maxWidth: 470 });
     doc.save(`confirmation-receipt-${(submittedPaper.title || "submission").toLowerCase().replace(/[^a-z0-9]+/g, "-")}.pdf`);
   }
 

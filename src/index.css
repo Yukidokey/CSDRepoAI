@@ -284,6 +284,22 @@ a {
   color: #101614;
 }
 
+[data-theme="dark"] .tag.selected,
+[data-theme="dark"] .sdg-chip.selected,
+[data-theme="dark"] .active-sdg-filter {
+  color: #18201c;
+}
+
+[data-theme="dark"] .sdg-chip.selected .sdg-chip-num {
+  background: rgba(24, 32, 28, 0.14);
+  color: #18201c;
+}
+
+[data-theme="dark"] .active-sdg-filter button {
+  color: #18201c !important;
+  background: rgba(24, 32, 28, 0.12) !important;
+}
+
 [data-theme="dark"] .sidebar-logout,
 [data-theme="dark"] .mobile-topbar {
   background: #101b15;

@@ -173,6 +173,7 @@ export default function Archive() {
 
       {activeSdg && (
         <div
+          className="active-sdg-filter"
           style={{
             display: "inline-flex",
             alignItems: "center",

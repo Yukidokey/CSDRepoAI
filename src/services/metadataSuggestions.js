@@ -269,11 +269,13 @@ async function extractDocxText(file) {
 
 function getBoldDocxParagraphs(html) {
   const boldLines = new Set();
-  const paragraphs = html.match(/<p[\s\S]*?<\/p>/gi) || [];
+  const blocks = html.match(/<(p|h[1-6])\b[^>]*>[\s\S]*?<\/\1>/gi) || [];
 
-  for (const paragraph of paragraphs) {
-    if (!/<strong\b|<b\b/i.test(paragraph)) continue;
-    const text = paragraph
+  for (const block of blocks) {
+    const isHeading = /^<h[1-6]\b/i.test(block);
+    if (!isHeading && !/<strong\b|<b\b/i.test(block)) continue;
+
+    const text = block
       .replace(/<br\s*\/?\s*>/gi, " ")
       .replace(/<[^>]+>/g, " ")
       .replace(/&amp;/g, "&")

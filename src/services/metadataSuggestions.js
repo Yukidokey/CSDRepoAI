@@ -471,7 +471,7 @@ function extractKeywords(lines, startIndex) {
   if (startIndex < 0) return "";
 
   return cleanMetadataLine(lines[startIndex])
-    .replace(/^\*?\s*keywords?\s*\*?\s*[:\-]?\s*/i, "")
+    .replace(/^\*?\s*key\s*words?\s*\*?\s*[:\-]?\s*\*?\s*/i, "")
     .replace(/\*+\s*$/, "")
     .replace(/[.;]+$/, "")
     .replace(/\s+/g, " ")
@@ -480,7 +480,7 @@ function extractKeywords(lines, startIndex) {
 
 function findKeywordsIndex(lines, abstractIndex) {
   const startIndex = abstractIndex >= 0 ? abstractIndex + 1 : 0;
-  const keywordPattern = /^\*?\s*keywords?\s*\*?\s*[:\-]/i;
+  const keywordPattern = /^\*?\s*key\s*words?\s*\*?\s*[:\-]/i;
   return lines.findIndex((line, index) => index >= startIndex && keywordPattern.test(cleanMetadataLine(line)));
 }
 

@@ -221,8 +221,38 @@ async function extractPdfText(file) {
 }
 
 async function extractDocxText(file) {
-  const { value } = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
-  return value.replace(/\r/g, "").replace(/\n{3,}/g, "\n\n").trim();
+  const arrayBuffer = await file.arrayBuffer();
+  const [{ value }, { value: html }] = await Promise.all([
+    mammoth.extractRawText({ arrayBuffer }),
+    mammoth.convertToHtml({ arrayBuffer }),
+  ]);
+  const boldLines = getBoldDocxParagraphs(html);
+  const rawLines = value.replace(/\r/g, "").split("\n");
+  const lines = rawLines.map((line) => line.trim()).filter(Boolean);
+  const markedLines = lines.map((line) => (boldLines.has(line) ? `__DOCX_BOLD__${line}` : line));
+  return markedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function getBoldDocxParagraphs(html) {
+  const boldLines = new Set();
+  const paragraphs = html.match(/<p[\s\S]*?<\/p>/gi) || [];
+
+  for (const paragraph of paragraphs) {
+    if (!/<strong\b|<b\b/i.test(paragraph)) continue;
+    const text = paragraph
+      .replace(/<br\s*\/?\s*>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (text) boldLines.add(text);
+  }
+
+  return boldLines;
 }
 
 function joinPdfTextItems(items) {
@@ -280,6 +310,11 @@ export function extractDocumentFields(text) {
 }
 
 function extractTitle(lines) {
+  const boldTitle = lines
+    .slice(0, 12)
+    .find((line) => line.startsWith("__DOCX_BOLD__") && !isDocumentHeading(cleanMetadataLine(line)));
+  if (boldTitle) return cleanMetadataLine(boldTitle);
+
   const titleIndex = lines.findIndex((line) => /^title\s*[:\-]/i.test(line));
   if (titleIndex >= 0) {
     const inlineTitle = lines[titleIndex].replace(/^title\s*[:\-]?\s*/i, "").trim();
@@ -340,7 +375,7 @@ function firstPageTitle(lines) {
   const titleLines = [];
 
   for (let index = 0; index < lines.length && index < 8; index += 1) {
-    const line = lines[index].replace(/^(title\s*[:\-]?\s*)/i, "").trim();
+    const line = cleanMetadataLine(lines[index]).replace(/^(title\s*[:\-]?\s*)/i, "").trim();
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
@@ -357,23 +392,35 @@ function extractAuthors(lines) {
   const labeledAuthors = extractLabeledAuthors(lines);
   if (labeledAuthors.length > 0) return labeledAuthors;
 
-  const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(line));
+  const titleIndex = lines.findIndex((line) => line.startsWith("__DOCX_BOLD__"));
+  const universityIndex = lines.findIndex((line, index) => index > 0 && /\b(university|college|institute)\b/i.test(cleanMetadataLine(line)));
+  const authorStart = titleIndex >= 0 ? titleIndex + 1 : 0;
   const searchEnd = universityIndex > 0 ? universityIndex : Math.min(lines.length, 12);
 
   const authors = [];
-  for (let index = searchEnd - 1; index >= 0; index -= 1) {
-    const line = lines[index];
+  for (let index = authorStart; index < searchEnd && authors.length < 4; index += 1) {
+    const line = cleanMetadataLine(lines[index]);
 
     if (!line || line.length > 60) continue;
     if (/^(abstract|keywords?|approval sheet|thesis adviser|panel chair|panel member|acknowledgement|dedication|chapter)\b/i.test(line)) break;
     if (isInstitutionLine(line)) continue;
     if (!isLikelyAuthorNameLine(line)) continue;
 
-    authors.unshift(line.trim());
-    if (authors.length >= 6) break;
+    authors.push(line.trim());
+  }
+
+  if (authors.length > 0) return authors;
+
+  for (let index = searchEnd - 1; index >= 0 && authors.length < 4; index -= 1) {
+    const line = cleanMetadataLine(lines[index]);
+    if (isLikelyAuthorNameLine(line)) authors.unshift(line);
   }
 
   return authors;
+}
+
+function cleanMetadataLine(line) {
+  return line.replace(/^__DOCX_BOLD__/, "").trim();
 }
 
 function extractLabeledAuthors(lines) {

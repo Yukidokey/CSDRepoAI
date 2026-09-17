@@ -64,3 +64,18 @@ test('extractDocumentFields supports labeled title and authors', () => {
   assert.equal(fields.title, 'A Smart Campus Research System');
   assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos']);
 });
+
+test('extractDocumentFields prioritizes the bold first-page title and reads up to four following authors', () => {
+  const fields = extractDocumentFields(`
+    __DOCX_BOLD__SMART CAMPUS RESEARCH REPOSITORY
+    Juan Dela Cruz
+    Maria Santos
+    Pedro Reyes
+    Ana Garcia
+    Notre Dame of Marbel University
+    Bachelor of Science in Computer Science
+  `);
+
+  assert.equal(fields.title, 'SMART CAMPUS RESEARCH REPOSITORY');
+  assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Santos', 'Pedro Reyes', 'Ana Garcia']);
+});

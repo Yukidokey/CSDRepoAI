@@ -693,7 +693,7 @@ function stripKeywordsHeading(line) {
 }
 
 function isDocumentHeading(line) {
-  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledgement|approval sheet|dedication)\b/i.test(line);
+  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledg(?:e)?ment|approval sheet|dedication)\b/i.test(line);
 }
 
 function isPageMarkerLine(line) {
@@ -711,6 +711,7 @@ function firstPageTitle(lines) {
     const line = cleanMetadataLine(firstPageLines[index]).replace(/^(title\s*[:\-]?\s*)/i, "").trim();
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
+    if (titleLines.length === 0 && isTitlePageBoilerplateLine(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
     if (isTitlePageAuthorBoundary(firstPageLines, index)) break;
     if (titleLines.length > 0 && isInstitutionLine(line) && !isAllCapsLine(line)) break;
@@ -718,6 +719,11 @@ function firstPageTitle(lines) {
   }
 
   return titleLines.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function isTitlePageBoilerplateLine(line) {
+  return /^(?:hardbound|softbound|manuscript|thesis|capstone|research\s+paper|research\s+study)(?:\s+[a-z0-9-]+){0,3}$/i.test(line)
+    && line.length <= 60;
 }
 
 function getFirstPageLines(lines) {
@@ -893,7 +899,7 @@ function splitPeople(value) {
 
 function isAuthorCandidate(line) {
   const candidate = cleanMetadataLine(line);
-  if (!candidate || candidate.length > 60 || isInstitutionLine(candidate)) return false;
+  if (!candidate || candidate.length > 60 || isInstitutionLine(candidate) || isTitlePageBoilerplateLine(candidate)) return false;
   if (/^(abstract|keywords?|title|authors?|researchers?|prepared by|by|approval sheet|thesis adviser|panel chair|panel member|chapter|introduction|background|methodology|references?)\b/i.test(candidate)) {
     return false;
   }

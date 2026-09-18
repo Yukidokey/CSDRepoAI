@@ -157,3 +157,20 @@ test('mergeExtractedMetadata preserves stronger local fields when AI output is i
   assert.equal(merged.abstract, local.abstract);
   assert.equal(merged.keywords, 'speech recognition, machine translation');
 });
+
+test('extractDocumentFields excludes hardbound headers and stops keywords at acknowledgment', () => {
+  const fields = extractDocumentFields(`
+    HARDBOUND BAYAD
+    BAYAD: A MOBILE-BASED SYSTEM TO PROMOTE TRANSPARENCY AND ACCOUNTABILITY IN STUDENT ORGANIZATION PAYMENTS AT NDMU
+    Juan Dela Cruz
+    Notre Dame of Marbel University
+    Abstract
+    This study presents a payment tracking system for student organization transactions.
+    Keywords: financial transparency, accountability, payment tracking, student organizations, mobile application, usability evaluation
+    Acknowledgment
+    We, as researchers, would like to offer our great appreciation to everyone who helped in this research.
+  `);
+
+  assert.equal(fields.title, 'BAYAD: A MOBILE-BASED SYSTEM TO PROMOTE TRANSPARENCY AND ACCOUNTABILITY IN STUDENT ORGANIZATION PAYMENTS AT NDMU');
+  assert.equal(fields.keywords, 'financial transparency, accountability, payment tracking, student organizations, mobile application, usability evaluation');
+});

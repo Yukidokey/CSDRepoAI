@@ -329,9 +329,11 @@ function getItalicDocxParagraphs(html) {
   return italicLines;
 }
 
+const LINE_ITEM_OVERLAP_EPSILON = 0.5;
+
 function joinPdfTextItems(items, styles = {}) {
   const lines = [];
-  const maxFontSize = Math.max(...items.map((item) => getPdfFontSize(item)), 0);
+  const baseFontSize = getBaseFontSize(items);
   for (const item of items) {
     const text = item.str?.trim();
     if (!text) continue;
@@ -342,14 +344,14 @@ function joinPdfTextItems(items, styles = {}) {
     const line = lines.find((candidate) => (
       Math.abs(candidate.y - y) < 3
       && candidate.items.every((existingItem) => (
-        x >= existingItem.x + existingItem.width
-        || x + width <= existingItem.x
+        x >= existingItem.x + existingItem.width - LINE_ITEM_OVERLAP_EPSILON
+        || x + width <= existingItem.x + LINE_ITEM_OVERLAP_EPSILON
       ))
     ));
     if (line) {
-      line.items.push({ x, text, width, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) });
+      line.items.push({ x, text, width, bold: isPdfBoldItem(item, styles, fontSize, baseFontSize) });
     } else {
-      lines.push({ y, items: [{ x, text, width, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) }] });
+      lines.push({ y, items: [{ x, text, width, bold: isPdfBoldItem(item, styles, fontSize, baseFontSize) }] });
     }
   }
 
@@ -370,18 +372,39 @@ function joinPdfTextItems(items, styles = {}) {
   return collapseHyphenSpacing(joined);
 }
 
-function isPdfBoldItem(item, styles, fontSize, maxFontSize) {
+function isPdfBoldItem(item, styles, fontSize, baseFontSize) {
   const style = styles?.[item.fontName] || {};
   const fontName = `${item.fontName || ""} ${style.fontFamily || ""}`;
-  return /bold|black|semibold|demi/i.test(fontName) || (maxFontSize > 0 && fontSize >= maxFontSize);
+  if (/bold|black|semibold|demi/i.test(fontName)) return true;
+  if (baseFontSize <= 0) return false;
+  return fontSize >= baseFontSize * 1.08;
 }
 
 function getPdfFontSize(item) {
   return Math.hypot(item.transform?.[0] ?? 0, item.transform?.[1] ?? 0);
 }
 
+function getBaseFontSize(items) {
+  const counts = new Map();
+  for (const item of items) {
+    const text = item.str?.trim();
+    if (!text) continue;
+    const size = Math.round(getPdfFontSize(item) * 100) / 100;
+    counts.set(size, (counts.get(size) || 0) + text.length);
+  }
+  let baseSize = 0;
+  let bestCount = -1;
+  for (const [size, count] of counts) {
+    if (count > bestCount) {
+      bestCount = count;
+      baseSize = size;
+    }
+  }
+  return baseSize;
+}
+
 function collapseHyphenSpacing(text) {
-  return text.replace(/(\w)\s*[-–—]\s*(\w)/g, "$1-$2");
+  return text.replace(/(\w)[ \t]*[-–—][ \t]*(\w)/g, "$1-$2");
 }
 
 function isDocx(file) {
@@ -493,9 +516,30 @@ function extractSection(lines, startIndex, stopPatterns) {
 function extractKeywords(lines, startIndex) {
   if (startIndex < 0) return "";
 
-  const line = cleanMetadataLine(lines[startIndex]);
-  const keywordStart = line.search(/\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i);
-  return stripKeywordsHeading(keywordStart >= 0 ? line.slice(keywordStart) : line)
+  const firstLine = cleanMetadataLine(lines[startIndex]);
+  const keywordStart = firstLine.search(/\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i);
+  const segments = [stripKeywordsHeading(keywordStart >= 0 ? firstLine.slice(keywordStart) : firstLine)];
+  let index = startIndex + 1;
+  while (
+    index < lines.length
+    && segments.length < 6
+    && !/\.\s*$/.test(segments[segments.length - 1].trim())
+  ) {
+    const nextLine = cleanMetadataLine(lines[index]);
+    if (
+      !nextLine
+      || isPageMarkerLine(nextLine)
+      || isDocumentHeading(nextLine)
+      || isAbstractHeading(nextLine)
+      || isKeywordsHeading(nextLine)
+      || /^\d+$/.test(nextLine)
+    ) break;
+    segments.push(nextLine);
+    index += 1;
+  }
+
+  return segments
+    .join(" ")
     .replace(/\*+\s*$/, "")
     .replace(/[.;]+$/, "")
     .replace(/\s+/g, " ")
@@ -596,6 +640,7 @@ function isTitlePageAuthorBoundary(lines, index) {
   const line = cleanMetadataLine(lines[index]);
   if (!isLikelyAuthorNameLine(line)) return false;
   if (/\b(?:a|an|and|for|from|in|of|on|the|to|with)\b/i.test(line)) return false;
+  if (/[A-Za-z]-[A-Za-z]/.test(line)) return false;
 
   for (let nextIndex = index + 1; nextIndex <= index + 3 && nextIndex < lines.length; nextIndex += 1) {
     const nextLine = cleanMetadataLine(lines[nextIndex]);

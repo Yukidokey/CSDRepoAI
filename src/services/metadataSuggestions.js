@@ -407,7 +407,7 @@ export function extractDocumentFields(text) {
 }
 
 function extractTitle(lines) {
-  const titleIndex = lines.findIndex((line) => /^title\s*(?:[:\-].*|)$/i.test(cleanMetadataLine(line)));
+  const titleIndex = lines.slice(0, 12).findIndex((line) => /^title\s*(?:[:\-].*|)$/i.test(cleanMetadataLine(line)));
   if (titleIndex >= 0) {
     const inlineTitle = cleanMetadataLine(lines[titleIndex]).replace(/^title\s*[:\-]?\s*/i, "").trim();
     if (inlineTitle) return inlineTitle;

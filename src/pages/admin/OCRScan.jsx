@@ -99,7 +99,7 @@ async function loadFiles(list) {
     setDonePages(0);
     setCurrentPage(1);
   } catch (error) {
-    setUploadError(error.message || "Could not read that file. Please choose a PDF or image file.");
+    setUploadError(error.message || "Could not read that file. Please choose a PDF, DOCX, or image file.");
   }
 }
 
@@ -193,7 +193,7 @@ function handleFile(e) {
       setStep("scanned");
     } catch (error) {
       setStep("idle");
-      setUploadError(error.message || "OCR could not read the selected document. Please try again.");
+      setUploadError(error.message || "OCR could not read the selected PDF, DOCX, or image document. Please try again.");
     }
   }
 
@@ -259,7 +259,7 @@ function handleFile(e) {
         <input
           ref={fileInputRef}
           type="file"
-          accept="image/*,.pdf"
+          accept="image/*,.pdf,.docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           multiple
           onChange={handleFile}
           style={{ display: "none" }}

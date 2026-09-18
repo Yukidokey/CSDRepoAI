@@ -1,6 +1,7 @@
 import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import mammoth from "mammoth/mammoth.browser.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions.js";
 import { stripPageMarkers } from "./ocrTextUtils.js";
@@ -59,7 +60,12 @@ async function normalizeFilesForArchive(files) {
       continue;
     }
 
-    throw new Error("Document digitization requires scanned image files or PDF uploads.");
+    if (isDocxFile(file)) {
+      expanded.push(file);
+      continue;
+    }
+
+    throw new Error("Document digitization requires scanned image files, PDF, or DOCX uploads.");
   }
 
   return expanded;
@@ -89,6 +95,12 @@ export async function scanDocuments(imageFiles, onProgress) {
 
     for (let index = 0; index < imageFiles.length; index += 1) {
       const file = imageFiles[index];
+      if (isDocxFile(file)) {
+        const text = await extractDocxTextForOcr(file);
+        pages.push({ pageNumber: index + 1, text });
+        if (onProgress) onProgress(1, index + 1, totalPages);
+        continue;
+      }
       const preparedImage = await prepareOcrImage(file);
       const { data: { text } } = await worker.recognize(preparedImage);
 
@@ -168,6 +180,21 @@ function applyCommonOcrCorrections(text) {
 
 function isPdfFile(file) {
   return file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
+}
+
+function isDocxFile(file) {
+  return file?.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    || /\.docx$/i.test(file?.name || "");
+}
+
+async function extractDocxTextForOcr(file) {
+  const arrayBuffer = await file.arrayBuffer();
+  const { value } = await mammoth.extractRawText({ arrayBuffer });
+  return value
+    .replace(/\r/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]+/g, " ")
+    .trim();
 }
 
 async function pdfFileToPageImageFiles(file) {
@@ -320,6 +347,18 @@ async function uploadResearchPdf(files, { onProgress } = {}) {
   return pub.publicUrl;
 }
 
+async function uploadResearchDocument(file) {
+  const path = `ocr-scans/${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi, "_")}`;
+  const { error } = await supabase.storage.from("research-files").upload(path, file, {
+    contentType: file.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    upsert: false,
+  });
+  if (error) throw error;
+
+  const { data: pub } = supabase.storage.from("research-files").getPublicUrl(path);
+  return pub.publicUrl;
+}
+
 /**
  * OCR Digitization Module: heuristic metadata extraction.
  *
@@ -430,7 +469,9 @@ export async function digitizeAndArchive({
   }
 
   const actorId = adminId;
-  const uploadedUrl = await uploadResearchPdf(filesToUpload, { onProgress });
+  const uploadedUrl = filesToUpload.length === 1 && isDocxFile(filesToUpload[0])
+    ? await uploadResearchDocument(filesToUpload[0])
+    : await uploadResearchPdf(filesToUpload, { onProgress });
 
   const { data, error } = await supabase
     .from("research_papers")

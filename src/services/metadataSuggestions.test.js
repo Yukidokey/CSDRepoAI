@@ -1,6 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractDocumentFields, mergeExtractedMetadata } from './metadataSuggestions.js';
+import { extractDocumentFields, mergeExtractedMetadata, toMetadataEndpoint } from './metadataSuggestions.js';
+
+test('toMetadataEndpoint supports bare backend origins and existing metadata paths', () => {
+  assert.equal(toMetadataEndpoint('https://example.vercel.app', 'extract-metadata'), 'https://example.vercel.app/extract-metadata');
+  assert.equal(toMetadataEndpoint('https://example.vercel.app/', 'metadata'), 'https://example.vercel.app/metadata');
+  assert.equal(toMetadataEndpoint('https://example.vercel.app/metadata', 'extract-metadata'), 'https://example.vercel.app/extract-metadata');
+  assert.equal(toMetadataEndpoint('https://example.vercel.app/extract-metadata', 'metadata'), 'https://example.vercel.app/metadata');
+  assert.equal(toMetadataEndpoint('http://example.vercel.app', 'extract-metadata'), 'https://example.vercel.app/extract-metadata');
+  assert.equal(toMetadataEndpoint('http://localhost:8787', 'extract-metadata'), 'http://localhost:8787/extract-metadata');
+});
 
 test('extractDocumentFields handles labeled metadata with multiple authors and capitalization variants', () => {
   const fields = extractDocumentFields(`

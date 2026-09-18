@@ -30,9 +30,12 @@ export function splitConcatenatedNames(line) {
   return String(line || "").replace(concatenatedNames, "$1\n");
 }
 
-function toMetadataEndpoint(url, endpoint) {
+export function toMetadataEndpoint(url, endpoint) {
   if (!url) return "";
-  return url.replace(/\/(?:metadata|extract-metadata)\/?$/i, `/${endpoint}`);
+  const normalizedUrl = url
+    .replace(/\/+$/, "")
+    .replace(/^http:\/\/(?!localhost(?::|\/)|127\.0\.0\.1(?::|\/))/i, "https://");
+  return normalizedUrl.replace(/\/(?:metadata|extract-metadata)$/i, "") + `/${endpoint}`;
 }
 
 function logMetadataDebug(message, details) {

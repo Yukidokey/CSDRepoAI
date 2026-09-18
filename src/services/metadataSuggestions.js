@@ -586,9 +586,14 @@ function extractTitle(lines) {
 }
 
 function resolveDocumentTitle(title, file, adviser = "") {
-  const cleanedTitle = normalizeTitleCandidate(title);
+  const cleanedTitle = sanitizeResearchTitle(title);
   if (cleanedTitle && !isPlaceholderTitle(cleanedTitle) && !isLikelyNonTitle(cleanedTitle, adviser)) return cleanedTitle;
   return file ? titleFromFilename(file) : "";
+}
+
+export function sanitizeResearchTitle(value) {
+  const title = normalizeTitleCandidate(value);
+  return isNonTitlePageLabel(title) || isPlaceholderTitle(title) ? "" : title;
 }
 
 function normalizeTitleCandidate(value) {
@@ -613,6 +618,7 @@ function titleFromFilename(file) {
     .replace(/\s+/g, " ")
     .trim();
   if (!filename || /^(document|manuscript|research|thesis|paper|file|untitled)(\s*\d+)?$/i.test(filename)) return "";
+  if (isNonTitlePageLabel(filename)) return "";
   return filename;
 }
 

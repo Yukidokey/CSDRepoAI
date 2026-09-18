@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractDocumentFields, mergeExtractedMetadata, toMetadataEndpoint } from './metadataSuggestions.js';
+import { extractDocumentFields, mergeExtractedMetadata, sanitizeResearchTitle, toMetadataEndpoint } from './metadataSuggestions.js';
 
 test('toMetadataEndpoint supports bare backend origins and existing metadata paths', () => {
   assert.equal(toMetadataEndpoint('https://example.vercel.app', 'extract-metadata'), 'https://example.vercel.app/extract-metadata');
@@ -207,4 +207,12 @@ test('mergeExtractedMetadata normalizes a flattened hardbound BAYAD title', () =
   );
 
   assert.equal(merged.title, 'bayad: A Mobile-Based System to Promote Transparency and Accountability in Student Organization Payments at NDMU');
+});
+
+test('sanitizeResearchTitle protects the Submit Research title field', () => {
+  assert.equal(sanitizeResearchTitle('HARDBOUND BAYAD'), '');
+  assert.equal(
+    sanitizeResearchTitle('HARDBOUND BAYAD *bayad*: A Mobile-Based System to Promote Transparency and Accountability in Student Organization Payments at NDMU'),
+    'bayad: A Mobile-Based System to Promote Transparency and Accountability in Student Organization Payments at NDMU'
+  );
 });

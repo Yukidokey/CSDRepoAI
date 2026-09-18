@@ -253,7 +253,7 @@ async function extractPdfText(file) {
   const data = await file.arrayBuffer();
   const pdf = await getDocument({ data }).promise;
   const pages = [];
-  const pageLimit = Math.min(pdf.numPages, 8);
+  const pageLimit = pdf.numPages;
 
   for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
@@ -613,7 +613,7 @@ function getFirstPageLines(lines) {
 }
 
 function extractInlineFirstPageTitle(lines) {
-  const contentLines = lines.filter((line) => !isPageMarkerLine(line));
+  const contentLines = getFirstPageLines(lines).filter((line) => !isPageMarkerLine(line));
   if (contentLines[0]?.length <= 100) return "";
 
   const pageText = contentLines

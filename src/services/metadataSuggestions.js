@@ -284,7 +284,7 @@ function chooseTitle(localTitle, aiTitle, file) {
 }
 
 function isValidTitle(value) {
-  const title = cleanMetadataLine(String(value || "")).replace(/\s+/g, " ").trim();
+  const title = normalizeTitleCandidate(value);
   return title.length >= 12
     && !isPlaceholderTitle(title)
     && !isTitlePageBoilerplateLine(title)
@@ -586,9 +586,21 @@ function extractTitle(lines) {
 }
 
 function resolveDocumentTitle(title, file, adviser = "") {
-  const cleanedTitle = cleanMetadataLine(String(title || "")).replace(/\s+/g, " ").trim();
+  const cleanedTitle = normalizeTitleCandidate(title);
   if (cleanedTitle && !isPlaceholderTitle(cleanedTitle) && !isLikelyNonTitle(cleanedTitle, adviser)) return cleanedTitle;
   return file ? titleFromFilename(file) : "";
+}
+
+function normalizeTitleCandidate(value) {
+  return cleanMetadataLine(String(value || ""))
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^(?:hardbound|softbound)\s+[a-z0-9-]+\s+/i, "")
+    .replace(/\*([^*]+)\*/g, "$1")
+    .replace(/^[_*]+|[_*]+$/g, "")
+    .replace(/^bayad\s*:\s*/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function isPlaceholderTitle(title) {

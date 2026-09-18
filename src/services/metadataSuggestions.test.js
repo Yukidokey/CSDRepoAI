@@ -190,5 +190,21 @@ test('mergeExtractedMetadata rejects HARDBOUND headers returned as an AI title',
     keywords: [],
   }, { name: 'bayad.pdf' });
 
-  assert.equal(merged.title, local.title);
+  assert.equal(merged.title, 'A MOBILE-BASED SYSTEM TO PROMOTE TRANSPARENCY AND ACCOUNTABILITY IN STUDENT ORGANIZATION PAYMENTS AT NDMU');
+});
+
+test('mergeExtractedMetadata normalizes a flattened hardbound BAYAD title', () => {
+  const merged = mergeExtractedMetadata(
+    {
+      title: 'HARDBOUND BAYAD *bayad*: A Mobile-Based System to Promote Transparency and Accountability in Student Organization Payments at NDMU',
+      authors: [],
+      adviser: '',
+      keywords: '',
+    },
+    '',
+    { title: 'HARDBOUND BAYAD', authors: [], adviser: '', abstract: '', keywords: [] },
+    { name: 'bayad.pdf' }
+  );
+
+  assert.equal(merged.title, 'A Mobile-Based System to Promote Transparency and Accountability in Student Organization Payments at NDMU');
 });

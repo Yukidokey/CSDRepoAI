@@ -258,7 +258,8 @@ async function extractPdfText(file) {
   for (let pageNumber = 1; pageNumber <= pageLimit; pageNumber += 1) {
     const page = await pdf.getPage(pageNumber);
     const content = await page.getTextContent();
-    pages.push(joinPdfTextItems(content.items, content.styles));
+    const pageText = joinPdfTextItems(content.items, content.styles);
+    pages.push(pageNumber === 1 ? pageText : `--- Page ${pageNumber} ---\n${pageText}`);
   }
 
   return pages.join("\n\n").trim();
@@ -336,11 +337,19 @@ function joinPdfTextItems(items, styles = {}) {
     if (!text) continue;
     const y = item.transform?.[5] ?? 0;
     const fontSize = getPdfFontSize(item);
-    const line = lines.find((candidate) => Math.abs(candidate.y - y) < 3);
+    const x = item.transform?.[4] ?? 0;
+    const width = item.width ?? 0;
+    const line = lines.find((candidate) => (
+      Math.abs(candidate.y - y) < 3
+      && candidate.items.every((existingItem) => (
+        x >= existingItem.x + existingItem.width
+        || x + width <= existingItem.x
+      ))
+    ));
     if (line) {
-      line.items.push({ x: item.transform?.[4] ?? 0, text, width: item.width ?? 0, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) });
+      line.items.push({ x, text, width, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) });
     } else {
-      lines.push({ y, items: [{ x: item.transform?.[4] ?? 0, text, width: item.width ?? 0, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) }] });
+      lines.push({ y, items: [{ x, text, width, bold: isPdfBoldItem(item, styles, fontSize, maxFontSize) }] });
     }
   }
 

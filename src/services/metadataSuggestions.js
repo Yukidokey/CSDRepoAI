@@ -287,6 +287,7 @@ function isValidTitle(value) {
   const title = cleanMetadataLine(String(value || "")).replace(/\s+/g, " ").trim();
   return title.length >= 12
     && !isPlaceholderTitle(title)
+    && !isTitlePageBoilerplateLine(title)
     && !isLikelyNonTitle(title)
     && !/^(abstract|keywords?|introduction|chapter\s+[ivxlcdm\d]+)$/i.test(title);
 }

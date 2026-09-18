@@ -174,3 +174,21 @@ test('extractDocumentFields excludes hardbound headers and stops keywords at ack
   assert.equal(fields.title, 'BAYAD: A MOBILE-BASED SYSTEM TO PROMOTE TRANSPARENCY AND ACCOUNTABILITY IN STUDENT ORGANIZATION PAYMENTS AT NDMU');
   assert.equal(fields.keywords, 'financial transparency, accountability, payment tracking, student organizations, mobile application, usability evaluation');
 });
+
+test('mergeExtractedMetadata rejects HARDBOUND headers returned as an AI title', () => {
+  const local = {
+    title: 'BAYAD: A MOBILE-BASED SYSTEM TO PROMOTE TRANSPARENCY AND ACCOUNTABILITY IN STUDENT ORGANIZATION PAYMENTS AT NDMU',
+    authors: ['Juan Dela Cruz'],
+    adviser: '',
+    keywords: 'financial transparency, accountability, payment tracking, student organizations, mobile application, usability evaluation',
+  };
+  const merged = mergeExtractedMetadata(local, 'This study presents a payment tracking system for student organization transactions.', {
+    title: 'HARDBOUND BAYAD',
+    authors: ['Juan Dela Cruz'],
+    adviser: '',
+    abstract: '',
+    keywords: [],
+  }, { name: 'bayad.pdf' });
+
+  assert.equal(merged.title, local.title);
+});

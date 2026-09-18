@@ -27,7 +27,10 @@ These documents follow a consistent structural convention that does NOT use expl
 Structural conventions to expect:
 
 TITLE PAGE (usually page 1):
-- The title appears as the first large block of text and often wraps across 2-4 consecutive lines due to page width — this is one continuous title, not separate lines or separate titles. You MUST join every line of this title block into a single string, in reading order, separated by a single space, before the author names begin. Do NOT return only the last line or a fragment of the title.
+- The title appears as the main title block near the beginning of the document and often wraps across 2-4 consecutive lines due to page width — this is one continuous title, not separate lines or separate titles. You MUST join every line of this title block into a single string, in reading order, separated by a single space, before the author names begin. Do NOT return only the last line or a fragment of the title.
+- Ignore physical-copy labels, scanning labels, cover labels, or repository labels such as "HARDBOUND", "HARDBOUND BAYAD", "HARD BOUND", or similar text. These are NOT part of the research title.
+- If a line contains only "HARDBOUND", "HARDBOUND BAYAD", or a similar physical-copy label, skip it and continue looking for the actual research title.
+- The actual title may begin with the project or system name followed by a colon, such as "bayad: A Mobile-Based System...".
 - Immediately below the title, one or more author names appear, each typically on its own line, with NO "By:" or "Author(s):" prefix.
 - Below the authors, the university name and degree program usually appear.
 - An adviser's name sometimes appears near the bottom of this page, also unlabeled — but do not treat this as fully reliable; the Approval Sheet is the authoritative source for adviser identity.

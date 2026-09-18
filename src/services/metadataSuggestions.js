@@ -598,7 +598,6 @@ function normalizeTitleCandidate(value) {
     .replace(/^(?:hardbound|softbound)\s+[a-z0-9-]+\s+/i, "")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/^[_*]+|[_*]+$/g, "")
-    .replace(/^bayad\s*:\s*/i, "")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -721,10 +720,12 @@ function firstPageTitle(lines) {
   const titleLines = [];
 
   for (let index = 0; index < firstPageLines.length && index < 20; index += 1) {
-    const line = cleanMetadataLine(firstPageLines[index]).replace(/^(title\s*[:\-]?\s*)/i, "").trim();
+    const line = cleanMetadataLine(firstPageLines[index])
+      .replace(/^(title\s*[:\-]?\s*)/i, "")
+      .trim();
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
-    if (titleLines.length === 0 && isTitlePageBoilerplateLine(line)) continue;
+    if (isNonTitlePageLabel(line)) continue;
     if (/^(abstract|keywords?)\b/i.test(line)) break;
     if (isTitlePageAuthorBoundary(firstPageLines, index)) break;
     if (titleLines.length > 0 && isInstitutionLine(line) && !isAllCapsLine(line)) break;
@@ -734,9 +735,24 @@ function firstPageTitle(lines) {
   return titleLines.join(" ").replace(/\s+/g, " ").trim();
 }
 
+function isNonTitlePageLabel(line) {
+  const normalized = cleanMetadataLine(line)
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
+  return [
+    "hardbound",
+    "hardbound bayad",
+    "hard bound",
+    "hard bound bayad",
+  ].includes(normalized);
+}
+
 function isTitlePageBoilerplateLine(line) {
-  return /^(?:hardbound|softbound|manuscript|thesis|capstone|research\s+paper|research\s+study)(?:\s+[a-z0-9-]+){0,3}$/i.test(line)
-    && line.length <= 60;
+  return isNonTitlePageLabel(line)
+    || (/^(?:softbound|manuscript|thesis|capstone|research\s+paper|research\s+study)(?:\s+[a-z0-9-]+){0,3}$/i.test(line)
+      && line.length <= 60);
 }
 
 function getFirstPageLines(lines) {

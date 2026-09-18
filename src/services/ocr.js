@@ -384,6 +384,7 @@ function hasUsableAiMetadata(metadata) {
 function isUsableMetadataTitle(value) {
   const title = String(value || "").replace(/\s+/g, " ").trim();
   if (!title || title.length > 180 || title.split(/\s+/).length > 24) return false;
+  if (/^har(?:d)?bound(?:\s+bayad)?$/i.test(title)) return false;
   if (/^(string|title|document|manuscript|research paper|untitled|unknown|n\/a|null|undefined)$/i.test(title)) return false;
   if (/^\d+\s+(?:weeks?|days?|months?)\b/i.test(title)) return false;
   if (/\b(?:data collection plan|prior to data collection|this study will|the research team will)\b/i.test(title)) return false;

@@ -4,6 +4,8 @@ import mammoth from "mammoth/mammoth.browser.js";
 
 const viteEnv = typeof import.meta !== "undefined" && import.meta.env ? import.meta.env : {};
 const GENKIT_METADATA_URL = viteEnv.VITE_GENKIT_METADATA_URL;
+const GENKIT_EXTRACTION_URL = toMetadataEndpoint(GENKIT_METADATA_URL, "extract-metadata");
+const GENKIT_ANALYSIS_URL = toMetadataEndpoint(GENKIT_METADATA_URL, "metadata");
 
 export const THESIS_BOILERPLATE_ANCHORS = [
   "Notre Dame of Marbel University",
@@ -28,15 +30,24 @@ export function splitConcatenatedNames(line) {
   return String(line || "").replace(concatenatedNames, "$1\n");
 }
 
+function toMetadataEndpoint(url, endpoint) {
+  if (!url) return "";
+  return url.replace(/\/(?:metadata|extract-metadata)\/?$/i, `/${endpoint}`);
+}
+
+function logMetadataDebug(message, details) {
+  if (viteEnv.DEV) console.debug(`[metadata] ${message}`, details);
+}
+
 export async function extractMetadataWithAI(documentText) {
-  if (!GENKIT_METADATA_URL) {
+  if (!GENKIT_EXTRACTION_URL) {
     return { unavailable: true };
   }
 
   const normalizedDocumentText = normalizeThesisBoilerplate(documentText);
 
   try {
-    const response = await fetch(GENKIT_METADATA_URL, {
+    const response = await fetch(GENKIT_EXTRACTION_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -48,9 +59,17 @@ export async function extractMetadataWithAI(documentText) {
       throw new Error(`metadata extraction request failed (${response.status})`);
     }
 
-    return await response.json();
+    const payload = await response.json();
+    logMetadataDebug("AI extraction response received", {
+      title: Boolean(payload?.title),
+      authors: Array.isArray(payload?.authors) ? payload.authors.length : 0,
+      adviser: Boolean(payload?.adviser),
+      abstractLength: String(payload?.abstract || "").length,
+      keywords: Array.isArray(payload?.keywords) ? payload.keywords.length : 0,
+    });
+    return payload;
   } catch (error) {
-    console.warn("Genkit semantic search unavailable, using fallback text search.", error);
+    console.warn("Google Genkit metadata extraction unavailable, using local metadata extraction.", error);
     return { failed: true };
   }
 }
@@ -125,26 +144,99 @@ export function suggestMetadata({ title = "", abstract = "", keywords = "" }) {
 export async function analyzeResearchDocument(file) {
   if (!file) return null;
 
+  const source = await readResearchDocument(file);
+  return buildLocalAnalysis(file, source);
+}
+
+export async function analyzeResearchDocumentWithAI(file) {
+  if (!file) return null;
+
+  const source = await readResearchDocument(file);
+  const { documentText, extracted, abstract } = source;
+
+  if (!GENKIT_EXTRACTION_URL) {
+    logMetadataDebug("AI extraction unavailable; using local fallback", { reason: "endpoint not configured" });
+    return buildLocalAnalysis(file, source);
+  }
+
+  const aiMetadata = await extractMetadataWithAI(documentText);
+  if (aiMetadata?.unavailable || aiMetadata?.failed) {
+    logMetadataDebug("AI extraction unavailable; using local fallback", { reason: "request failed" });
+    return buildLocalAnalysis(file, source);
+  }
+
+  if (!aiMetadata) {
+    logMetadataDebug("AI extraction returned no metadata; using local fallback", {});
+    return buildLocalAnalysis(file, source);
+  }
+
+  const merged = mergeExtractedMetadata(extracted, abstract, aiMetadata, file);
+  const aiSuggestions = suggestMetadata({
+    title: merged.title,
+    abstract: merged.abstract,
+    keywords: merged.keywords,
+  });
+  logMetadataDebug("AI extraction validation complete", {
+    title: Boolean(merged.title),
+    authors: merged.authors.length,
+    adviser: Boolean(merged.adviser),
+    abstractLength: merged.abstract.length,
+    keywords: merged.keywords.length,
+  });
+
+  return {
+    title: merged.title,
+    authors: merged.authors.join(", "),
+    adviser: merged.adviser,
+    keywords: merged.keywords,
+    abstract: merged.abstract,
+    category: aiSuggestions.category,
+    sdgTags: aiSuggestions.sdgTags,
+    sdgNames: aiSuggestions.sdgNames,
+    extractedText: documentText,
+    sourceTextLength: documentText.length,
+  };
+}
+
+async function readResearchDocument(file) {
   const documentText = normalizeThesisBoilerplate(
     isDocx(file) ? await extractDocxText(file) : await extractPdfText(file)
   );
   const extracted = extractDocumentFields(documentText);
   const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
+  logMetadataDebug("document extracted", {
+    pages: isDocx(file) ? 1 : Math.max(1, (documentText.match(/--- Page \d+ ---/g) || []).length + 1),
+    textLength: documentText.length,
+    title: Boolean(extracted.title),
+    authors: extracted.authors.length,
+    adviser: Boolean(extracted.adviser),
+    abstractLength: abstract.length,
+    keywords: Boolean(extracted.keywords),
+  });
+  return { documentText, extracted, abstract };
+}
 
+async function buildLocalAnalysis(file, { documentText, extracted, abstract }) {
   const metadata = await maybeAnalyzeWithGenkit({
     title: extracted.title,
     abstract,
     keywords: extracted.keywords,
     text: documentText,
   });
-
   const title = resolveDocumentTitle(extracted.title, file, extracted.adviser);
-
+  const keywords = extracted.keywords || metadata.keywords.join(", ");
+  logMetadataDebug("local metadata fallback ready", {
+    title: Boolean(title),
+    authors: extracted.authors.length,
+    adviser: Boolean(extracted.adviser),
+    abstractLength: abstract.length,
+    keywords: Boolean(keywords),
+  });
   return {
     title,
     authors: extracted.authors,
     adviser: extracted.adviser,
-    keywords: extracted.keywords || metadata.keywords.join(", "),
+    keywords,
     abstract,
     category: metadata.category,
     sdgTags: metadata.sdgTags,
@@ -154,64 +246,82 @@ export async function analyzeResearchDocument(file) {
   };
 }
 
-export async function analyzeResearchDocumentWithAI(file) {
-  if (!file) return null;
+export function mergeExtractedMetadata(local, localAbstract, ai, file) {
+  const localTitle = resolveDocumentTitle(local.title, null, local.adviser);
+  const aiTitle = resolveDocumentTitle(ai.title, null, ai.adviser || local.adviser);
+  const title = chooseTitle(localTitle, aiTitle, file);
+  const localAuthors = cleanAuthorList(local.authors);
+  const aiAuthors = cleanAuthorList(ai.authors);
+  const authors = aiAuthors.length >= localAuthors.length ? aiAuthors : localAuthors;
+  const aiAdviser = cleanAdviser(ai.adviser);
+  const adviser = aiAdviser || cleanAdviser(local.adviser);
+  const aiAbstract = cleanAbstract(ai.abstract);
+  const abstract = aiAbstract && (aiAbstract.length >= localAbstract.length * 0.6 || !localAbstract)
+    ? aiAbstract
+    : localAbstract;
+  const aiKeywords = normalizeKeywords(ai.keywords);
+  const keywords = aiKeywords.length > 0 ? aiKeywords.join(", ") : normalizeKeywords(local.keywords).join(", ");
 
-  const documentText = normalizeThesisBoilerplate(
-    isDocx(file) ? await extractDocxText(file) : await extractPdfText(file)
-  );
-  const extracted = extractDocumentFields(documentText);
-  const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
+  return { title, authors, adviser, abstract, keywords };
+}
 
-  if (!GENKIT_METADATA_URL) {
-    return analyzeResearchDocument(file);
+function chooseTitle(localTitle, aiTitle, file) {
+  const localValid = isValidTitle(localTitle);
+  const aiValid = isValidTitle(aiTitle);
+  if (localValid && aiValid) {
+    const localWords = normalize(localTitle).split(/\s+/).filter(Boolean);
+    const aiWords = new Set(normalize(aiTitle).split(/\s+/).filter(Boolean));
+    const overlap = localWords.filter((word) => aiWords.has(word)).length / Math.max(aiWords.size, 1);
+    if (localTitle.length >= aiTitle.length * 1.35 && overlap >= 0.5) return localTitle;
+    return aiTitle;
   }
+  if (aiValid) return aiTitle;
+  if (localValid) return localTitle;
+  return titleFromFilename(file);
+}
 
-  const aiMetadata = await extractMetadataWithAI(documentText);
-  if (aiMetadata?.unavailable || aiMetadata?.failed) {
-    return analyzeResearchDocument(file);
-  }
+function isValidTitle(value) {
+  const title = cleanMetadataLine(String(value || "")).replace(/\s+/g, " ").trim();
+  return title.length >= 12
+    && !isPlaceholderTitle(title)
+    && !isLikelyNonTitle(title)
+    && !/^(abstract|keywords?|introduction|chapter\s+[ivxlcdm\d]+)$/i.test(title);
+}
 
-  if (!aiMetadata) {
-    return analyzeResearchDocument(file);
-  }
+function cleanAuthorList(value) {
+  const authors = Array.isArray(value) ? value : String(value || "").split(/[;\n]+/);
+  return [...new Set(authors
+    .map((author) => cleanMetadataLine(String(author)).replace(/\s+/g, " ").trim())
+    .filter((author) => isAuthorCandidate(author) && !/\b(?:approved by|dean|chairperson|panel)\b/i.test(author)))];
+}
 
-  const aiKeywords = Array.isArray(aiMetadata.keywords)
-    ? aiMetadata.keywords.join(", ")
-    : String(aiMetadata.keywords || extracted.keywords || "").trim();
+function cleanAdviser(value) {
+  const adviser = cleanMetadataLine(String(value || "")).replace(/\s+/g, " ").trim();
+  if (!adviser || !isLikelyAuthorLine(adviser)) return "";
+  if (/\b(?:panel|dean|chairperson|department chair|approved by|adviser|advisor)\b/i.test(adviser)) return "";
+  return adviser;
+}
 
-  const aiSuggestions = suggestMetadata({
-    title: aiMetadata.title || extracted.title,
-    abstract: aiMetadata.abstract || abstract,
-    keywords: aiKeywords,
-  });
+function cleanAbstract(value) {
+  const abstract = cleanMetadataLine(String(value || "")).replace(/\s+/g, " ").trim();
+  if (abstract.length < 60 || /^(abstract|introduction|chapter\s+[ivxlcdm\d]+)$/i.test(abstract)) return "";
+  return abstract;
+}
 
-  const localTitle = resolveDocumentTitle(extracted.title, null, extracted.adviser);
-  const aiTitle = resolveDocumentTitle(aiMetadata.title, null, aiMetadata.adviser || extracted.adviser);
-
-  return {
-    title: localTitle || aiTitle || titleFromFilename(file),
-    authors: Array.isArray(aiMetadata.authors) && aiMetadata.authors.length
-      ? aiMetadata.authors.join(", ")
-      : extracted.authors.join(", "),
-    adviser: aiMetadata.adviser || extracted.adviser,
-    keywords: aiKeywords || extracted.keywords,
-    abstract: aiMetadata.abstract || abstract,
-    category: aiSuggestions.category,
-    sdgTags: aiSuggestions.sdgTags,
-    sdgNames: aiSuggestions.sdgNames,
-    extractedText: documentText,
-    sourceTextLength: documentText.length,
-  };
+function normalizeKeywords(value) {
+  const values = Array.isArray(value) ? value : String(value || "").split(/[;,\n|]+/);
+  return [...new Set(values
+    .map((keyword) => cleanMetadataLine(String(keyword)).replace(/^[*\s]+|[*\s.,;:]+$/g, "").replace(/\s+/g, " ").trim().toLowerCase())
+    .filter(Boolean))].slice(0, 12);
 }
 
 async function maybeAnalyzeWithGenkit({ title, abstract, keywords, text }) {
-  if (!GENKIT_METADATA_URL) {
+  if (!GENKIT_ANALYSIS_URL) {
     return suggestMetadata({ title, abstract, keywords });
   }
 
   try {
-    const response = await fetch(GENKIT_METADATA_URL, {
+    const response = await fetch(GENKIT_ANALYSIS_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -502,7 +612,7 @@ function extractSection(lines, startIndex, stopPatterns) {
     }
     const line = cleanMetadataLine(lines[index]);
     const keywordPosition = line.search(/\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i);
-    if (stopPatterns.includes("keywords?") && keywordPosition >= 0) {
+    if (stopPatterns.includes("keywords?") && (keywordPosition >= 0 || isKeywordsHeading(line))) {
       const beforeKeywords = line.slice(0, keywordPosition).trim();
       if (beforeKeywords) content.push(beforeKeywords);
       break;
@@ -547,11 +657,11 @@ function extractKeywords(lines, startIndex) {
 }
 
 function findKeywordsIndex(lines, abstractIndex) {
-  if (abstractIndex >= 0 && /\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i.test(cleanMetadataLine(lines[abstractIndex]))) {
+  if (abstractIndex >= 0 && hasKeywordsMarker(cleanMetadataLine(lines[abstractIndex]))) {
     return abstractIndex;
   }
   const startIndex = abstractIndex >= 0 ? abstractIndex + 1 : 0;
-  return lines.findIndex((line, index) => index >= startIndex && /\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i.test(cleanMetadataLine(line)));
+  return lines.findIndex((line, index) => index >= startIndex && hasKeywordsMarker(cleanMetadataLine(line)));
 }
 
 function findAbstractIndex(lines) {
@@ -568,7 +678,11 @@ function stripAbstractHeading(line) {
 }
 
 function isKeywordsHeading(line) {
-  return /^\s*[*_\s-]*key\s*(?:words?|wrods?|wods?)\s*[*_\s]*[:\-]?/i.test(line);
+  return /^\s*[*_\s-]*key\s*(?:words?|wrods?|wods?)\s*[*_\s]*(?:[:\-].*)?$/i.test(line);
+}
+
+function hasKeywordsMarker(line) {
+  return /\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i.test(line) || isKeywordsHeading(line);
 }
 
 function stripKeywordsHeading(line) {

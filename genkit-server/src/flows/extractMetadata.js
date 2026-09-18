@@ -18,7 +18,7 @@ export const extractMetadataFlow = ai.defineFlow(
   },
   async ({ documentText }) => {
     const safeDocumentText = buildMetadataContext(documentText);
-    const prompt = `You are extracting metadata from OCR output of a Philippine university thesis or capstone document.
+    const prompt = `You are extracting metadata from the supplied research document text for a Philippine university thesis or capstone document.
 
 The OCR may contain spelling mistakes, misplaced line breaks, duplicated lines, and sections that are out of visual order. The OCR is organized below into labeled sections: the document start, an approval-sheet section when found, and an abstract-plus-keywords section when found. These labels are instructions only and must never appear in the extracted output.
 
@@ -58,7 +58,8 @@ Rules:
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
 - "authors" must include ALL names credited as the researchers/writers of the thesis on the title page, not just the first name — not the adviser, panel, or dean.
 - If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".
-- If a field cannot be confidently identified, return an empty string (or empty array for authors/keywords) rather than guessing.
+- If a field cannot be confidently identified, return an empty string (or empty array for authors/keywords) rather than guessing or using a filename.
+- Extract only information supported by the supplied document context. Never invent, autocomplete, or substitute metadata from general knowledge.
 - Split "keywords" on semicolons or commas into an array of individual terms.
 - Ignore headers, footers, page numbers, repeated boilerplate, and running text that is not part of the document metadata.
 - Output ONLY valid JSON with no commentary.
@@ -97,21 +98,24 @@ ${safeDocumentText}`;
 
 export function buildMetadataContext(documentText) {
   const text = String(documentText || "");
-  const head = text.slice(0, 6000);
-  const rest = text.slice(6000);
-  const sections = [`[DOCUMENT START]\n${head}`];
+  const sections = [`[DOCUMENT START]\n${text.slice(0, 12000)}`];
+  appendContextWindows(sections, text, "APPROVAL SHEET SECTION", /approval\s+sheet|thesis\s+advis(?:e|o)r/gi, 500, 5000, 3);
+  appendContextWindows(sections, text, "ABSTRACT + KEYWORDS SECTION", /(?:^|\n)\s*abstrac?t\b/gi, 0, 7000, 3);
+  appendContextWindows(sections, text, "KEYWORDS SECTION", /(?:^|\n)\s*\*?\s*key\s*words?\s*\*?\s*:/gi, 0, 2500, 3);
 
-  const approvalMatch = rest.match(/thesis\s+advis(?:e|o)r|approval\s+sheet/i);
-  if (approvalMatch) {
-    sections.push(`[APPROVAL SHEET SECTION]\n${rest.slice(approvalMatch.index, approvalMatch.index + 4000)}`);
+  return [...new Set(sections)].join("\n\n").slice(0, 30000);
+}
+
+function appendContextWindows(sections, text, label, pattern, before, after, limit) {
+  let match;
+  let count = 0;
+  while (count < limit && (match = pattern.exec(text)) !== null) {
+    const start = Math.max(0, match.index - before);
+    const end = Math.min(text.length, match.index + match[0].length + after);
+    sections.push(`[${label}]\n${text.slice(start, end)}`);
+    count += 1;
+    if (match[0].length === 0) pattern.lastIndex += 1;
   }
-
-  const abstractMatch = rest.match(/\babstract\b/i);
-  if (abstractMatch) {
-    sections.push(`[ABSTRACT + KEYWORDS SECTION]\n${rest.slice(abstractMatch.index, abstractMatch.index + 4000)}`);
-  }
-
-  return sections.join("\n\n").slice(0, 20000);
 }
 
 export async function extractMetadata(documentText) {

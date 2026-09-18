@@ -1,6 +1,31 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { extractDocumentFields } from './metadataSuggestions.js';
+import { extractDocumentFields, mergeExtractedMetadata } from './metadataSuggestions.js';
+
+test('extractDocumentFields handles labeled metadata with multiple authors and capitalization variants', () => {
+  const fields = extractDocumentFields(`
+    TITLE: A SMART RESEARCH REPOSITORY FOR COMPUTER STUDIES
+    AUTHORS:
+    Juan Dela Cruz
+    Maria Angelica D. Santos
+    John Paul M. Reyes Jr.
+    ABSTRACT
+    This study presents a research repository that organizes academic papers and improves metadata discovery for students.
+    KEYWORDS
+    Artificial Intelligence
+    Research Repository
+    Metadata Extraction
+    INTRODUCTION
+    Chapter I
+    Thesis Adviser
+    Dr. Elena Cruz
+  `);
+
+  assert.equal(fields.title, 'A SMART RESEARCH REPOSITORY FOR COMPUTER STUDIES');
+  assert.deepEqual(fields.authors, ['Juan Dela Cruz', 'Maria Angelica D. Santos', 'John Paul M. Reyes Jr.']);
+  assert.equal(fields.keywords, 'Artificial Intelligence Research Repository Metadata Extraction');
+  assert.match(fields.abstract, /research repository that organizes academic papers/);
+});
 
 test('extractDocumentFields handles noisy unformatted OCR metadata', () => {
   const fields = extractDocumentFields(`
@@ -90,4 +115,36 @@ test('extractDocumentFields separates same-line abstract and keyword OCR text', 
   assert.match(fields.abstract, /This study presents a speech translation system/);
   assert.equal(fields.keywords, 'speech recognition; machine translation');
   assert.equal(fields.adviser, 'Maria Santos');
+});
+
+test('mergeExtractedMetadata preserves stronger local fields when AI output is incomplete', () => {
+  const local = extractDocumentFields(`
+    END-TO-END TRANSFORMER-BASED SPEECH-TO-TEXT NEURAL MACHINE TRANSLATION
+    FOR THE LOW-RESOURCE TBOLI-ENGLISH LANGUAGE PAIR
+    Chrissandra Marchelle L. Bautista
+    Crislyn Joy D. Delgado
+    Notre Dame of Marbel University
+    Thesis Adviser: Vince Marc B. Sabado, MSIT
+    Abstract
+    This study presents a complete research system for speech translation and evaluates its performance with a low-resource indigenous language.
+    Keywords: speech recognition; machine translation
+  `);
+  const merged = mergeExtractedMetadata(
+    local,
+    local.abstract,
+    {
+      title: 'LANGUAGE PAIR',
+      authors: ['Chrissandra Marchelle L. Bautista'],
+      adviser: 'Maria Santos, Panel Chair',
+      abstract: 'A short summary.',
+      keywords: [],
+    },
+    { name: 'research-paper.pdf' }
+  );
+
+  assert.match(merged.title, /END-TO-END TRANSFORMER-BASED/);
+  assert.deepEqual(merged.authors, local.authors);
+  assert.equal(merged.adviser, local.adviser);
+  assert.equal(merged.abstract, local.abstract);
+  assert.equal(merged.keywords, 'speech recognition, machine translation');
 });

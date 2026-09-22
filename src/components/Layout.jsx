@@ -68,7 +68,8 @@ export default function Layout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({});
   const [logoutPending, setLogoutPending] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => localStorage.getItem("csdrepoai-theme") === "dark");
+  const [darkMode, setDarkMode] = useState(false);
+  const themeKey = profile?.id ? `csdrepoai-theme:${profile.id}` : null;
   const items = NAV_ITEMS[role] || [];
   const initials = (profile?.full_name || "?")
     .split(" ")
@@ -91,9 +92,22 @@ export default function Layout({ children }) {
   }, [menuOpen]);
 
   useEffect(() => {
+    const nextDarkMode = themeKey ? localStorage.getItem(themeKey) === "dark" : false;
+    setDarkMode(nextDarkMode);
+    document.documentElement.dataset.theme = nextDarkMode ? "dark" : "light";
+  }, [themeKey]);
+
+  useEffect(() => {
     document.documentElement.dataset.theme = darkMode ? "dark" : "light";
-    localStorage.setItem("csdrepoai-theme", darkMode ? "dark" : "light");
   }, [darkMode]);
+
+  function toggleDarkMode() {
+    setDarkMode((value) => {
+      const nextValue = !value;
+      if (themeKey) localStorage.setItem(themeKey, nextValue ? "dark" : "light");
+      return nextValue;
+    });
+  }
 
   async function handleLogout() {
     setLogoutPending(true);
@@ -114,7 +128,7 @@ export default function Layout({ children }) {
         <div className="mobile-topbar-actions">
           <button
             className="mobile-menu-btn"
-            onClick={() => setDarkMode((value) => !value)}
+            onClick={toggleDarkMode}
             aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
             title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
@@ -225,7 +239,7 @@ export default function Layout({ children }) {
           <button
             type="button"
             className="theme-toggle"
-            onClick={() => setDarkMode((value) => !value)}
+            onClick={toggleDarkMode}
             aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
           >
             {darkMode ? <Sun size={15} /> : <Moon size={15} />}

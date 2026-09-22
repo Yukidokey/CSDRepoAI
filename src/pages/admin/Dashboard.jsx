@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardCheck, Users, ArrowRight, FolderOpen, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { ClipboardCheck, ScanLine, Users, ArrowRight, FolderOpen, Clock, CheckCircle2, XCircle } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
@@ -40,6 +40,7 @@ export default function AdminDashboard() {
 
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
         <QuickLink to="/admin/review" icon={ClipboardCheck} label="Review Pending Submissions" sub={`${pending.length} waiting`} />
+        <QuickLink to="/admin/ocr" icon={ScanLine} label="Digitize a Research Document" sub="JPG, PNG, or other image files" />
         <QuickLink to="/admin/users" icon={Users} label="Manage Users" sub="Roles & accounts" />
       </div>
 

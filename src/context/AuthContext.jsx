@@ -22,7 +22,7 @@ function formatAuthError(error) {
   }
 
   if (message.includes("failed to fetch") || message.includes("networkerror") || message.includes("network error")) {
-    return "Unable to connect to the password reset service. Please try again later or contact the administrator.";
+    return "No internet connection. Please connect to the internet and try again.";
   }
 
   if (message.includes("email")) {

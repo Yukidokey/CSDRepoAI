@@ -24,6 +24,7 @@ export default function Login() {
   const [lockoutStage, setLockoutStage] = useState(0);
   const [loginLockedUntil, setLoginLockedUntil] = useState(0);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" || navigator.onLine);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -71,6 +72,23 @@ export default function Login() {
   }, [handleRecoveryLink, navigate, recoverySession]);
 
   useEffect(() => {
+    function handleOnline() {
+      setIsOnline(true);
+    }
+
+    function handleOffline() {
+      setIsOnline(false);
+    }
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!loginLockedUntil) {
       setLockoutRemaining(0);
       return undefined;
@@ -98,6 +116,11 @@ export default function Login() {
     e.preventDefault();
     setError("");
     setInfo("");
+
+    if (!isOnline) {
+      setError("No internet connection. Please connect to the internet and try again.");
+      return;
+    }
 
     if (showResetPrompt) {
       if (!form.email) {
@@ -198,6 +221,11 @@ export default function Login() {
         </header>
 
         <div className="auth-body">
+          {!isOnline && (
+            <p className="auth-error auth-connection-error" role="alert">
+              No internet connection. Please connect to the internet and try again.
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="auth-form">
             <h2>{recoveryActive ? "Set a new password" : showResetPrompt ? "Reset your password" : "Sign in to your account"}</h2>
             <p className="auth-form-sub">

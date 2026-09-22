@@ -26,6 +26,21 @@ export default function Login() {
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const previousTheme = root.dataset.theme;
+    const previousColorScheme = root.style.colorScheme;
+
+    root.dataset.theme = "light";
+    root.style.colorScheme = "light";
+
+    return () => {
+      if (previousTheme) root.dataset.theme = previousTheme;
+      else delete root.dataset.theme;
+      root.style.colorScheme = previousColorScheme;
+    };
+  }, []);
+
+  useEffect(() => {
     let mounted = true;
 
     async function processRecoveryLink() {

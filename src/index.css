@@ -410,6 +410,9 @@ a {
 
 .profile-form-shell {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
   justify-content: center;
 }
 
@@ -444,6 +447,25 @@ a {
   margin: 5px 0 0;
   color: var(--ink-500);
   font-size: 13px;
+}
+
+.profile-password-hint,
+.profile-password-error,
+.profile-password-success {
+  margin: -3px 0 0;
+  font-size: 12px;
+}
+
+.profile-password-hint {
+  color: var(--ink-500);
+}
+
+.profile-password-error {
+  color: var(--danger-700, #b42318);
+}
+
+.profile-password-success {
+  color: var(--success-700);
 }
 
 .profile-form {

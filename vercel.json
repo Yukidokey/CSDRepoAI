@@ -1,3 +1,9 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "rewrites": [
+    {
+      "source": "/(search|embed|metadata|extract-metadata|health)",
+      "destination": "/api/index.js"
+    },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
 }

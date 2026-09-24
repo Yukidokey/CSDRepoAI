@@ -79,7 +79,11 @@ export default function Layout({ children }) {
   const themeKey = profile?.id ? `csdrepoai-theme:${profile.id}` : null;
   const items = NAV_ITEMS[role] || [];
   const accountEmail = profile?.email || user?.email || "No email available";
-  const initials = (profile?.full_name || "?")
+  const profileName = [profile?.first_name, profile?.middle_name, profile?.last_name, profile?.suffix]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || (profile?.full_name && !profile.full_name.includes("@") ? profile.full_name : role === "admin" ? "Admin" : "Account");
+  const initials = (profileName || "?")
     .split(" ")
     .map((p) => p[0])
     .slice(0, 2)
@@ -296,9 +300,9 @@ export default function Layout({ children }) {
           <div className="portal-topbar-actions">
             <div className="portal-profile-menu-wrap">
               <button type="button" className="portal-profile-button" onClick={() => setProfileMenuOpen((open) => !open)} aria-expanded={profileMenuOpen}>
-                <span className="portal-profile-avatar">{initials}</span><span className="portal-profile-name">{accountEmail}</span><ChevronDown size={14} />
+                <span className="portal-profile-avatar">{initials}</span><span className="portal-profile-name">{profileName}</span><ChevronDown size={14} />
               </button>
-              {profileMenuOpen && <div className="portal-profile-menu"><strong>{profile?.full_name || "Account"}</strong><span className="portal-profile-email">{accountEmail}</span><span>{ROLE_LABEL[role]}</span><NavLink to={`${role === "admin" ? "/admin" : role === "faculty" ? "/faculty" : "/student"}/profile`} onClick={() => setProfileMenuOpen(false)}>View profile</NavLink></div>}
+              {profileMenuOpen && <div className="portal-profile-menu"><strong>{profileName}</strong><span className="portal-profile-email">{accountEmail}</span><span>{ROLE_LABEL[role]}</span><NavLink to={`${role === "admin" ? "/admin" : role === "faculty" ? "/faculty" : "/student"}/profile`} onClick={() => setProfileMenuOpen(false)}>View profile</NavLink></div>}
             </div>
             <div className="portal-notification-wrap">
               <button type="button" className="portal-icon-button" aria-label={`Notifications${notifications.length ? `, ${notifications.length} recent activities` : ""}`} title="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsSeen(true); }}><Bell size={17} />{notifications.length > 0 && <span className={`portal-notification-count${notificationsSeen ? " is-seen" : ""}`}>{notifications.length > 99 ? "99+" : notifications.length}</span>}</button>

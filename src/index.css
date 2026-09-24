@@ -357,6 +357,32 @@ a {
   background: rgba(229, 184, 79, 0.1);
 }
 
+[data-theme="dark"] .users-filter-bar {
+  background: var(--surface-sunken);
+  border-color: var(--line);
+}
+
+[data-theme="dark"] .users-select-wrap,
+[data-theme="dark"] .users-filter-select {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--ink-700);
+}
+
+[data-theme="dark"] .users-select-wrap select,
+[data-theme="dark"] .users-filter-select,
+[data-theme="dark"] .users-select-wrap select option,
+[data-theme="dark"] .users-filter-select option {
+  background: var(--surface);
+  color: var(--ink-900);
+}
+
+[data-theme="dark"] .users-select-wrap:focus-within,
+[data-theme="dark"] .users-filter-select:focus {
+  border-color: var(--brass-500);
+  box-shadow: 0 0 0 3px rgba(229, 184, 79, 0.16);
+}
+
 [data-theme="dark"] .logout-dialog-backdrop {
   background: rgba(2, 6, 23, 0.72);
 }

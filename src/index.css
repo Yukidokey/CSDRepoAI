@@ -340,33 +340,6 @@ a {
   backdrop-filter: blur(12px);
 }
 
-.portal-global-search {
-  display: flex;
-  width: min(420px, 52%);
-  align-items: center;
-  gap: 9px;
-  color: var(--ink-300);
-}
-
-.portal-global-search input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  outline: 0;
-  background: transparent;
-  color: var(--ink-900);
-  font-size: 12px;
-}
-
-.portal-global-search kbd {
-  padding: 3px 6px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--ink-500);
-  font-family: var(--font-mono);
-  font-size: 9px;
-}
-
 .portal-topbar-actions,
 .portal-profile-button {
   display: flex;

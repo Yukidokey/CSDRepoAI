@@ -13,7 +13,6 @@ import {
   BarChart3,
   LogOut,
   Bell,
-  Search as GlobalSearch,
   Menu,
   X,
   Target,
@@ -72,7 +71,6 @@ export default function Layout({ children }) {
   const [logoutPending, setLogoutPending] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
-  const [globalQuery, setGlobalQuery] = useState("");
   const themeKey = profile?.id ? `csdrepoai-theme:${profile.id}` : null;
   const items = NAV_ITEMS[role] || [];
   const initials = (profile?.full_name || "?")
@@ -111,12 +109,6 @@ export default function Layout({ children }) {
       if (themeKey) localStorage.setItem(themeKey, nextValue ? "dark" : "light");
       return nextValue;
     });
-  }
-
-  function handleGlobalSearch(event) {
-    event.preventDefault();
-    const searchPath = role === "admin" ? "/admin/search" : role === "faculty" ? "/faculty/search" : "/student/search";
-    navigate(searchPath);
   }
 
   async function handleLogout() {
@@ -268,11 +260,6 @@ export default function Layout({ children }) {
       </aside>
       <main className="app-main">
         <header className="portal-topbar">
-          <form className="portal-global-search" onSubmit={handleGlobalSearch}>
-            <GlobalSearch size={16} aria-hidden="true" />
-            <input aria-label="Global search" value={globalQuery} onChange={(event) => setGlobalQuery(event.target.value)} placeholder="Search repository..." />
-            <kbd>Ctrl K</kbd>
-          </form>
           <div className="portal-topbar-actions">
             <button type="button" className="portal-icon-button" aria-label="Notifications" title="Notifications"><Bell size={17} /><span className="portal-notification-dot" /></button>
             <div className="portal-profile-menu-wrap">

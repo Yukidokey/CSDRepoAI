@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { SDG_LIST } from "../lib/sdgList";
+import { getAuditTrail } from "../services/research";
 
 const NAV_ITEMS = {
   student: [
@@ -63,7 +64,7 @@ const ROLE_LABEL = {
 };
 
 export default function Layout({ children }) {
-  const { profile, role, signOut } = useAuth();
+  const { profile, role, user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -71,8 +72,13 @@ export default function Layout({ children }) {
   const [logoutPending, setLogoutPending] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsSeen, setNotificationsSeen] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const themeKey = profile?.id ? `csdrepoai-theme:${profile.id}` : null;
   const items = NAV_ITEMS[role] || [];
+  const accountEmail = profile?.email || user?.email || "No email available";
   const initials = (profile?.full_name || "?")
     .split(" ")
     .map((p) => p[0])
@@ -103,6 +109,24 @@ export default function Layout({ children }) {
     document.documentElement.dataset.theme = darkMode ? "dark" : "light";
   }, [darkMode]);
 
+  useEffect(() => {
+    let mounted = true;
+    setNotificationsLoading(true);
+    getAuditTrail({ limit: 6 })
+      .then((entries) => {
+        if (mounted) setNotifications(entries || []);
+      })
+      .catch(() => {
+        if (mounted) setNotifications([]);
+      })
+      .finally(() => {
+        if (mounted) setNotificationsLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [profile?.id]);
+
   function toggleDarkMode() {
     setDarkMode((value) => {
       const nextValue = !value;
@@ -118,6 +142,15 @@ export default function Layout({ children }) {
   async function confirmLogout() {
     await signOut();
     navigate("/login");
+  }
+
+  function formatNotificationAction(action) {
+    return String(action || "activity").replaceAll("_", " ");
+  }
+
+  function formatNotificationTime(createdAt) {
+    if (!createdAt) return "Recently";
+    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(createdAt));
   }
 
   return (
@@ -261,12 +294,20 @@ export default function Layout({ children }) {
       <main className="app-main">
         <header className="portal-topbar">
           <div className="portal-topbar-actions">
-            <button type="button" className="portal-icon-button" aria-label="Notifications" title="Notifications"><Bell size={17} /><span className="portal-notification-dot" /></button>
             <div className="portal-profile-menu-wrap">
               <button type="button" className="portal-profile-button" onClick={() => setProfileMenuOpen((open) => !open)} aria-expanded={profileMenuOpen}>
-                <span className="portal-profile-avatar">{initials}</span><span className="portal-profile-name">{profile?.full_name || "Account"}</span><ChevronDown size={14} />
+                <span className="portal-profile-avatar">{initials}</span><span className="portal-profile-name">{accountEmail}</span><ChevronDown size={14} />
               </button>
-              {profileMenuOpen && <div className="portal-profile-menu"><strong>{profile?.full_name}</strong><span>{ROLE_LABEL[role]}</span><NavLink to={`${role === "admin" ? "/admin" : role === "faculty" ? "/faculty" : "/student"}/profile`} onClick={() => setProfileMenuOpen(false)}>View profile</NavLink></div>}
+              {profileMenuOpen && <div className="portal-profile-menu"><strong>{profile?.full_name || "Account"}</strong><span className="portal-profile-email">{accountEmail}</span><span>{ROLE_LABEL[role]}</span><NavLink to={`${role === "admin" ? "/admin" : role === "faculty" ? "/faculty" : "/student"}/profile`} onClick={() => setProfileMenuOpen(false)}>View profile</NavLink></div>}
+            </div>
+            <div className="portal-notification-wrap">
+              <button type="button" className="portal-icon-button" aria-label={`Notifications${notifications.length ? `, ${notifications.length} recent activities` : ""}`} title="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsSeen(true); }}><Bell size={17} />{notifications.length > 0 && <span className={`portal-notification-count${notificationsSeen ? " is-seen" : ""}`}>{notifications.length > 99 ? "99+" : notifications.length}</span>}</button>
+              {notificationsOpen && (
+                <div className="portal-notification-menu" role="dialog" aria-label="Recent repository activity">
+                  <div className="portal-notification-heading"><div><strong>Notifications</strong><span>Recent repository activity</span></div></div>
+                  {notificationsLoading ? <div className="portal-notification-empty">Loading activity...</div> : notifications.length === 0 ? <div className="portal-notification-empty">No recent activity.</div> : notifications.map((entry) => <div className="portal-notification-item" key={entry.id}><span className="portal-notification-item-dot" /><div><strong>{formatNotificationAction(entry.action)}</strong><span>{entry.paperTitle}</span><small>{entry.actorName} · {formatNotificationTime(entry.created_at)}</small></div></div>)}
+                </div>
+              )}
             </div>
           </div>
         </header>

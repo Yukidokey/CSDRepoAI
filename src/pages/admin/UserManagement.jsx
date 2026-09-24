@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Eye, EyeOff, Search, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowDownAZ, ArrowUpAZ, Download, Eye, EyeOff, Filter, Plus, RefreshCw, Search, ShieldCheck, UserCheck, Users, UserRound } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, EmptyState, Avatar, StatGrid, StatCard, Field, Button } from "../../components/ui";
 import { createUserAccount, getUsers, updateUserRole, setUserActive } from "../../services/users";
@@ -10,6 +10,11 @@ export default function UserManagement() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDirection, setSortDirection] = useState("asc");
+  const [page, setPage] = useState(1);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUser, setNewUser] = useState({
     email: "",
@@ -28,6 +33,7 @@ export default function UserManagement() {
   const [creating, setCreating] = useState(false);
   const [loadError, setLoadError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const pageSize = 8;
 
   async function load() {
     setLoading(true);
@@ -51,6 +57,33 @@ export default function UserManagement() {
   async function handleRoleChange(userId, role) {
     await updateUserRole(userId, role);
     load();
+  }
+
+  function handleSort(nextSort) {
+    if (sortBy === nextSort) {
+      setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(nextSort);
+      setSortDirection("asc");
+    }
+  }
+
+  function exportUsers() {
+    const rows = [["Name", "Email", "Role", "Status", "Student number", "Faculty number"], ...filtered.map((user) => [
+      user.full_name,
+      user.email || "",
+      user.role,
+      user.is_active ? "Active" : "Deactivated",
+      user.student_number || "",
+      user.faculty_number || "",
+    ])];
+    const csv = rows.map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "csdrepoai-users.csv";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   async function handleToggleActive(userId, current) {
@@ -102,32 +135,78 @@ export default function UserManagement() {
     }
   }
 
-  const filtered = users.filter(
-    (u) =>
-      u.full_name.toLowerCase().includes(filter.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const query = filter.trim().toLowerCase();
+    return users
+      .filter((user) => {
+        const searchable = [user.full_name, user.email, user.student_number, user.faculty_number].filter(Boolean).join(" ").toLowerCase();
+        return (!query || searchable.includes(query)) &&
+          (roleFilter === "all" || user.role === roleFilter) &&
+          (statusFilter === "all" || (statusFilter === "active" ? user.is_active : !user.is_active));
+      })
+      .sort((left, right) => {
+        const leftValue = sortBy === "status" ? Number(left.is_active) : String(left[sortBy] || "").toLowerCase();
+        const rightValue = sortBy === "status" ? Number(right.is_active) : String(right[sortBy] || "").toLowerCase();
+        return (leftValue < rightValue ? -1 : leftValue > rightValue ? 1 : 0) * (sortDirection === "asc" ? 1 : -1);
+      });
+  }, [filter, roleFilter, statusFilter, sortBy, sortDirection, users]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const visibleUsers = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const activeCount = users.filter((user) => user.is_active).length;
+  const studentCount = users.filter((user) => user.role === "student").length;
+  const facultyCount = users.filter((user) => user.role === "faculty").length;
+  const adminCount = users.filter((user) => user.role === "admin").length;
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, roleFilter, statusFilter]);
 
   return (
     <Layout>
-      <PageHeader eyebrow="Administration" title="User Management" description="View, verify, and manage every account in CSDRepoAI." />
+      <PageHeader
+        eyebrow="Administration / Users"
+        title="Users portal"
+        description="A focused view of account health, access roles, and directory activity."
+        action={<Button type="button" variant="primary" onClick={() => setShowCreateForm(true)}><Plus size={16} /> Add user</Button>}
+      />
 
-      <StatGrid>
-        <StatCard label="Total Accounts" value={users.length} accent="brass" />
-        <StatCard label="Students" value={users.filter((u) => u.role === "student").length} accent="info" />
-        <StatCard label="Faculty" value={users.filter((u) => u.role === "faculty").length} accent="info" />
-        <StatCard label="Active" value={users.filter((u) => u.is_active).length} accent="success" />
-      </StatGrid>
+      <section className="users-hero-grid" aria-label="User account metrics">
+        <div className="users-welcome-panel">
+          <div className="users-panel-kicker">Directory overview</div>
+          <h2>Keep every account ready for research.</h2>
+          <p>Monitor access, keep roles accurate, and resolve inactive accounts from one place.</p>
+          <div className="users-hero-meta"><span><span className="users-live-dot" /> Directory synced</span><span>Updated just now</span></div>
+        </div>
+        <div className="users-metric-grid">
+          <StatCard label="Total accounts" value={users.length} accent="brass" icon={Users} hint="All roles" />
+          <StatCard label="Active now" value={activeCount} accent="success" icon={UserCheck} hint={users.length ? `${Math.round((activeCount / users.length) * 100)}% of directory` : "No accounts yet"} />
+          <StatCard label="Students" value={studentCount} accent="info" icon={UserRound} hint={`${facultyCount} faculty`} />
+          <StatCard label="Admins" value={adminCount} accent="warning" icon={ShieldCheck} hint="Privileged access" />
+        </div>
+      </section>
 
-      <div style={{ position: "relative", maxWidth: 320, margin: "22px 0 18px" }}>
-        <Search size={14} style={{ position: "absolute", left: 12, top: 12, color: "var(--ink-300)" }} />
-        <input
-          className="input"
-          placeholder="Search by name..."
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          style={{ paddingLeft: 32 }}
-        />
-      </div>
+      <section className="users-workspace-grid">
+        <div className="users-directory-panel">
+          <div className="users-toolbar">
+            <div>
+              <div className="users-panel-kicker">Account directory</div>
+              <h2>All users <span className="users-result-count">{filtered.length}</span></h2>
+            </div>
+            <div className="users-toolbar-actions">
+              <Button type="button" variant="secondary" size="sm" onClick={load} disabled={loading} title="Refresh directory"><RefreshCw size={15} /> Refresh</Button>
+              <Button type="button" variant="secondary" size="sm" onClick={exportUsers} title="Export filtered users"><Download size={15} /> Export</Button>
+            </div>
+          </div>
+
+          <div className="users-filter-bar">
+            <div className="users-search-field">
+              <Search size={16} aria-hidden="true" />
+              <input aria-label="Search users" placeholder="Search name, email, or ID" value={filter} onChange={(e) => setFilter(e.target.value)} />
+            </div>
+            <label className="users-select-wrap"><Filter size={14} aria-hidden="true" /><span className="sr-only">Filter by role</span><select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}><option value="all">All roles</option><option value="student">Students</option><option value="faculty">Faculty</option><option value="admin">Admins</option></select></label>
+            <select className="users-filter-select" aria-label="Filter by status" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Deactivated</option></select>
+          </div>
 
       {loadError ? (
         <div className="card">
@@ -159,29 +238,27 @@ export default function UserManagement() {
           </EmptyState>
         </div>
       ) : (
-        <div className="table-wrap">
+        <div className="users-table-wrap">
           <table className="table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Student No.</th>
-                <th>Faculty No.</th>
+                <th><button className="users-sort-button" onClick={() => handleSort("full_name")}>User {sortBy === "full_name" ? (sortDirection === "asc" ? <ArrowDownAZ size={13} /> : <ArrowUpAZ size={13} />) : <ArrowDownAZ size={13} />}</button></th>
+                <th>Identifier</th>
                 <th>Role</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u) => (
+              {visibleUsers.map((u) => (
                 <tr key={u.id}>
                   <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div className="users-person-cell">
                       <Avatar name={u.full_name} size={30} />
-                      <span style={{ fontWeight: 600 }}>{u.full_name}</span>
+                      <div><span className="users-person-name">{u.full_name}</span><span className="users-person-email">{u.email || "No email listed"}</span></div>
                     </div>
                   </td>
-                  <td>{u.student_number || "—"}</td>
-                  <td>{u.faculty_number || "—"}</td>
+                  <td><span className="users-identifier">{u.student_number || u.faculty_number || "No ID assigned"}</span></td>
                   <td>
                     <select value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)} className="input" style={{ padding: "5px 8px", fontSize: 12.5, width: "auto" }}>
                       <option value="student">Student</option>
@@ -201,8 +278,21 @@ export default function UserManagement() {
               ))}
             </tbody>
           </table>
+          <div className="users-table-footer"><span>Showing {filtered.length ? (page - 1) * pageSize + 1 : 0}-{Math.min(page * pageSize, filtered.length)} of {filtered.length}</span><div className="users-pagination"><button className="users-page-button" disabled={page === 1} onClick={() => setPage((current) => current - 1)}>Previous</button><span>Page {page} of {totalPages}</span><button className="users-page-button" disabled={page === totalPages} onClick={() => setPage((current) => current + 1)}>Next</button></div></div>
         </div>
       )}
+        </div>
+
+        <aside className="users-quick-panel">
+          <div className="users-panel-kicker">Quick actions</div>
+          <h2>Keep momentum.</h2>
+          <p>Common directory tasks, one click away.</p>
+          <button className="users-action-link" onClick={() => setShowCreateForm(true)}><span className="users-action-icon"><Plus size={16} /></span><span><strong>Create account</strong><small>Add a student or faculty profile</small></span></button>
+          <button className="users-action-link" onClick={exportUsers}><span className="users-action-icon"><Download size={16} /></span><span><strong>Export directory</strong><small>Download the current filtered view</small></span></button>
+          <button className="users-action-link" onClick={() => { setRoleFilter("all"); setStatusFilter("inactive"); setFilter(""); }}><span className="users-action-icon"><ShieldCheck size={16} /></span><span><strong>Review inactive</strong><small>{users.length - activeCount} account{users.length - activeCount === 1 ? "" : "s"} need attention</small></span></button>
+          <div className="users-quick-note"><ShieldCheck size={15} /><span>Role changes take effect immediately across the portal.</span></div>
+        </aside>
+      </section>
 
       <div className="card card-pad" style={{ marginTop: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>

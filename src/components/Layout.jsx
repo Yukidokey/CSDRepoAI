@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Upload,
@@ -11,15 +11,13 @@ import {
   ClipboardCheck,
   Archive as ArchiveIcon,
   BarChart3,
-  LogOut,
   Bell,
   Menu,
   X,
   Target,
   ChevronDown,
   ClipboardList,
-  Moon,
-  Sun,
+  Settings as SettingsIcon,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { SDG_LIST } from "../lib/sdgList";
@@ -34,6 +32,7 @@ const NAV_ITEMS = {
     { type: "sdg-group", key: "sdg", label: "Browse by SDG", icon: Target, basePath: "/student/archive" },
     { to: "/student/search", label: "AI Search", icon: SearchIcon },
     { to: "/student/profile", label: "Profile", icon: User },
+    { to: "/student/settings", label: "Settings", icon: SettingsIcon },
   ],
   faculty: [
     { to: "/faculty", label: "Dashboard", end: true, icon: LayoutDashboard },
@@ -43,6 +42,7 @@ const NAV_ITEMS = {
     { to: "/faculty/review", label: "Review & Approval", icon: ClipboardCheck },
     { to: "/faculty/analytics", label: "Research Analytics", icon: BarChart3 },
     { to: "/faculty/profile", label: "Profile", icon: User },
+    { to: "/faculty/settings", label: "Settings", icon: SettingsIcon },
   ],
   admin: [
     { to: "/admin", label: "Dashboard", end: true, icon: LayoutDashboard },
@@ -54,6 +54,7 @@ const NAV_ITEMS = {
     { to: "/admin/search", label: "AI Search", icon: SearchIcon },
     { to: "/admin/analytics", label: "Research Analytics", icon: BarChart3 },
     { to: "/admin/profile", label: "Profile", icon: User },
+    { to: "/admin/settings", label: "Settings", icon: SettingsIcon },
   ],
 };
 
@@ -64,13 +65,10 @@ const ROLE_LABEL = {
 };
 
 export default function Layout({ children }) {
-  const { profile, role, user, signOut } = useAuth();
-  const navigate = useNavigate();
+  const { profile, role, user } = useAuth();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const [openGroups, setOpenGroups] = useState({});
-  const [logoutPending, setLogoutPending] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsSeen, setNotificationsSeen] = useState(false);
@@ -104,14 +102,9 @@ export default function Layout({ children }) {
   }, [menuOpen]);
 
   useEffect(() => {
-    const nextDarkMode = themeKey ? localStorage.getItem(themeKey) === "dark" : false;
-    setDarkMode(nextDarkMode);
+    const nextDarkMode = themeKey && localStorage.getItem(themeKey) === "dark";
     document.documentElement.dataset.theme = nextDarkMode ? "dark" : "light";
   }, [themeKey]);
-
-  useEffect(() => {
-    document.documentElement.dataset.theme = darkMode ? "dark" : "light";
-  }, [darkMode]);
 
   useEffect(() => {
     let mounted = true;
@@ -131,23 +124,6 @@ export default function Layout({ children }) {
     };
   }, [profile?.id]);
 
-  function toggleDarkMode() {
-    setDarkMode((value) => {
-      const nextValue = !value;
-      if (themeKey) localStorage.setItem(themeKey, nextValue ? "dark" : "light");
-      return nextValue;
-    });
-  }
-
-  async function handleLogout() {
-    setLogoutPending(true);
-  }
-
-  async function confirmLogout() {
-    await signOut();
-    navigate("/login");
-  }
-
   function formatNotificationAction(action) {
     return String(action || "activity").replaceAll("_", " ");
   }
@@ -165,22 +141,6 @@ export default function Layout({ children }) {
           <span className="mobile-topbar-title">CSDRepoAI</span>
         </div>
         <div className="mobile-topbar-actions">
-          <button
-            className="mobile-menu-btn"
-            onClick={toggleDarkMode}
-            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-            title={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button
-            className="mobile-menu-btn"
-            onClick={handleLogout}
-            aria-label="Log out"
-            title="Log out"
-          >
-            <LogOut size={18} />
-          </button>
           <button className="mobile-menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">
             <Menu size={18} />
           </button>
@@ -270,26 +230,6 @@ export default function Layout({ children }) {
           })}
         </nav>
 
-        <div className="sidebar-footer">
-          <button
-            type="button"
-            className="theme-toggle"
-            onClick={toggleDarkMode}
-            aria-label={darkMode ? "Switch to light mode" : "Switch to dark mode"}
-          >
-            {darkMode ? <Sun size={15} /> : <Moon size={15} />}
-            {darkMode ? "Light mode" : "Dark mode"}
-          </button>
-          <button
-            type="button"
-            className="sidebar-logout"
-            onClick={handleLogout}
-            aria-label="Log out"
-          >
-            <LogOut size={15} />
-            Log out
-          </button>
-        </div>
       </aside>
       <main className="app-main">
         <header className="portal-topbar">
@@ -313,41 +253,6 @@ export default function Layout({ children }) {
         </header>
         {children}
       </main>
-      {logoutPending && (
-        <div
-          className="logout-dialog-backdrop"
-          role="presentation"
-          onClick={() => setLogoutPending(false)}
-        >
-          <div
-            className="logout-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="logout-dialog-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="logout-dialog-icon">
-              <LogOut size={18} />
-            </div>
-            <div>
-              <h2 id="logout-dialog-title">Are you sure you want to logout?</h2>
-              <p>Your current session will be ended.</p>
-            </div>
-            <div className="logout-dialog-actions">
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setLogoutPending(false)}
-              >
-                Cancel
-              </button>
-              <button type="button" className="btn btn-primary" onClick={confirmLogout}>
-                Yes, Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

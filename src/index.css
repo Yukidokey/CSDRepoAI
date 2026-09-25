@@ -329,6 +329,13 @@ a {
   background: rgba(229, 184, 79, 0.1);
 }
 
+[data-theme="dark"] .users-page-button:disabled {
+  border: 1px solid var(--line);
+  background: var(--surface-sunken);
+  color: var(--ink-500);
+  opacity: 1;
+}
+
 [data-theme="dark"] .users-filter-bar {
   background: var(--surface-sunken);
   border-color: var(--line);

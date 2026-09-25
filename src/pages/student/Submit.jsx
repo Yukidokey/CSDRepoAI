@@ -40,6 +40,7 @@ export default function Submit() {
   const [form, setForm] = useState(() => buildDefaultForm(profile));
   const [sdgTags, setSdgTags] = useState([]);
   const [files, setFiles] = useState(() => ({ manuscript: null, sourceCode: null, ieee: null, acm: null, apa: null }));
+  const [manuscriptText, setManuscriptText] = useState("");
   const [status, setStatus] = useState("idle"); // idle | submitting | done | error
   const [errorMsg, setErrorMsg] = useState("");
   const [related, setRelated] = useState([]);
@@ -122,12 +123,14 @@ export default function Submit() {
     setFiles((current) => ({ ...current, manuscript: file }));
     setDocumentAnalysis({ status: "analyzing", message: "Reading the manuscript and generating metadata..." });
     if (!file) {
+      setManuscriptText("");
       setDocumentAnalysis({ status: "idle", message: "" });
       return;
     }
 
     try {
       const analysis = await analyzeResearchDocumentWithAI(file);
+      setManuscriptText(analysis.extractedText || "");
       setForm((current) => ({
         ...current,
         title: sanitizeResearchTitle(analysis.title) || current.title,
@@ -142,6 +145,7 @@ export default function Submit() {
       setSuggestions(analysis);
       setDocumentAnalysis({ status: "done", message: `AI-assisted metadata generated: ${analysis.category}.` });
     } catch (error) {
+      setManuscriptText("");
       setDocumentAnalysis({ status: "error", message: `Could not analyze this PDF automatically. You can enter the metadata manually. ${error.message}` });
     }
   }
@@ -162,7 +166,7 @@ export default function Submit() {
         await checkResearchDuplicate({
           abstract: suggestions?.abstract || form.abstract,
           keywords: form.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
-          documentText: suggestions?.extractedText || "",
+          documentText: manuscriptText,
         });
       }
 
@@ -178,6 +182,7 @@ export default function Submit() {
         sdgTags,
         category: suggestions?.category || "Computer Studies",
         manuscriptFile: files.manuscript,
+        manuscriptText,
         sourceCodeFile: files.sourceCode,
         ieeeFile: files.ieee,
         acmFile: files.acm,
@@ -532,8 +537,8 @@ export default function Submit() {
                 "Your adviser and the review committee will be notified once submitted."
               )}
             </div>
-            <button type="submit" disabled={status === "submitting"} className="btn btn-primary">
-              {status === "submitting" ? "Submitting..." : "Submit Research"}
+            <button type="submit" disabled={status === "submitting" || documentAnalysis.status === "analyzing"} className="btn btn-primary">
+              {status === "submitting" ? "Submitting..." : documentAnalysis.status === "analyzing" ? "Reading manuscript..." : "Submit Research"}
             </button>
           </div>
         </form>

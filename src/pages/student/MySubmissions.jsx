@@ -5,6 +5,7 @@ import { PageHeader, StatusBadge, EmptyState, Field, Button } from "../../compon
 import { useAuth } from "../../context/AuthContext";
 import { checkResearchDuplicate } from "../../services/search";
 import { getMySubmissions, updateResearchSubmission } from "../../services/research";
+import { analyzeResearchDocumentWithAI } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
 
 const EMPTY_FILES = { manuscript: null, sourceCode: null, ieee: null, acm: null, apa: null };
@@ -26,6 +27,8 @@ export default function MySubmissions() {
   const [editForm, setEditForm] = useState(null);
   const [editSdgTags, setEditSdgTags] = useState([]);
   const [editFiles, setEditFiles] = useState(EMPTY_FILES);
+  const [editManuscriptText, setEditManuscriptText] = useState("");
+  const [editManuscriptLoading, setEditManuscriptLoading] = useState(false);
   const [editError, setEditError] = useState("");
   const [editSaving, setEditSaving] = useState(false);
   const [confirmEditSave, setConfirmEditSave] = useState(false);
@@ -56,6 +59,8 @@ export default function MySubmissions() {
     });
     setEditSdgTags(paper.sdg_tags || []);
     setEditFiles({ ...EMPTY_FILES });
+    setEditManuscriptText(paper.ocr_raw_text || "");
+    setEditManuscriptLoading(false);
     setEditError("");
     setConfirmEditSave(false);
   }
@@ -72,6 +77,9 @@ export default function MySubmissions() {
   function cancelEditing() {
     setEditing(null);
     setEditForm(null);
+    setEditFiles({ ...EMPTY_FILES });
+    setEditManuscriptText("");
+    setEditManuscriptLoading(false);
     setEditError("");
     setConfirmEditSave(false);
   }
@@ -123,6 +131,7 @@ export default function MySubmissions() {
         keywords,
         sdgTags: editSdgTags,
         files: editFiles,
+        manuscriptText: editManuscriptText,
         userId: user.id,
       });
 
@@ -130,6 +139,7 @@ export default function MySubmissions() {
       setEditing(null);
       setEditForm(null);
       setEditFiles({ ...EMPTY_FILES });
+      setEditManuscriptText("");
       setConfirmEditSave(false);
     } catch (error) {
       setEditError(error.message || "Could not save your changes. Please try again.");
@@ -147,6 +157,23 @@ export default function MySubmissions() {
     setEditSdgTags((current) => current.includes(id)
       ? current.filter((tag) => tag !== id)
       : [...current, id]);
+  }
+
+  async function handleEditManuscriptChange(file) {
+    setEditFiles((current) => ({ ...current, manuscript: file }));
+    setEditManuscriptText(file ? "" : editing?.ocr_raw_text || "");
+    setEditError("");
+    if (!file) return;
+
+    setEditManuscriptLoading(true);
+    try {
+      const analysis = await analyzeResearchDocumentWithAI(file);
+      setEditManuscriptText(analysis?.extractedText || "");
+    } catch (error) {
+      setEditError(`Could not read replacement manuscript text: ${error.message}`);
+    } finally {
+      setEditManuscriptLoading(false);
+    }
   }
 
   return (
@@ -234,7 +261,8 @@ export default function MySubmissions() {
             </Field>
             <div className="form-grid-2">
               <Field label="Replace manuscript (PDF or DOCX)">
-                <input className="input" type="file" accept=".pdf,.docx" onChange={(event) => setEditFiles((current) => ({ ...current, manuscript: event.target.files?.[0] || null }))} />
+                <input className="input" type="file" accept=".pdf,.docx" onChange={(event) => handleEditManuscriptChange(event.target.files?.[0] || null)} />
+                {editManuscriptLoading && <small className="form-section-hint">Reading manuscript for semantic search...</small>}
               </Field>
               <Field label="Replace source code (ZIP)">
                 <input className="input" type="file" accept=".zip" onChange={(event) => setEditFiles((current) => ({ ...current, sourceCode: event.target.files?.[0] || null }))} />
@@ -254,7 +282,7 @@ export default function MySubmissions() {
           {editError && <p className="auth-error" role="alert" style={{ marginTop: 16 }}>{editError}</p>}
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
             <Button type="button" variant="secondary" onClick={cancelEditing}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={editSaving}>{editSaving ? "Saving..." : "Save changes"}</Button>
+            <Button type="submit" variant="primary" disabled={editSaving || editManuscriptLoading}>{editSaving ? "Saving..." : "Save changes"}</Button>
           </div>
         </form>
       )}

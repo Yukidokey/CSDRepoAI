@@ -38,6 +38,7 @@ export async function submitResearch({
   sdgTags,
   category,
   manuscriptFile,
+  manuscriptText,
   sourceCodeFile,
   ieeeFile,
   acmFile,
@@ -120,6 +121,7 @@ export async function submitResearch({
       program,
       keywords,
       sdg_tags: sdgTags,
+      ocr_raw_text: manuscriptText || null,
       submitted_by: userId,
       status: "pending",
       ...uploads,
@@ -141,7 +143,7 @@ export async function submitResearch({
     detail: { category, metadata_source: "ai_assisted_document_analysis" },
   });
 
-  triggerEmbedding(data.id);
+  await triggerEmbedding(data.id);
 
   return data;
 }
@@ -158,6 +160,7 @@ export async function updateResearchSubmission({
   keywords,
   sdgTags,
   files = {},
+  manuscriptText = "",
   userId,
 }) {
   if (!paper || paper.status === "approved") {
@@ -188,6 +191,8 @@ export async function updateResearchSubmission({
   };
   const uploadedUrls = [];
   let updatedPaper;
+
+  if (files.manuscript) updates.ocr_raw_text = manuscriptText || null;
 
   try {
     for (const [key, file] of Object.entries(files)) {
@@ -222,7 +227,7 @@ export async function updateResearchSubmission({
     .map(([key]) => paper[fileColumns[key]])
     .filter(Boolean);
   await removeResearchStorageFiles(replacedUrls);
-  triggerEmbedding(updatedPaper.id);
+  await triggerEmbedding(updatedPaper.id);
 
   return updatedPaper;
 }
@@ -253,17 +258,26 @@ async function removeResearchStorageFiles(urls) {
  *  search. Never blocks or fails the submission flow — if the Genkit
  *  server isn't configured/running, keyword search still works fine,
  *  and `npm run reindex` in genkit-server can backfill it later. */
-function triggerEmbedding(paperId) {
-  const embedUrl = import.meta.env.VITE_GENKIT_EMBED_URL;
-  if (!embedUrl) return;
+async function triggerEmbedding(paperId) {
+  const embedUrl = import.meta.env.VITE_GENKIT_EMBED_URL
+    || import.meta.env.VITE_GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/embed");
+  if (!embedUrl) {
+    console.warn("Genkit embedding URL is not configured; the paper will need reindexing.");
+    return false;
+  }
 
-  fetch(embedUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ paperId }),
-  }).catch((error) => {
+  try {
+    const response = await fetch(embedUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paperId }),
+    });
+    if (!response.ok) throw new Error(`Embedding request failed with status ${response.status}`);
+    return true;
+  } catch (error) {
     console.warn("Genkit embedding request failed (non-fatal):", error);
-  });
+    return false;
+  }
 }
 
 /** Research Submission Module: student's own submission history + status */

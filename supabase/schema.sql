@@ -102,7 +102,7 @@ create table if not exists research_papers (
   reviewed_at timestamptz,
   submitted_by uuid references profiles(id) not null,
   source text default 'digital' check (source in ('digital', 'ocr_scanned')),
-  ocr_raw_text text,                      -- populated by OCR Digitization Module
+  ocr_raw_text text,                      -- extracted OCR or digital manuscript text
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

@@ -48,7 +48,8 @@ app.post("/check-duplicate", async (req, res) => {
   const query = [
     String(abstract || "").trim(),
     Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
-  ].filter(Boolean).join("\n\n") || String(documentText || "").slice(0, 4000).trim();
+    String(documentText || "").slice(0, 5000).trim(),
+  ].filter(Boolean).join("\n\n");
 
   if (!query) {
     return res.status(400).json({ error: "manuscript context is required" });

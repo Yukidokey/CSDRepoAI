@@ -3,6 +3,8 @@ import { ai, embedder, embedOptions } from "../genkit.config.js";
 import { supabaseAdmin } from "../supabaseAdmin.js";
 import { extractEmbeddingValues, toVectorLiteral } from "../embeddingUtils.js";
 
+const MAX_DOCUMENT_TEXT_CHARS = 5000;
+
 /** Builds the text blob that gets embedded for a paper. Mirrors the
  *  fields already weighted into the Postgres full-text `search_vector`
  *  column, so semantic and keyword search stay conceptually aligned. */
@@ -11,6 +13,7 @@ function buildEmbeddingText(paper) {
     paper.title,
     paper.abstract,
     (paper.keywords || []).join(", "),
+    String(paper.ocr_raw_text || "").slice(0, MAX_DOCUMENT_TEXT_CHARS),
     (paper.authors || []).join(", "),
     paper.program,
   ]
@@ -27,7 +30,7 @@ export const embedPaperFlow = ai.defineFlow(
   async ({ paperId }) => {
     const { data: paper, error } = await supabaseAdmin
       .from("research_papers")
-      .select("id, title, abstract, keywords, authors, program")
+      .select("id, title, abstract, keywords, authors, program, ocr_raw_text")
       .eq("id", paperId)
       .single();
 

@@ -2738,6 +2738,28 @@ table.table tbody tr:hover {
   color: var(--success-700);
 }
 
+[data-theme="dark"] .ocr-step-dot {
+  background: var(--surface-sunken);
+  border-color: var(--line-strong);
+}
+
+[data-theme="dark"] .ocr-step.is-active .ocr-step-dot {
+  background: var(--brass-500);
+  border-color: var(--brass-500);
+  color: #172033;
+  box-shadow: 0 0 0 4px var(--brass-100);
+}
+
+[data-theme="dark"] .ocr-step.is-active .ocr-step-label {
+  color: var(--brass-500);
+}
+
+[data-theme="dark"] .ocr-step.is-done .ocr-step-dot {
+  background: var(--success-100);
+  border-color: var(--success-600);
+  color: var(--success-700);
+}
+
 .ocr-step-connector {
   width: 34px;
   height: 1.5px;

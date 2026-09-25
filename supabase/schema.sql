@@ -95,8 +95,8 @@ create table if not exists research_papers (
   ieee_paper_url text,
   acm_paper_url text,
   apa_paper_url text,
-  status text not null default 'pending'  -- pending | under_review | approved | rejected
-    check (status in ('pending', 'under_review', 'approved', 'rejected')),
+  status text not null default 'pending'  -- pending | under_review | student_editing | approved | rejected
+    check (status in ('pending', 'under_review', 'student_editing', 'approved', 'rejected')),
   review_notes text,
   reviewed_by uuid references profiles(id),
   reviewed_at timestamptz,
@@ -106,6 +106,10 @@ create table if not exists research_papers (
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
+
+alter table research_papers drop constraint if exists research_papers_status_check;
+alter table research_papers add constraint research_papers_status_check
+  check (status in ('pending', 'under_review', 'student_editing', 'approved', 'rejected'));
 
 create index if not exists idx_research_status on research_papers(status);
 create index if not exists idx_research_submitted_by on research_papers(submitted_by);

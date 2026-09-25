@@ -4,7 +4,7 @@ import Layout from "../../components/Layout";
 import { PageHeader, StatusBadge, EmptyState, Field, Button } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { checkResearchDuplicate } from "../../services/search";
-import { getMySubmissions, updateResearchSubmission } from "../../services/research";
+import { beginResearchEditing, cancelResearchEditing, getMySubmissions, updateResearchSubmission } from "../../services/research";
 import { analyzeResearchDocumentWithAI } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
 
@@ -24,6 +24,8 @@ export default function MySubmissions() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [editing, setEditing] = useState(null);
+  const [editStartingId, setEditStartingId] = useState(null);
+  const [editActionError, setEditActionError] = useState("");
   const [editForm, setEditForm] = useState(null);
   const [editSdgTags, setEditSdgTags] = useState([]);
   const [editFiles, setEditFiles] = useState(EMPTY_FILES);
@@ -43,26 +45,39 @@ export default function MySubmissions() {
     [submissions, statusFilter]
   );
 
-  const statuses = ["all", "pending", "under_review", "approved", "rejected"];
+  const statuses = ["all", "pending", "under_review", "student_editing", "approved", "rejected"];
 
-  function startEditing(paper) {
-    setEditing(paper);
+  async function startEditing(paper) {
+    if (editStartingId !== null) return;
+    setEditStartingId(paper.id);
+    setEditActionError("");
+    try {
+      const editPaper = paper.status === "student_editing"
+        ? paper
+        : await beginResearchEditing({ paperId: paper.id, userId: user.id });
+      setSubmissions((current) => current.map((currentPaper) => currentPaper.id === editPaper.id ? editPaper : currentPaper));
+      setEditing(editPaper);
     setEditForm({
-      title: paper.title || "",
-      abstract: paper.abstract || "",
-      authors: listToText(paper.authors),
-      adviser: paper.adviser || "",
-      academicYear: paper.academic_year || "",
-      semester: paper.semester || "1st Semester",
-      program: paper.program || "",
-      keywords: listToText(paper.keywords),
-    });
-    setEditSdgTags(paper.sdg_tags || []);
-    setEditFiles({ ...EMPTY_FILES });
-    setEditManuscriptText(paper.ocr_raw_text || "");
-    setEditManuscriptLoading(false);
-    setEditError("");
-    setConfirmEditSave(false);
+        title: editPaper.title || "",
+        abstract: editPaper.abstract || "",
+        authors: listToText(editPaper.authors),
+        adviser: editPaper.adviser || "",
+        academicYear: editPaper.academic_year || "",
+        semester: editPaper.semester || "1st Semester",
+        program: editPaper.program || "",
+        keywords: listToText(editPaper.keywords),
+      });
+      setEditSdgTags(editPaper.sdg_tags || []);
+      setEditFiles({ ...EMPTY_FILES });
+      setEditManuscriptText(editPaper.ocr_raw_text || "");
+      setEditManuscriptLoading(false);
+      setEditError("");
+      setConfirmEditSave(false);
+    } catch (error) {
+      setEditActionError(error.message || "Could not mark this submission for editing.");
+    } finally {
+      setEditStartingId(null);
+    }
   }
 
   function validateAcademicYear(value) {
@@ -74,7 +89,16 @@ export default function MySubmissions() {
     return "";
   }
 
-  function cancelEditing() {
+  async function cancelEditing() {
+    if (editing?.status === "student_editing" && user) {
+      try {
+        const returnedPaper = await cancelResearchEditing({ paperId: editing.id, userId: user.id });
+        setSubmissions((current) => current.map((paper) => paper.id === returnedPaper.id ? returnedPaper : paper));
+      } catch (error) {
+        setEditError(error.message || "Could not return this submission to the review queue.");
+        return;
+      }
+    }
     setEditing(null);
     setEditForm(null);
     setEditFiles({ ...EMPTY_FILES });
@@ -199,6 +223,8 @@ export default function MySubmissions() {
         </div>
       )}
 
+      {editActionError && <p className="auth-error" role="alert" style={{ marginBottom: 16 }}>{editActionError}</p>}
+
       {editing && editForm && (
         <form className="card card-pad" onSubmit={handleEditSubmit} style={{ marginBottom: 20 }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
@@ -280,7 +306,7 @@ export default function MySubmissions() {
           </div>
 
           {editError && <p className="auth-error" role="alert" style={{ marginTop: 16 }}>{editError}</p>}
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
             <Button type="button" variant="secondary" onClick={cancelEditing}>Cancel</Button>
             <Button type="submit" variant="primary" disabled={editSaving || editManuscriptLoading}>{editSaving ? "Saving..." : "Save changes"}</Button>
           </div>
@@ -308,8 +334,8 @@ export default function MySubmissions() {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   <StatusBadge status={s.status} />
                   {role === "student" && s.status !== "approved" && (
-                    <Button type="button" variant="secondary" size="sm" onClick={() => startEditing(s)}>
-                      <Pencil size={13} /> Edit
+                    <Button type="button" variant="secondary" size="sm" disabled={editStartingId !== null} onClick={() => startEditing(s)}>
+                      <Pencil size={13} /> {editStartingId === s.id ? "Marking..." : s.status === "student_editing" ? "Continue editing" : "Mark for editing"}
                     </Button>
                   )}
                 </div>

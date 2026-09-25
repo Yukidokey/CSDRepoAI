@@ -11,6 +11,7 @@ export default function ReviewApproval() {
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState({});
   const [pendingDecision, setPendingDecision] = useState(null);
+  const [reviewError, setReviewError] = useState("");
 
   function load() {
     getPendingSubmissions().then(setPending).finally(() => setLoading(false));
@@ -21,8 +22,14 @@ export default function ReviewApproval() {
   }, []);
 
   async function handleDecision(paperId, status) {
-    await reviewSubmission({ paperId, status, notes: notes[paperId] || "", reviewerId: user.id });
-    load();
+    setReviewError("");
+    try {
+      await reviewSubmission({ paperId, status, notes: notes[paperId] || "", reviewerId: user.id });
+      load();
+    } catch (error) {
+      setReviewError(error.message || "Could not update this submission review.");
+      load();
+    }
   }
 
   async function confirmDecision() {
@@ -33,6 +40,8 @@ export default function ReviewApproval() {
   return (
     <Layout>
       <PageHeader eyebrow="Submission Review" title="Review & Approval" description="Evaluate pending research submissions before they're archived." />
+
+      {reviewError && <p className="auth-error" role="alert" style={{ marginBottom: 16 }}>{reviewError}</p>}
 
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -96,15 +105,21 @@ export default function ReviewApproval() {
                 rows={2}
                 className="input"
                 style={{ marginTop: 12 }}
+                disabled={p.status === "student_editing"}
               />
+              {p.status === "student_editing" && (
+                <p className="auth-info" role="status" style={{ marginTop: 12 }}>
+                  The student marked this submission for editing. Review actions are paused until it is resubmitted.
+                </p>
+              )}
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button onClick={() => setPendingDecision({ paperId: p.id, title: p.title, status: "approved" })} className="btn btn-success btn-sm">
+                <button disabled={p.status === "student_editing"} onClick={() => setPendingDecision({ paperId: p.id, title: p.title, status: "approved" })} className="btn btn-success btn-sm">
                   <Check size={13} /> Approve
                 </button>
-                <button onClick={() => setPendingDecision({ paperId: p.id, title: p.title, status: "rejected" })} className="btn btn-danger btn-sm">
+                <button disabled={p.status === "student_editing"} onClick={() => setPendingDecision({ paperId: p.id, title: p.title, status: "rejected" })} className="btn btn-danger btn-sm">
                   <X size={13} /> Reject
                 </button>
-                <button onClick={() => handleDecision(p.id, "under_review")} className="btn btn-outline btn-sm">
+                <button disabled={p.status === "student_editing"} onClick={() => handleDecision(p.id, "under_review")} className="btn btn-outline btn-sm">
                   Mark Under Review
                 </button>
               </div>

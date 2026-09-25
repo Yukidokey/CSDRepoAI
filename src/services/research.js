@@ -163,8 +163,8 @@ export async function updateResearchSubmission({
   manuscriptText = "",
   userId,
 }) {
-  if (!paper || paper.status === "approved") {
-    throw new Error("Approved submissions can no longer be edited.");
+  if (!paper || paper.status !== "student_editing") {
+    throw new Error("Mark this submission for editing before saving changes.");
   }
 
   const normalizedTitle = String(title || "").trim().replace(/\s+/g, " ");
@@ -180,6 +180,7 @@ export async function updateResearchSubmission({
     program,
     keywords,
     sdg_tags: sdgTags,
+    status: "pending",
     updated_at: new Date().toISOString(),
   };
   const fileColumns = {
@@ -207,12 +208,12 @@ export async function updateResearchSubmission({
       .update(updates)
       .eq("id", paper.id)
       .eq("submitted_by", userId)
-      .neq("status", "approved")
+      .eq("status", "student_editing")
       .select()
       .maybeSingle();
 
     if (error) throw error;
-    if (!data) throw new Error("This submission was approved or is no longer available to edit.");
+    if (!data) throw new Error("This submission is no longer marked for editing. Refresh and try again.");
     updatedPaper = data;
   } catch (error) {
     await removeResearchStorageFiles(uploadedUrls);
@@ -288,6 +289,36 @@ export async function getMySubmissions(userId) {
     .eq("submitted_by", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
+  return data;
+}
+
+export async function beginResearchEditing({ paperId, userId }) {
+  const { data, error } = await supabase
+    .from("research_papers")
+    .update({ status: "student_editing", updated_at: new Date().toISOString() })
+    .eq("id", paperId)
+    .eq("submitted_by", userId)
+    .in("status", ["pending", "under_review", "rejected", "student_editing"])
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("This submission is approved or is no longer available for editing.");
+  return data;
+}
+
+export async function cancelResearchEditing({ paperId, userId }) {
+  const { data, error } = await supabase
+    .from("research_papers")
+    .update({ status: "pending", updated_at: new Date().toISOString() })
+    .eq("id", paperId)
+    .eq("submitted_by", userId)
+    .eq("status", "student_editing")
+    .select()
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!data) throw new Error("This submission is no longer marked for editing.");
   return data;
 }
 
@@ -431,7 +462,7 @@ export async function getPendingSubmissions() {
   const { data, error } = await supabase
     .from("research_papers")
     .select("*, profiles:submitted_by(full_name, student_number)")
-    .in("status", ["pending", "under_review"])
+    .in("status", ["pending", "under_review", "student_editing"])
     .order("created_at", { ascending: true });
   if (error) throw error;
   return data;
@@ -474,9 +505,11 @@ export async function reviewSubmission({ paperId, status, notes, reviewerId }) {
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", paperId)
+    .in("status", ["pending", "under_review"])
     .select()
-    .single();
+    .maybeSingle();
   if (error) throw error;
+  if (!data) throw new Error("This submission is currently being edited by its student or is no longer awaiting review.");
 
   await supabase.from("submission_logs").insert({
     paper_id: paperId,

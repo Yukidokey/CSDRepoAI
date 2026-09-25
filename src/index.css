@@ -1897,6 +1897,19 @@ table.table tbody tr:hover {
   flex-wrap: wrap;
 }
 
+.form-section-foot > div {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.form-section-foot .auth-error {
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
 .sdg-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

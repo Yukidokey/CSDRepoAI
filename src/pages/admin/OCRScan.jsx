@@ -45,6 +45,7 @@ export default function OCRScan() {
   const [files, setFiles] = useState([]);
   const [previews, setPreviews] = useState([]);
   const [ocrText, setOcrText] = useState("");
+  const [scannedPageTexts, setScannedPageTexts] = useState([]);
   const [progress, setProgress] = useState(0);
   const [step, setStep] = useState("idle"); // idle | scanning | scanned | saving | done
   const [currentPage, setCurrentPage] = useState(1);
@@ -94,10 +95,9 @@ async function loadFiles(list) {
 
     setFiles((prev) => [...prev, ...expandedFiles]);
     setPreviews((prev) => [...prev, ...expandedFiles.map((file) => URL.createObjectURL(file))]);
-    setOcrText("");
+    setScannedPageTexts((prev) => [...prev, ...expandedFiles.map(() => null)]);
     setStep("idle");
-    setDonePages(0);
-    setCurrentPage(1);
+    setTotalPages((prev) => prev + expandedFiles.length);
   } catch (error) {
     setUploadError(error.message || "Could not read that file. Please choose a PDF, DOCX, or image file.");
   }
@@ -117,8 +117,12 @@ function handleFile(e) {
   function removeFile(index) {
     const nextFiles = files.filter((_, i) => i !== index);
     const nextPreviews = previews.filter((_, i) => i !== index);
+    const nextScannedPageTexts = scannedPageTexts.filter((_, i) => i !== index);
+    setScannedPageTexts(nextScannedPageTexts);
     setFiles(nextFiles);
     setPreviews(nextPreviews);
+    setTotalPages(nextFiles.length);
+    setDonePages(nextScannedPageTexts.filter(Boolean).length);
     if (nextFiles.length === 0) {
       setStep("idle");
       setOcrText("");
@@ -143,6 +147,13 @@ function handleFile(e) {
       return next;
     });
 
+    setScannedPageTexts((prev) => {
+      const next = [...prev];
+      const [item] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, item);
+      return next;
+    });
+
     setPreviews((prev) => {
       const next = [...prev];
       const [item] = next.splice(fromIndex, 1);
@@ -161,34 +172,62 @@ function handleFile(e) {
 
   async function handleScan() {
     if (!files.length) return;
+    const pendingPages = files
+      .map((file, index) => ({ file, index }))
+      .filter(({ index }) => !scannedPageTexts[index]);
+    if (!pendingPages.length) {
+      setStep("scanned");
+      return;
+    }
+
+    const completedBeforeScan = scannedPageTexts.filter(Boolean).length;
+    const hadPreviousText = Boolean(ocrText.trim());
     setStep("scanning");
     setUploadError("");
     setProgress(0);
-    setDonePages(0);
     setTotalPages(files.length);
-    setCurrentPage(1);
+    setDonePages(completedBeforeScan);
+    setCurrentPage(pendingPages[0].index + 1);
 
     try {
-      const { text } = await scanDocuments(files, (pageProgress, page, total) => {
-        setCurrentPage(page);
-        setTotalPages(total);
-        setProgress(pageProgress);
-        if (pageProgress >= 1) setDonePages(page);
+      const { pages } = await scanDocuments(pendingPages.map(({ file }) => file), (pageProgress, page) => {
+        const originalPageIndex = pendingPages[page - 1].index;
+        setCurrentPage(originalPageIndex + 1);
+        setTotalPages(files.length);
+        setProgress(pageProgress >= 1 ? 0 : pageProgress);
+        setDonePages(completedBeforeScan + page - (pageProgress >= 1 ? 0 : 1));
       });
 
-      setOcrText(text);
-
-      const extracted = await extractMetadata(text);
-      setMeta({
-        title: extracted.title,
-        authors: extracted.authors,
-        academicYear: "",
-        adviser: extracted.adviser,
-        panelMembers: extracted.panelMembers,
-        abstract: extracted.abstract,
-        keywords: extracted.keywords,
+      const nextPageTexts = [...scannedPageTexts];
+      pages.forEach((page, index) => {
+        nextPageTexts[pendingPages[index].index] = page.text;
       });
-      setAiStatus(extracted.aiStatus || "failed");
+      setScannedPageTexts(nextPageTexts);
+
+      const recognizedText = pages
+        .map((page, index) => `--- Page ${pendingPages[index].index + 1} ---\n${page.text}`)
+        .join("\n\n");
+      const combinedText = hadPreviousText
+        ? [ocrText.trim(), recognizedText].filter(Boolean).join("\n\n")
+        : files
+          .map((_, index) => nextPageTexts[index] == null ? "" : `--- Page ${index + 1} ---\n${nextPageTexts[index]}`)
+          .filter(Boolean)
+          .join("\n\n");
+      setOcrText(combinedText);
+
+      if (!hadPreviousText) {
+        const extracted = await extractMetadata(combinedText);
+        setMeta({
+          title: extracted.title,
+          authors: extracted.authors,
+          academicYear: "",
+          adviser: extracted.adviser,
+          panelMembers: extracted.panelMembers,
+          abstract: extracted.abstract,
+          keywords: extracted.keywords,
+        });
+        setAiStatus(extracted.aiStatus || "failed");
+      }
 
       setStep("scanned");
     } catch (error) {
@@ -221,6 +260,7 @@ function handleFile(e) {
     setFiles([]);
     setPreviews([]);
     setOcrText("");
+    setScannedPageTexts([]);
     setProgress(0);
     setStep("idle");
     setCurrentPage(1);
@@ -382,7 +422,7 @@ function handleFile(e) {
               </div>
 
               <div className="ocr-progress-track">
-                <div className="ocr-progress-fill" style={{ width: `${Math.round(((currentPage - 1 + progress) / Math.max(totalPages, 1)) * 100)}%` }} />
+                <div className="ocr-progress-fill" style={{ width: `${Math.round(((donePages + progress) / Math.max(totalPages, 1)) * 100)}%` }} />
               </div>
               <p style={{ fontSize: 11.5, color: "var(--ink-500)", marginTop: 7 }}>
                 Overall progress · {donePages} of {totalPages} pages recognized

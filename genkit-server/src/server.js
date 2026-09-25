@@ -11,6 +11,11 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 const DUPLICATE_SIMILARITY_THRESHOLD = 0.92;
+const DUPLICATE_STOP_WORDS = new Set([
+  "about", "after", "also", "among", "and", "are", "based", "been", "between", "both", "can", "could",
+  "each", "for", "from", "have", "into", "its", "more", "most", "not", "our", "over", "research", "study",
+  "such", "than", "that", "the", "their", "these", "this", "through", "using", "was", "were", "with", "within",
+]);
 
 /**
  * POST /search
@@ -71,15 +76,60 @@ app.post("/check-duplicate", async (req, res) => {
       statusFilter: null,
       matchCount: 100,
     });
-    const duplicate = result.items.some(
-      (item) => item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD
-    );
+
+    const candidates = result.items
+      .filter((item) => item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD)
+      .slice(0, 12);
+
+    if (!candidates.length) return res.json({ duplicate: false });
+
+    const { data: candidateDocuments, error: candidateError } = await supabaseAdmin
+      .from("research_papers")
+      .select("id, ocr_raw_text")
+      .in("id", candidates.map((item) => item.id));
+
+    if (candidateError) throw candidateError;
+    const documentTextById = new Map((candidateDocuments || []).map((paper) => [paper.id, paper.ocr_raw_text || ""]));
+    const metadataContext = [abstract, Array.isArray(keywords) ? keywords.join(" ") : keywords]
+      .filter(Boolean)
+      .join(" ");
+    const duplicate = candidates.some((item) => {
+      const candidateMetadata = [item.title, item.abstract, ...(item.keywords || [])].filter(Boolean).join(" ");
+      const documentOverlap = getContentOverlap(documentText, documentTextById.get(item.id));
+      const metadataOverlap = getContentOverlap(metadataContext, candidateMetadata);
+      return documentOverlap >= 0.35 || metadataOverlap >= 0.75;
+    });
+
     res.json({ duplicate });
   } catch (error) {
     console.error("[genkit] /check-duplicate failed:", error);
     res.status(500).json({ error: "manuscript similarity check failed" });
   }
 });
+
+function getContentOverlap(left, right) {
+  const leftTerms = getContentTerms(left);
+  const rightTerms = getContentTerms(right);
+  const smallestSetSize = Math.min(leftTerms.size, rightTerms.size);
+  if (smallestSetSize < 10) return 0;
+
+  let sharedTerms = 0;
+  for (const term of leftTerms) {
+    if (rightTerms.has(term)) sharedTerms += 1;
+  }
+  return sharedTerms / smallestSetSize;
+}
+
+function getContentTerms(text) {
+  return new Set(
+    String(text || "")
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .split(/[^a-z0-9]+/)
+      .filter((term) => term.length > 3 && !DUPLICATE_STOP_WORDS.has(term))
+  );
+}
 
 /**
  * POST /embed

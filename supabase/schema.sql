@@ -139,7 +139,7 @@ alter table research_papers add column if not exists search_vector tsvector
   generated always as (
     setweight(to_tsvector('english'::regconfig, coalesce(title, '')), 'A') ||
     setweight(to_tsvector('english'::regconfig, coalesce(abstract, '')), 'B') ||
-    setweight(to_tsvector('english'::regconfig, array_to_string(coalesce(keywords, '{}'), ' ')), 'C') ||
+    setweight(array_to_tsvector(coalesce(keywords, '{}')), 'C') ||
     setweight(to_tsvector('english'::regconfig, coalesce(ocr_raw_text, '')), 'D')
   ) stored;
 

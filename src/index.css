@@ -203,10 +203,9 @@ a {
 }
 
 [data-theme="dark"] .sidebar-link:hover,
-[data-theme="dark"] .sidebar-link-current,
-[data-theme="dark"] .sidebar-group-current,
+[data-theme="dark"] .sidebar-link.active,
 [data-theme="dark"] .sidebar-sublink:hover,
-[data-theme="dark"] .sidebar-sublink-current {
+[data-theme="dark"] .sidebar-sublink.active {
   background: rgba(229, 184, 79, 0.14);
 }
 
@@ -221,10 +220,9 @@ a {
 }
 
 [data-theme="dark"] .sidebar-link:hover,
-[data-theme="dark"] .sidebar-link-current,
-[data-theme="dark"] .sidebar-group-current,
+[data-theme="dark"] .sidebar-link.active,
 [data-theme="dark"] .sidebar-sublink:hover,
-[data-theme="dark"] .sidebar-sublink-current {
+[data-theme="dark"] .sidebar-sublink.active {
   color: #f8fafc;
 }
 
@@ -2089,8 +2087,7 @@ table.table tbody tr:hover {
   color: #fff;
 }
 
-.sidebar-link-current,
-.sidebar-group-current {
+.sidebar-link.active {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   border-left: 2px solid var(--brass-500);
@@ -2141,7 +2138,7 @@ table.table tbody tr:hover {
   color: #fff;
 }
 
-.sidebar-sublink-current {
+.sidebar-sublink.active {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
@@ -2161,7 +2158,7 @@ table.table tbody tr:hover {
   justify-content: center;
 }
 
-.sidebar-sublink-current .sidebar-sublink-num {
+.sidebar-sublink.active .sidebar-sublink-num {
   background: var(--brass-500);
   color: var(--ink-900);
 }
@@ -3143,9 +3140,11 @@ table.table tbody tr:hover {
 }
 
 /* Final dark-mode contrast overrides for selected navigation and filters. */
-[data-theme="dark"] .sidebar-link-current,
-[data-theme="dark"] .sidebar-group-current,
-[data-theme="dark"] .sidebar-sublink-current {
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .sidebar-sublink.active,
+[data-theme="dark"] .sidebar-group-toggle.active,
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .sidebar-sublink.active {
   color: #fffaf0 !important;
 }
 
@@ -3160,9 +3159,8 @@ table.table tbody tr:hover {
   background: rgba(24, 32, 28, 0.14) !important;
 }
 
-[data-theme="dark"] .sidebar-link-current svg,
-[data-theme="dark"] .sidebar-group-current svg,
-[data-theme="dark"] .sidebar-sublink-current svg {
+[data-theme="dark"] .sidebar-link.active svg,
+[data-theme="dark"] .sidebar-sublink.active svg {
   color: #fffaf0 !important;
 }
 

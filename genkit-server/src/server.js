@@ -8,7 +8,32 @@ import { extractMetadataFlow } from "./flows/extractMetadata.js";
 import { supabaseAdmin } from "./supabaseAdmin.js";
 
 const app = express();
-app.use(cors());
+const allowedOrigins = [
+  "https://csd-repo-ai.vercel.app",
+  "https://csd-repo-ai-semantic.vercel.app",
+  "http://localhost:5173",
+  "http://localhost:3000",
+  "http://localhost:8787",
+  "http://127.0.0.1:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:8787",
+];
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin) || /^https?:\/\/localhost(?::\d+)?$/.test(origin) || /^https?:\/\/127\.0\.0\.1(?::\d+)?$/.test(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(null, false);
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 const DUPLICATE_SIMILARITY_THRESHOLD = 0.92;
 const DUPLICATE_STOP_WORDS = new Set([

@@ -44,7 +44,7 @@ app.post("/search", async (req, res) => {
  * Returns only a boolean so unpublished paper details are not exposed.
  */
 app.post("/check-duplicate", async (req, res) => {
-  const { abstract, keywords, documentText } = req.body || {};
+  const { abstract, keywords, documentText, excludePaperId } = req.body || {};
   const query = [
     String(abstract || "").trim(),
     Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
@@ -71,7 +71,7 @@ app.post("/check-duplicate", async (req, res) => {
       matchCount: 100,
     });
     const duplicate = result.items.some(
-      (item) => Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD
+      (item) => item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD
     );
     res.json({ duplicate });
   } catch (error) {

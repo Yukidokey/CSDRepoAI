@@ -146,6 +146,87 @@ export async function submitResearch({
   return data;
 }
 
+export async function updateResearchSubmission({
+  paper,
+  title,
+  abstract,
+  authors,
+  adviser,
+  academicYear,
+  semester,
+  program,
+  keywords,
+  sdgTags,
+  files = {},
+  userId,
+}) {
+  if (!paper || paper.status === "approved") {
+    throw new Error("Approved submissions can no longer be edited.");
+  }
+
+  const normalizedTitle = String(title || "").trim().replace(/\s+/g, " ");
+  if (!normalizedTitle) throw new Error("Research title is required.");
+
+  const updates = {
+    title: normalizedTitle,
+    abstract,
+    authors,
+    adviser,
+    academic_year: academicYear,
+    semester,
+    program,
+    keywords,
+    sdg_tags: sdgTags,
+    updated_at: new Date().toISOString(),
+  };
+  const fileColumns = {
+    manuscript: "file_url",
+    sourceCode: "source_code_url",
+    ieee: "ieee_paper_url",
+    acm: "acm_paper_url",
+    apa: "apa_paper_url",
+  };
+  const uploadedUrls = [];
+  let updatedPaper;
+
+  try {
+    for (const [key, file] of Object.entries(files)) {
+      if (!file || !fileColumns[key]) continue;
+      const url = await uploadResearchAttachment(userId, file);
+      uploadedUrls.push(url);
+      updates[fileColumns[key]] = url;
+    }
+
+    const { data, error } = await supabase
+      .from("research_papers")
+      .update(updates)
+      .eq("id", paper.id)
+      .eq("submitted_by", userId)
+      .neq("status", "approved")
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) throw new Error("This submission was approved or is no longer available to edit.");
+    updatedPaper = data;
+  } catch (error) {
+    await removeResearchStorageFiles(uploadedUrls);
+    if (error.code === "23505") {
+      throw new Error("A research paper with this title already exists. Please choose a different title.");
+    }
+    throw error;
+  }
+
+  const replacedUrls = Object.entries(files)
+    .filter(([key, file]) => file && fileColumns[key])
+    .map(([key]) => paper[fileColumns[key]])
+    .filter(Boolean);
+  await removeResearchStorageFiles(replacedUrls);
+  triggerEmbedding(updatedPaper.id);
+
+  return updatedPaper;
+}
+
 async function uploadResearchAttachment(userId, file) {
   const path = buildStoragePath(userId, file);
   const { error: uploadError } = await supabase.storage
@@ -155,6 +236,17 @@ async function uploadResearchAttachment(userId, file) {
 
   const { data: pub } = supabase.storage.from("research-files").getPublicUrl(path);
   return pub.publicUrl;
+}
+
+async function removeResearchStorageFiles(urls) {
+  const storagePaths = urls
+    .flatMap(getResearchFileUrls)
+    .map(getResearchStoragePath)
+    .filter(Boolean);
+  if (!storagePaths.length) return;
+
+  const { error } = await supabase.storage.from("research-files").remove(storagePaths);
+  if (error) console.warn("Could not clean up replaced research files:", error);
 }
 
 /** Fire-and-forget: asks the Genkit server to embed a paper for semantic

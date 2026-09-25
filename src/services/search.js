@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 const GENKIT_SEARCH_URL = import.meta.env.VITE_GENKIT_SEARCH_URL;
 const GENKIT_DUPLICATE_URL = GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/check-duplicate");
 
-export async function checkResearchDuplicate({ abstract, keywords = [], documentText = "" }) {
+export async function checkResearchDuplicate({ abstract, keywords = [], documentText = "", excludePaperId }) {
   if (!GENKIT_DUPLICATE_URL || GENKIT_DUPLICATE_URL === GENKIT_SEARCH_URL) {
     throw new Error("Manuscript similarity checking is unavailable. Please try again later.");
   }
@@ -11,7 +11,7 @@ export async function checkResearchDuplicate({ abstract, keywords = [], document
   const response = await fetch(GENKIT_DUPLICATE_URL, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ abstract, keywords, documentText }),
+    body: JSON.stringify({ abstract, keywords, documentText, excludePaperId }),
   });
 
   if (!response.ok) {

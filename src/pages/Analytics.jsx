@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
-import { Download, Eye, FileDown, FolderOpen, CheckCircle2, Clock, XCircle, Users2, GraduationCap, UserCog, UserCheck, UserX } from "lucide-react";
+import { Download, Eye, FileDown, FolderOpen, CheckCircle2, Clock, XCircle, Users2, GraduationCap, UserCog, UserCheck, UserX, Search } from "lucide-react";
 import Layout from "../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
@@ -15,6 +15,7 @@ export default function Analytics() {
   const [data, setData] = useState(null);
   const [users, setUsers] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [titleSearch, setTitleSearch] = useState("");
 
   useEffect(() => {
     Promise.all([
@@ -44,6 +45,19 @@ export default function Analytics() {
     );
   }
   if (!data) return <Layout><p className="page-loading">No data available yet.</p></Layout>;
+
+  const searchTerm = titleSearch.trim().toLocaleLowerCase();
+  const filteredTitlesByProgram = data.titlesByProgram
+    .map(({ program, titles }) => ({
+      program,
+      titles: titles.filter((paper) =>
+        !searchTerm
+        || program.toLocaleLowerCase().includes(searchTerm)
+        || paper.title.toLocaleLowerCase().includes(searchTerm)
+        || paper.status.toLocaleLowerCase().replaceAll("_", " ").includes(searchTerm)
+      ),
+    }))
+    .filter(({ titles }) => titles.length > 0);
 
   return (
     <Layout>
@@ -136,11 +150,24 @@ export default function Analytics() {
         <p style={{ color: "var(--ink-500)", fontSize: 13, marginBottom: 16 }}>
           Compare existing active and approved research titles before choosing a topic.
         </p>
+        <label style={{ display: "flex", alignItems: "center", gap: 9, marginBottom: 18, maxWidth: 440 }}>
+          <Search size={16} color="var(--ink-500)" aria-hidden="true" />
+          <input
+            className="input"
+            type="search"
+            value={titleSearch}
+            onChange={(event) => setTitleSearch(event.target.value)}
+            placeholder="Search by research title, program, or status..."
+            aria-label="Search research titles by title, program, or status"
+          />
+        </label>
         <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          {data.titlesByProgram.length === 0 ? (
-            <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No research titles available yet.</p>
+          {filteredTitlesByProgram.length === 0 ? (
+            <p style={{ color: "var(--ink-500)", fontSize: 13 }}>
+              {searchTerm ? "No research titles match your search." : "No research titles available yet."}
+            </p>
           ) : (
-            data.titlesByProgram.map(({ program, titles }) => (
+            filteredTitlesByProgram.map(({ program, titles }) => (
               <section key={program} style={{ minWidth: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, paddingBottom: 8, borderBottom: "1px solid var(--line)" }}>
                   <h3 style={{ fontSize: 14 }}>{program}</h3>

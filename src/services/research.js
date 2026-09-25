@@ -48,11 +48,18 @@ export async function submitResearch({
   const normalizedTitle = title.trim().replace(/\s+/g, " ");
   if (!normalizedTitle) throw new Error("Research title is required.");
 
+  // The database uniqueness index collapses all whitespace, including line
+  // breaks. Match the same way here by allowing whitespace runs between words.
+  const titlePattern = normalizedTitle
+    .split(" ")
+    .map((word) => word.replace(/[\\%_]/g, "\\$&"))
+    .join("%");
+
   const { data: existingTitle, error: titleCheckError } = await supabase
     .from("research_papers")
     .select("id, title")
-    .ilike("title", normalizedTitle.replace(/[\\%_]/g, "\\$&"))
-    .limit(100);
+    .ilike("title", titlePattern)
+    .limit(500);
 
   if (titleCheckError) throw titleCheckError;
   const matchingTitle = (existingTitle || []).find((paper) =>

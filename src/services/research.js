@@ -25,6 +25,17 @@ function buildStoragePath(userId, file) {
   return `${userId}/${Date.now()}_${sanitizedName}`;
 }
 
+function normalizeResearchText(value) {
+  return String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase();
+}
+
+function normalizeResearchKeywords(value) {
+  return (Array.isArray(value) ? value : [])
+    .map(normalizeResearchText)
+    .filter(Boolean)
+    .sort();
+}
+
 /** Research Submission Module: student submits a new paper + files */
 export async function submitResearch({
   title,
@@ -48,8 +59,8 @@ export async function submitResearch({
   const normalizedTitle = title.trim().replace(/\s+/g, " ");
   if (!normalizedTitle) throw new Error("Research title is required.");
 
-  // The database uniqueness index collapses all whitespace, including line
-  // breaks. Match the same way here by allowing whitespace runs between words.
+  // Match title candidates even when imports contain repeated spaces or line
+  // breaks, then block only when all three identifying fields are the same.
   const titlePattern = normalizedTitle
     .split(" ")
     .map((word) => word.replace(/[\\%_]/g, "\\$&"))
@@ -57,21 +68,27 @@ export async function submitResearch({
 
   const { data: existingTitle, error: titleCheckError } = await supabase
     .from("research_papers")
-    .select("id, title")
+    .select("id, title, abstract, keywords")
     .ilike("title", titlePattern)
     .limit(500);
 
   if (titleCheckError) throw titleCheckError;
-  const matchingTitle = (existingTitle || []).find((paper) =>
-    String(paper.title || "").trim().replace(/\s+/g, " ").toLocaleLowerCase()
-      === normalizedTitle.toLocaleLowerCase()
-  );
-  if (matchingTitle) {
+  const normalizedAbstract = normalizeResearchText(abstract);
+  const normalizedKeywords = normalizeResearchKeywords(keywords);
+  const duplicatePaper = (existingTitle || []).find((paper) => {
+    const sameTitle = normalizeResearchText(paper.title) === normalizeResearchText(normalizedTitle);
+    const sameAbstract = normalizeResearchText(paper.abstract) === normalizedAbstract;
+    const paperKeywords = normalizeResearchKeywords(paper.keywords);
+    const sameKeywords = paperKeywords.length === normalizedKeywords.length
+      && paperKeywords.every((keyword, index) => keyword === normalizedKeywords[index]);
+    return sameTitle && sameAbstract && sameKeywords;
+  });
+  if (duplicatePaper) {
     if (ieeeFile && !manuscriptFile) {
       const { data: ownedPaper, error: ownedPaperError } = await supabase
         .from("research_papers")
         .select("id")
-        .eq("id", matchingTitle.id)
+        .eq("id", duplicatePaper.id)
         .eq("submitted_by", userId)
         .maybeSingle();
 
@@ -97,7 +114,7 @@ export async function submitResearch({
         return attachedPaper;
       }
     }
-    throw new Error("A research paper with this title already exists. Please choose a different title.");
+    throw new Error("A research paper with the same title, abstract, and keywords already exists.");
   }
 
   const uploads = {};
@@ -141,7 +158,10 @@ export async function submitResearch({
 
   if (error) {
     if (error.code === "23505") {
-      throw new Error("A research paper with this title already exists. Please choose a different title.");
+      if (error.constraint === "idx_research_unique_normalized_title") {
+        throw new Error("The database still enforces title-only duplicates. Apply the updated supabase/schema.sql to allow titles with different abstracts or keywords.");
+      }
+      throw error;
     }
     throw error;
   }
@@ -227,8 +247,8 @@ export async function updateResearchSubmission({
     updatedPaper = data;
   } catch (error) {
     await removeResearchStorageFiles(uploadedUrls);
-    if (error.code === "23505") {
-      throw new Error("A research paper with this title already exists. Please choose a different title.");
+    if (error.code === "23505" && error.constraint === "idx_research_unique_normalized_title") {
+      throw new Error("The database still enforces title-only duplicates. Apply the updated supabase/schema.sql to allow titles with different abstracts or keywords.");
     }
     throw error;
   }

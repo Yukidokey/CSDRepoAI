@@ -87,7 +87,7 @@ async function normalizeFilesForArchive(files) {
 
 export { stripPageMarkers } from "./ocrTextUtils.js";
 
-export async function scanDocuments(imageFiles, onProgress) {
+export async function scanDocuments(imageFiles, onProgress, { signal } = {}) {
   const pages = [];
   const totalPages = imageFiles.length;
   const needsImageOcr = imageFiles.some((file) => !isDocxFile(file));
@@ -95,6 +95,7 @@ export async function scanDocuments(imageFiles, onProgress) {
   const ocr = needsImageOcr ? await getPaddleOcr() : null;
 
   for (let index = 0; index < imageFiles.length; index += 1) {
+    if (signal?.aborted) break;
     const file = imageFiles[index];
     if (isDocxFile(file)) {
       const text = await extractDocxTextForOcr(file);
@@ -105,6 +106,7 @@ export async function scanDocuments(imageFiles, onProgress) {
 
     onProgress?.(0.05, index + 1, totalPages);
     const preparedImage = await prepareOcrImage(file);
+    if (signal?.aborted) break;
     const [result] = await ocr.predict(preparedImage);
     pages.push({
       pageNumber: index + 1,
@@ -117,7 +119,7 @@ export async function scanDocuments(imageFiles, onProgress) {
     .map((page) => `--- Page ${page.pageNumber} ---\n${page.text}`)
     .join("\n\n");
 
-  return { text, pages };
+  return { text, pages, cancelled: Boolean(signal?.aborted) };
 }
 
 function cleanOcrText(rawText) {

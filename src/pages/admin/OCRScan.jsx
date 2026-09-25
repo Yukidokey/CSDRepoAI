@@ -52,6 +52,8 @@ export default function OCRScan() {
   const [totalPages, setTotalPages] = useState(0);
   const [donePages, setDonePages] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [canStopScan, setCanStopScan] = useState(false);
   const [meta, setMeta] = useState({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
   const [aiStatus, setAiStatus] = useState("idle");
   const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
@@ -60,7 +62,9 @@ export default function OCRScan() {
   const [draggedIndex, setDraggedIndex] = useState(null);
   const [academicYears, setAcademicYears] = useState([]);
   const [uploadError, setUploadError] = useState("");
+  const [scanNotice, setScanNotice] = useState("");
   const fileInputRef = useRef(null);
+  const scanAbortControllerRef = useRef(null);
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })
@@ -89,6 +93,7 @@ async function loadFiles(list) {
   if (!selected.length) return;
 
   setUploadError("");
+  setScanNotice("");
   try {
     const expandedFiles = await expandUploadedFiles(selected);
     if (!expandedFiles.length) throw new Error("No readable pages were found in the selected file.");
@@ -122,7 +127,7 @@ function handleFile(e) {
     setFiles(nextFiles);
     setPreviews(nextPreviews);
     setTotalPages(nextFiles.length);
-    setDonePages(nextScannedPageTexts.filter(Boolean).length);
+    setDonePages(nextScannedPageTexts.filter((text) => text !== null && text !== undefined).length);
     if (nextFiles.length === 0) {
       setStep("idle");
       setOcrText("");
@@ -170,33 +175,47 @@ function handleFile(e) {
     });
   }
 
+  function handleStopScan() {
+    if (!scanAbortControllerRef.current || !canStopScan) return;
+    scanAbortControllerRef.current.abort();
+    setIsStopping(true);
+  }
+
   async function handleScan() {
     if (!files.length) return;
     const pendingPages = files
       .map((file, index) => ({ file, index }))
-      .filter(({ index }) => !scannedPageTexts[index]);
+      .filter(({ index }) => scannedPageTexts[index] == null);
     if (!pendingPages.length) {
       setStep("scanned");
       return;
     }
 
-    const completedBeforeScan = scannedPageTexts.filter(Boolean).length;
+    const completedBeforeScan = scannedPageTexts.filter((text) => text !== null && text !== undefined).length;
     const hadPreviousText = Boolean(ocrText.trim());
     setStep("scanning");
     setUploadError("");
+    setScanNotice("");
+    setIsStopping(false);
+    setCanStopScan(true);
+    const controller = new AbortController();
+    scanAbortControllerRef.current = controller;
     setProgress(0);
     setTotalPages(files.length);
     setDonePages(completedBeforeScan);
     setCurrentPage(pendingPages[0].index + 1);
 
     try {
-      const { pages } = await scanDocuments(pendingPages.map(({ file }) => file), (pageProgress, page) => {
+      const { pages, cancelled } = await scanDocuments(pendingPages.map(({ file }) => file), (pageProgress, page) => {
         const originalPageIndex = pendingPages[page - 1].index;
         setCurrentPage(originalPageIndex + 1);
         setTotalPages(files.length);
         setProgress(pageProgress >= 1 ? 0 : pageProgress);
         setDonePages(completedBeforeScan + page - (pageProgress >= 1 ? 0 : 1));
-      });
+      }, { signal: controller.signal });
+      scanAbortControllerRef.current = null;
+      setCanStopScan(false);
+      setIsStopping(false);
 
       const nextPageTexts = [...scannedPageTexts];
       pages.forEach((page, index) => {
@@ -215,7 +234,13 @@ function handleFile(e) {
           .join("\n\n");
       setOcrText(combinedText);
 
-      if (!hadPreviousText) {
+      if (cancelled) {
+        setStep("idle");
+        setScanNotice(`Scan stopped. ${completedBeforeScan + pages.length} of ${files.length} pages are recognized. Select Run OCR Scan to continue.`);
+        return;
+      }
+
+      if ((!hadPreviousText || !meta.title.trim()) && combinedText.trim()) {
         const extracted = await extractMetadata(combinedText);
         setMeta({
           title: extracted.title,
@@ -231,6 +256,9 @@ function handleFile(e) {
 
       setStep("scanned");
     } catch (error) {
+      scanAbortControllerRef.current = null;
+      setCanStopScan(false);
+      setIsStopping(false);
       setStep("idle");
       setUploadError(error.message || "OCR could not read the selected PDF, DOCX, or image document. Please try again.");
     }
@@ -261,6 +289,7 @@ function handleFile(e) {
     setPreviews([]);
     setOcrText("");
     setScannedPageTexts([]);
+    setScanNotice("");
     setProgress(0);
     setStep("idle");
     setCurrentPage(1);
@@ -341,6 +370,11 @@ function handleFile(e) {
               {uploadError}
             </p>
           )}
+          {scanNotice && (
+            <p role="status" style={{ marginTop: 12, padding: "9px 12px", borderRadius: 8, background: "var(--info-100)", color: "var(--info-700)", fontSize: 12.5 }}>
+              {scanNotice}
+            </p>
+          )}
 
           {previews.length > 0 && step !== "scanning" && (
             <>
@@ -399,8 +433,12 @@ function handleFile(e) {
           {step === "scanning" && (
             <div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <h3 style={{ fontSize: 13.5 }}>Scanning in progress</h3>
-                <div className="ocr-thumb-strip" style={{ display: "none" }} />
+                <h3 style={{ fontSize: 13.5 }}>
+                  {isStopping ? "Stopping after the current page…" : canStopScan ? "Scanning in progress" : "Preparing metadata..."}
+                </h3>
+                <button type="button" className="btn btn-danger btn-sm" onClick={handleStopScan} disabled={!canStopScan || isStopping}>
+                  <X size={13} /> {isStopping ? "Stopping..." : "Stop scan"}
+                </button>
               </div>
 
               <div className="ocr-scan-stage">

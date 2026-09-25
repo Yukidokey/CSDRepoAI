@@ -168,7 +168,6 @@ export default function UserManagement() {
         eyebrow="Administration / Users"
         title="Users portal"
         description="A focused view of account health, access roles, and directory activity."
-        action={<Button type="button" variant="primary" onClick={() => setShowCreateForm(true)}><Plus size={16} /> Add user</Button>}
       />
 
       <section className="users-hero-grid" aria-label="User account metrics">
@@ -304,8 +303,8 @@ export default function UserManagement() {
               Add a new repository user from the admin dashboard.
             </div>
           </div>
-          <Button type="button" variant="secondary" onClick={() => setShowCreateForm((prev) => !prev)}>
-            {showCreateForm ? "Hide" : "Show"}
+          <Button type="button" variant={showCreateForm ? "secondary" : "primary"} onClick={() => setShowCreateForm((prev) => !prev)}>
+            {showCreateForm ? "Cancel" : <><Plus size={16} /> Add user</>}
           </Button>
         </div>
         {showCreateForm && (

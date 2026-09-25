@@ -2,7 +2,7 @@
 
 Working codebase for the CSDRepoAI capstone system: an AI-assisted research
 repository for the Computer Studies Department of NDMU. Built with
-React.js + Supabase + Tesseract.js, matching the tech stack in the paper.
+React.js + Supabase + PaddleOCR.js, matching the OCR engine used by the app.
 
 ## Design
 
@@ -21,7 +21,7 @@ tokens live in `src/index.css`; shared components are in `src/components/ui.jsx`
 | User Management Module                    | `src/pages/admin/UserManagement.jsx` — view, assign roles, activate/deactivate, **delete** |
 | Research Submission Module                | `src/pages/student/Submit.jsx` — manuscript + source code + IEEE paper upload |
 | Research Archive and Repository Module    | `src/pages/Archive.jsx` — **shared across Student, Faculty, and Admin** (was admin-only before), filterable by year/title/author/keyword |
-| OCR Digitization Module                   | `src/pages/admin/OCRScan.jsx`, `src/services/ocr.js` — Tesseract.js scan **plus auto-extraction of title, authors, adviser, abstract, and keywords** from the scanned text, editable before archiving |
+| OCR Digitization Module                   | `src/pages/admin/OCRScan.jsx`, `src/services/ocr.js` — PaddleOCR.js scan **plus auto-extraction of title, authors, adviser, abstract, and keywords** from the scanned text, editable before archiving |
 | AI-Assisted Search and Retrieval Module   | `src/pages/Search.jsx`, `src/services/search.js` — natural-language search over title/abstract/keywords/OCR text; **also surfaces related existing studies live while a student types a submission title**, to flag possible topic duplication (`student/Submit.jsx`) |
 | Submission Review and Approval Module     | `src/pages/admin/ReviewApproval.jsx`          |
 | Research Analytics Dashboard Module       | `src/pages/Analytics.jsx` — year/program/SDG charts **plus a CSV report export** |
@@ -94,8 +94,9 @@ it, the app keeps using keyword search automatically.
 
 ## 5. Notes on OCR
 
-`src/services/ocr.js` runs Tesseract.js **in the browser**, so there's no
-separate OCR server to deploy. Admins upload (or, on a phone, photograph
+`src/services/ocr.js` runs PaddleOCR.js **in a browser worker**, so there's no
+separate OCR server to deploy. The PP-OCRv5 models are downloaded by the browser
+when OCR is first used. Admins upload (or, on a phone, photograph
 directly via camera capture) a scan of a hardbound document, text is
 extracted client-side, metadata is auto-suggested, they correct any
 misreads, and it's saved to the archive with the raw text stored for search.
@@ -159,8 +160,9 @@ it, the app keeps using keyword search automatically.
 
 ## 5. Notes on OCR
 
-`src/services/ocr.js` runs Tesseract.js **in the browser**, so there's no
-separate OCR server to deploy. Admins upload a photo/scan of a hardbound
+`src/services/ocr.js` runs PaddleOCR.js **in a browser worker**, so there's no
+separate OCR server to deploy. The PP-OCRv5 models are downloaded by the browser
+when OCR is first used. Admins upload a photo/scan of a hardbound
 document on the OCR Digitization page, the text is extracted client-side,
 they can correct any misreads, and it gets saved to the archive with the
 raw text stored for search.

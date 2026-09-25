@@ -277,7 +277,7 @@ function handleFile(e) {
       <PageHeader
         eyebrow="OCR Digitization"
         title="Digitize a Research Document"
-        description="Upload scanned image pages from a hardbound paper. The app extracts the text and suggests metadata for review before saving."
+        description="Upload scanned image pages from a hardbound paper. PaddleOCR extracts the text and suggests metadata for review; its models load on the first scan."
       />
 
       {/* ---------- stepper ---------- */}

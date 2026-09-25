@@ -1,6 +1,4 @@
-import { createWorker, PSM, OEM } from "tesseract.js";
 import { jsPDF } from "jspdf";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import mammoth from "mammoth/mammoth.browser.js";
 import { supabase } from "../lib/supabaseClient.js";
 import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions.js";
@@ -9,36 +7,52 @@ import { stripPageMarkers } from "./ocrTextUtils.js";
 /**
  * OCR Digitization Module
  *
- * Runs Tesseract.js entirely in the browser (no server needed) to scan
+ * Runs PaddleOCR in a browser worker (no OCR server needed) to scan
  * images of hardbound research documents and extract text. `onProgress`
  * receives a 0-1 value you can wire into a progress bar.
  */
-export async function scanDocument(imageFileOrUrl, onProgress) {
-  const worker = await createWorker("eng", 1, {
-    logger: (m) => {
-      if (m.status === "recognizing text" && onProgress) {
-        onProgress(m.progress);
-      }
-    },
-  });
+let paddleOcrPromise;
+let pdfJsPromise;
 
-  try {
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
-      tessedit_ocr_engine_mode: OEM.LSTM_ONLY,
-      preserve_interword_spaces: "1",
-      textord_heavy_nr: "1",
-      textord_no_rejects: "1",
-    });
-
-    const preparedImage = await prepareOcrImage(imageFileOrUrl);
-    const {
-      data: { text, confidence },
-    } = await worker.recognize(preparedImage);
-    return { text: cleanOcrText(text), confidence };
-  } finally {
-    await worker.terminate();
+function getPaddleOcr() {
+  if (!paddleOcrPromise) {
+    paddleOcrPromise = import("@paddleocr/paddleocr-js")
+      .then(({ PaddleOCR }) => PaddleOCR.create({
+        lang: "en",
+        ocrVersion: "PP-OCRv5",
+        worker: true,
+        ortOptions: {
+          backend: "wasm",
+          numThreads: 1,
+          simd: true,
+        },
+      }))
+      .catch((error) => {
+        paddleOcrPromise = null;
+        throw new Error(`PaddleOCR could not start: ${error.message || "model initialization failed"}`);
+      });
   }
+  return paddleOcrPromise;
+}
+
+function getRecognizedText(result) {
+  const lines = (result?.items || [])
+    .map((item) => String(item.text || "").trim())
+    .filter(Boolean);
+  return cleanOcrText(lines.join("\n"));
+}
+
+export async function scanDocument(imageFileOrUrl, onProgress) {
+  const ocr = await getPaddleOcr();
+  onProgress?.(0.05);
+  const preparedImage = await prepareOcrImage(imageFileOrUrl);
+  const [result] = await ocr.predict(preparedImage);
+  onProgress?.(1);
+  const scores = (result?.items || []).map((item) => item.score).filter(Number.isFinite);
+  const confidence = scores.length
+    ? (scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100
+    : 0;
+  return { text: getRecognizedText(result), confidence };
 }
 
 export async function expandUploadedFiles(files) {
@@ -76,45 +90,27 @@ export { stripPageMarkers } from "./ocrTextUtils.js";
 export async function scanDocuments(imageFiles, onProgress) {
   const pages = [];
   const totalPages = imageFiles.length;
-  const worker = await createWorker("eng", 1, {
-    logger: (m) => {
-      if (m.status === "recognizing text" && onProgress) {
-        onProgress(Math.max(0.05, m.progress), pages.length + 1, totalPages);
-      }
-    },
-  });
+  const needsImageOcr = imageFiles.some((file) => !isDocxFile(file));
+  if (needsImageOcr) onProgress?.(0.02, 1, totalPages);
+  const ocr = needsImageOcr ? await getPaddleOcr() : null;
 
-  try {
-    await worker.setParameters({
-      tessedit_pageseg_mode: PSM.AUTO,
-      tessedit_ocr_engine_mode: OEM.LSTM_ONLY,
-      preserve_interword_spaces: "1",
-      textord_heavy_nr: "1",
-      textord_no_rejects: "1",
-    });
-
-    for (let index = 0; index < imageFiles.length; index += 1) {
-      const file = imageFiles[index];
-      if (isDocxFile(file)) {
-        const text = await extractDocxTextForOcr(file);
-        pages.push({ pageNumber: index + 1, text });
-        if (onProgress) onProgress(1, index + 1, totalPages);
-        continue;
-      }
-      const preparedImage = await prepareOcrImage(file);
-      const { data: { text } } = await worker.recognize(preparedImage);
-
-      pages.push({
-        pageNumber: index + 1,
-        text: cleanOcrText(text),
-      });
-
-      if (onProgress) {
-        onProgress(1, index + 1, totalPages);
-      }
+  for (let index = 0; index < imageFiles.length; index += 1) {
+    const file = imageFiles[index];
+    if (isDocxFile(file)) {
+      const text = await extractDocxTextForOcr(file);
+      pages.push({ pageNumber: index + 1, text });
+      onProgress?.(1, index + 1, totalPages);
+      continue;
     }
-  } finally {
-    await worker.terminate();
+
+    onProgress?.(0.05, index + 1, totalPages);
+    const preparedImage = await prepareOcrImage(file);
+    const [result] = await ocr.predict(preparedImage);
+    pages.push({
+      pageNumber: index + 1,
+      text: getRecognizedText(result),
+    });
+    onProgress?.(1, index + 1, totalPages);
   }
 
   const text = pages
@@ -198,7 +194,7 @@ async function extractDocxTextForOcr(file) {
 }
 
 async function pdfFileToPageImageFiles(file) {
-  await configurePdfWorker();
+  const { getDocument } = await getPdfJs();
   const pdfData = await file.arrayBuffer();
   const pdf = await getDocument({ data: pdfData }).promise;
   const pageFiles = [];
@@ -228,11 +224,20 @@ async function pdfFileToPageImageFiles(file) {
   return pageFiles;
 }
 
-async function configurePdfWorker() {
-  if (GlobalWorkerOptions.workerSrc) return;
-
-  const workerModule = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
-  GlobalWorkerOptions.workerSrc = workerModule.default || workerModule;
+function getPdfJs() {
+  if (!pdfJsPromise) {
+    pdfJsPromise = Promise.all([
+      import("pdfjs-dist"),
+      import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+    ]).then(([pdfjs, workerModule]) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default || workerModule;
+      return pdfjs;
+    }).catch((error) => {
+      pdfJsPromise = null;
+      throw error;
+    });
+  }
+  return pdfJsPromise;
 }
 
 async function prepareOcrImage(file) {
@@ -257,7 +262,8 @@ async function prepareOcrImage(file) {
     ctx.filter = "none";
     bitmap.close?.();
 
-    return canvas.toDataURL("image/jpeg", 0.95);
+    const preparedBlob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.95));
+    return preparedBlob || file;
   } catch {
     return file;
   }

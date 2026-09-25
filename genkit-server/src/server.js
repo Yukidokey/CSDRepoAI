@@ -103,7 +103,7 @@ app.post("/check-duplicate", async (req, res) => {
     });
 
     const candidates = result.items
-      .filter((item) => item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD)
+      .filter((item) => item.status !== "rejected" && item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD)
       .slice(0, 12);
 
     if (!candidates.length) return res.json({ duplicate: false });

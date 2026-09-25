@@ -191,6 +191,7 @@ as $$
     1 - (p.embedding <=> query_embedding) as similarity
   from research_papers p
   where p.embedding is not null
+    and p.status <> 'rejected'
     and (status_filter is null or p.status = status_filter)
     and (sdg_filter is null or sdg_filter = any(p.sdg_tags))
   order by p.embedding <=> query_embedding

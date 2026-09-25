@@ -10,7 +10,7 @@ import { supabaseAdmin } from "./supabaseAdmin.js";
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
-const DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
+const DUPLICATE_SIMILARITY_THRESHOLD = 0.92;
 
 /**
  * POST /search
@@ -45,11 +45,11 @@ app.post("/search", async (req, res) => {
  */
 app.post("/check-duplicate", async (req, res) => {
   const { abstract, keywords, documentText, excludePaperId } = req.body || {};
-  const query = [
+  const metadataQuery = [
     String(abstract || "").trim(),
     Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
-    String(documentText || "").slice(0, 5000).trim(),
   ].filter(Boolean).join("\n\n");
+  const query = metadataQuery || String(documentText || "").slice(0, 5000).trim();
 
   if (!query) {
     return res.status(400).json({ error: "manuscript context is required" });

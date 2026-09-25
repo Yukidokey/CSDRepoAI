@@ -238,7 +238,7 @@ export default function Layout({ children }) {
               <button type="button" className="portal-profile-button" onClick={() => setProfileMenuOpen((open) => !open)} aria-expanded={profileMenuOpen}>
                 <span className="portal-profile-avatar">{initials}</span><span className="portal-profile-name">{profileName}</span><ChevronDown size={14} />
               </button>
-              {profileMenuOpen && <div className="portal-profile-menu"><strong>{profileName}</strong><span className="portal-profile-email">{accountEmail}</span><span>{ROLE_LABEL[role]}</span><NavLink to={`${role === "admin" ? "/admin" : role === "faculty" ? "/faculty" : "/student"}/profile`} onClick={() => setProfileMenuOpen(false)}>View profile</NavLink></div>}
+              {profileMenuOpen && <div className="portal-profile-menu"><strong>{profileName}</strong><span className="portal-profile-email">{accountEmail}</span></div>}
             </div>
             <div className="portal-notification-wrap">
               <button type="button" className="portal-icon-button" aria-label={`Notifications${notifications.length ? `, ${notifications.length} recent activities` : ""}`} title="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsSeen(true); }}><Bell size={17} />{notifications.length > 0 && <span className={`portal-notification-count${notificationsSeen ? " is-seen" : ""}`}>{notifications.length > 99 ? "99+" : notifications.length}</span>}</button>

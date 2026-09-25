@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, PieC
 import { Download, Eye, FileDown, FolderOpen, CheckCircle2, Clock, XCircle, Users2, GraduationCap, UserCog, UserCheck, UserX } from "lucide-react";
 import Layout from "../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../components/ui";
+import { useAuth } from "../context/AuthContext";
 import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../services/analytics";
 
 const PIE_COLORS = ["var(--analytics-pie-1)", "var(--analytics-pie-2)", "var(--analytics-pie-3)", "var(--analytics-pie-4)", "var(--analytics-pie-5)", "var(--analytics-pie-6)", "var(--analytics-pie-7)"];
@@ -10,18 +11,22 @@ const BAR_COLORS = { total: "var(--analytics-total)", published: "var(--analytic
 const LEGEND_STYLE = { fontSize: 12, color: "var(--ink-700)" };
 
 export default function Analytics() {
+  const { role } = useAuth();
   const [data, setData] = useState(null);
   const [users, setUsers] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getAnalyticsSummary(), getUserAnalytics()])
+    Promise.all([
+      getAnalyticsSummary(),
+      role === "admin" ? getUserAnalytics() : Promise.resolve(null),
+    ])
       .then(([summary, userStats]) => {
         setData(summary);
         setUsers(userStats);
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [role]);
 
   if (loading) {
     return (
@@ -162,17 +167,20 @@ export default function Analytics() {
         <RankedList title="Most Downloaded Research" icon={FileDown} items={data.mostDownloaded} metricKey="download_count" metricLabel="downloads" />
       </div>
 
-      {/* f: user analytics */}
-      <SectionTitle>User Analytics</SectionTitle>
-      {users && (
-        <StatGrid>
-          <StatCard label="Total Users" value={users.total} accent="brass" icon={Users2} />
-          <StatCard label="Students" value={users.byRole.student || 0} accent="info" icon={GraduationCap} />
-          <StatCard label="Faculty" value={users.byRole.faculty || 0} accent="info" icon={UserCog} />
-          <StatCard label="Admins" value={users.byRole.admin || 0} accent="info" icon={UserCog} />
-          <StatCard label="Active Accounts" value={users.active} accent="success" icon={UserCheck} />
-          <StatCard label="Deactivated Accounts" value={users.inactive} accent="danger" icon={UserX} />
-        </StatGrid>
+      {role === "admin" && (
+        <>
+          <SectionTitle>User Analytics</SectionTitle>
+          {users && (
+            <StatGrid>
+              <StatCard label="Total Users" value={users.total} accent="brass" icon={Users2} />
+              <StatCard label="Students" value={users.byRole.student || 0} accent="info" icon={GraduationCap} />
+              <StatCard label="Faculty" value={users.byRole.faculty || 0} accent="info" icon={UserCog} />
+              <StatCard label="Admins" value={users.byRole.admin || 0} accent="info" icon={UserCog} />
+              <StatCard label="Active Accounts" value={users.active} accent="success" icon={UserCheck} />
+              <StatCard label="Deactivated Accounts" value={users.inactive} accent="danger" icon={UserX} />
+            </StatGrid>
+          )}
+        </>
       )}
     </Layout>
   );

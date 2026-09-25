@@ -268,10 +268,16 @@ a {
   color: #101614;
 }
 
-[data-theme="dark"] .btn-brass,
-[data-theme="dark"] .btn-danger,
-[data-theme="dark"] .btn-success {
+[data-theme="dark"] .btn-brass {
   color: #171b18;
+}
+
+[data-theme="dark"] .btn-danger:hover:not(:disabled) {
+  background: rgba(237, 129, 119, 0.26);
+}
+
+[data-theme="dark"] .btn-success:hover:not(:disabled) {
+  background: rgba(119, 200, 137, 0.26);
 }
 
 [data-theme="dark"] .input::placeholder,

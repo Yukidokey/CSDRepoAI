@@ -116,10 +116,23 @@ create index if not exists idx_research_sdg on research_papers using gin(sdg_tag
 alter table research_papers add column if not exists acm_paper_url text;
 alter table research_papers add column if not exists apa_paper_url text;
 
+-- Prevent duplicate submissions across every status, including rejected papers.
+-- Normalize case and whitespace consistently with the submission form.
+do $$
+begin
+  if exists (
+    select 1
+    from research_papers
+    group by lower(trim(regexp_replace(title, '[[:space:]]+', ' ', 'g')))
+    having count(*) > 1
+  ) then
+    raise exception 'Duplicate normalized research titles exist. Resolve the existing duplicates before applying the unique title index.';
+  end if;
+end $$;
+
 drop index if exists idx_research_unique_normalized_title;
 create unique index idx_research_unique_normalized_title
-  on research_papers (lower(trim(title)))
-  where status <> 'rejected';
+  on research_papers (lower(trim(regexp_replace(title, '[[:space:]]+', ' ', 'g'))));
 
 -- Full-text search support for the AI-Assisted Search module
 alter table research_papers add column if not exists search_vector tsvector

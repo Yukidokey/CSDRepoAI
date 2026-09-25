@@ -1,6 +1,31 @@
 import { supabase } from "../lib/supabaseClient";
 
 const GENKIT_SEARCH_URL = import.meta.env.VITE_GENKIT_SEARCH_URL;
+const GENKIT_DUPLICATE_URL = GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/check-duplicate");
+
+export async function checkResearchDuplicate({ abstract, keywords = [], documentText = "" }) {
+  if (!GENKIT_DUPLICATE_URL || GENKIT_DUPLICATE_URL === GENKIT_SEARCH_URL) {
+    throw new Error("Manuscript similarity checking is unavailable. Please try again later.");
+  }
+
+  const response = await fetch(GENKIT_DUPLICATE_URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ abstract, keywords, documentText }),
+  });
+
+  if (!response.ok) {
+    throw new Error("Could not verify manuscript similarity. Your submission was not sent. Please try again later.");
+  }
+
+  const result = await response.json();
+  if (typeof result.duplicate !== "boolean") {
+    throw new Error("Could not verify manuscript similarity. Your submission was not sent. Please try again later.");
+  }
+  if (result.duplicate) {
+    throw new Error("This manuscript is too similar to an existing submission. Please review it with your adviser before submitting.");
+  }
+}
 
 /**
  * AI-Assisted Search and Retrieval Module

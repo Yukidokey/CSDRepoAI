@@ -23,7 +23,7 @@ export const semanticSearchFlow = ai.defineFlow(
     const { data, error } = await supabaseAdmin.rpc("match_research_papers", {
       query_embedding: queryEmbedding,
       match_count: matchCount ?? 30,
-      status_filter: statusFilter ?? "approved",
+      status_filter: statusFilter === undefined ? "approved" : statusFilter,
       sdg_filter: sdgFilter ?? null,
     });
 

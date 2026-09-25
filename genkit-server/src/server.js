@@ -5,10 +5,12 @@ import { semanticSearchFlow } from "./flows/semanticSearch.js";
 import { embedPaperFlow } from "./flows/embedPaper.js";
 import { metadataAnalysisFlow } from "./flows/metadataAnalysis.js";
 import { extractMetadataFlow } from "./flows/extractMetadata.js";
+import { supabaseAdmin } from "./supabaseAdmin.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
+const DUPLICATE_SIMILARITY_THRESHOLD = 0.88;
 
 /**
  * POST /search
@@ -33,6 +35,48 @@ app.post("/search", async (req, res) => {
   } catch (error) {
     console.error("[genkit] /search failed:", error);
     res.status(500).json({ error: error.message || "semantic search failed" });
+  }
+});
+
+/**
+ * POST /check-duplicate
+ * Compares title-independent manuscript context with embeddings for all submissions.
+ * Returns only a boolean so unpublished paper details are not exposed.
+ */
+app.post("/check-duplicate", async (req, res) => {
+  const { abstract, keywords, documentText } = req.body || {};
+  const query = [
+    String(abstract || "").trim(),
+    Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
+  ].filter(Boolean).join("\n\n") || String(documentText || "").slice(0, 4000).trim();
+
+  if (!query) {
+    return res.status(400).json({ error: "manuscript context is required" });
+  }
+
+  try {
+    const { count: unindexedCount, error: indexError } = await supabaseAdmin
+      .from("research_papers")
+      .select("id", { count: "exact", head: true })
+      .is("embedding", null);
+
+    if (indexError) throw indexError;
+    if (unindexedCount > 0) {
+      return res.status(503).json({ error: "similarity index is incomplete" });
+    }
+
+    const result = await semanticSearchFlow({
+      query,
+      statusFilter: null,
+      matchCount: 100,
+    });
+    const duplicate = result.items.some(
+      (item) => Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD
+    );
+    res.json({ duplicate });
+  } catch (error) {
+    console.error("[genkit] /check-duplicate failed:", error);
+    res.status(500).json({ error: "manuscript similarity check failed" });
   }
 });
 

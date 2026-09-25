@@ -15,7 +15,7 @@ import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { submitResearch } from "../../services/research";
-import { searchResearch } from "../../services/search";
+import { checkResearchDuplicate, searchResearch } from "../../services/search";
 import { analyzeResearchDocumentWithAI, sanitizeResearchTitle, suggestMetadata } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
 import { wrapReceiptValue } from "../../lib/receiptFormatting";
@@ -158,6 +158,14 @@ export default function Submit() {
     setStatus("submitting");
     setErrorMsg("");
     try {
+      if (files.manuscript) {
+        await checkResearchDuplicate({
+          abstract: suggestions?.abstract || form.abstract,
+          keywords: form.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
+          documentText: suggestions?.extractedText || "",
+        });
+      }
+
       const result = await submitResearch({
         title: form.title,
         abstract: form.abstract,

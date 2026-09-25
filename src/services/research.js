@@ -51,7 +51,6 @@ export async function submitResearch({
     .from("research_papers")
     .select("id")
     .ilike("title", normalizedTitle)
-    .neq("status", "rejected")
     .limit(1)
     .maybeSingle();
 

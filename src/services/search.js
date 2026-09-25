@@ -11,25 +11,38 @@ const SEARCH_STOP_WORDS = new Set([
 
 export async function checkResearchDuplicate({ abstract, keywords = [], documentText = "", excludePaperId }) {
   if (!GENKIT_DUPLICATE_URL || GENKIT_DUPLICATE_URL === GENKIT_SEARCH_URL) {
-    throw new Error("Manuscript similarity checking is unavailable. Please try again later.");
+    console.warn("Manuscript similarity checking is unavailable; skipping duplicate check for this submission.");
+    return false;
   }
 
-  const response = await fetch(GENKIT_DUPLICATE_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ abstract, keywords, documentText: String(documentText || "").slice(0, 5000), excludePaperId }),
-  });
+  try {
+    const response = await fetch(GENKIT_DUPLICATE_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ abstract, keywords, documentText: String(documentText || "").slice(0, 5000), excludePaperId }),
+    });
 
-  if (!response.ok) {
-    throw new Error("Could not verify manuscript similarity. Your submission was not sent. Please try again later.");
-  }
+    if (!response.ok) {
+      console.warn(`Duplicate check service returned ${response.status}; continuing with submission.`);
+      return false;
+    }
 
-  const result = await response.json();
-  if (typeof result.duplicate !== "boolean") {
-    throw new Error("Could not verify manuscript similarity. Your submission was not sent. Please try again later.");
-  }
-  if (result.duplicate) {
-    throw new Error("This manuscript is too similar to an existing submission. Please review it with your adviser before submitting.");
+    const result = await response.json();
+    if (typeof result.duplicate !== "boolean") {
+      console.warn("Duplicate check returned an unexpected payload; continuing with submission.");
+      return false;
+    }
+    if (result.duplicate) {
+      throw new Error("This manuscript is too similar to an existing submission. Please review it with your adviser before submitting.");
+    }
+
+    return false;
+  } catch (error) {
+    if (error instanceof Error && /Failed to fetch|fetch/i.test(error.message)) {
+      console.warn("Duplicate check request failed; continuing with submission while keeping the paper reviewable.", error);
+      return false;
+    }
+    throw error;
   }
 }
 

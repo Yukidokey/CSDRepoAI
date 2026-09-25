@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
@@ -71,9 +71,11 @@ export default function Layout({ children }) {
   const [openGroups, setOpenGroups] = useState({});
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notificationsSeen, setNotificationsSeen] = useState(false);
+  const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const notificationsOpenRef = useRef(false);
+  const notificationStorageKey = profile?.id ? `csdrepoai-notifications-seen:${profile.id}` : null;
   const themeKey = profile?.id ? `csdrepoai-theme:${profile.id}` : null;
   const items = NAV_ITEMS[role] || [];
   const accountEmail = profile?.email || user?.email || "No email available";
@@ -108,21 +110,79 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     let mounted = true;
-    setNotificationsLoading(true);
-    getAuditTrail({ limit: 6 })
-      .then((entries) => {
-        if (mounted) setNotifications(entries || []);
-      })
-      .catch(() => {
+    let firstRefresh = true;
+    setNotifications([]);
+
+    if (!notificationStorageKey) {
+      setSeenNotificationIds([]);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    try {
+      const savedIds = JSON.parse(localStorage.getItem(notificationStorageKey) || "[]");
+      setSeenNotificationIds(Array.isArray(savedIds) ? savedIds : []);
+    } catch {
+      setSeenNotificationIds([]);
+    }
+
+    async function refreshNotifications() {
+      if (firstRefresh) setNotificationsLoading(true);
+      try {
+        const entries = await getAuditTrail({ limit: 6 });
+        if (!mounted) return;
+        const latestEntries = entries || [];
+        setNotifications(latestEntries);
+        if (notificationsOpenRef.current) {
+          markNotificationsSeen(latestEntries, notificationStorageKey);
+        }
+      } catch {
         if (mounted) setNotifications([]);
-      })
-      .finally(() => {
-        if (mounted) setNotificationsLoading(false);
-      });
+      } finally {
+        if (mounted && firstRefresh) {
+          setNotificationsLoading(false);
+          firstRefresh = false;
+        }
+      }
+    }
+
+    refreshNotifications();
+    const refreshTimer = setInterval(refreshNotifications, 30_000);
+
     return () => {
       mounted = false;
+      clearInterval(refreshTimer);
     };
-  }, [profile?.id]);
+  }, [notificationStorageKey]);
+
+  function markNotificationsSeen(entries, storageKey = notificationStorageKey) {
+    if (!storageKey) return;
+
+    let savedIds = [];
+    try {
+      const parsedIds = JSON.parse(localStorage.getItem(storageKey) || "[]");
+      if (Array.isArray(parsedIds)) savedIds = parsedIds;
+    } catch {
+      savedIds = [];
+    }
+
+    const newIds = (entries || []).map((entry) => String(entry.id));
+    const nextIds = [...new Set([...savedIds, ...newIds])].slice(-200);
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(nextIds));
+    } catch {
+      // Keep the current session's seen state if browser storage is unavailable.
+    }
+    setSeenNotificationIds(nextIds);
+  }
+
+  function toggleNotifications() {
+    const nextOpen = !notificationsOpen;
+    notificationsOpenRef.current = nextOpen;
+    setNotificationsOpen(nextOpen);
+    if (nextOpen) markNotificationsSeen(notifications);
+  }
 
   function formatNotificationAction(action) {
     return String(action || "activity").replaceAll("_", " ");
@@ -130,8 +190,13 @@ export default function Layout({ children }) {
 
   function formatNotificationTime(createdAt) {
     if (!createdAt) return "Recently";
-    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(createdAt));
+    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(createdAt));
   }
+
+  const unreadNotificationCount = notifications.filter(
+    (entry) => !seenNotificationIds.includes(String(entry.id))
+  ).length;
+  const displayedNotificationCount = unreadNotificationCount || notifications.length;
 
   return (
     <div className="app-shell">
@@ -241,7 +306,7 @@ export default function Layout({ children }) {
               {profileMenuOpen && <div className="portal-profile-menu"><strong>{profileName}</strong><span className="portal-profile-email">{accountEmail}</span></div>}
             </div>
             <div className="portal-notification-wrap">
-              <button type="button" className="portal-icon-button" aria-label={`Notifications${notifications.length ? `, ${notifications.length} recent activities` : ""}`} title="Notifications" aria-expanded={notificationsOpen} onClick={() => { setNotificationsOpen((open) => !open); setNotificationsSeen(true); }}><Bell size={17} />{notifications.length > 0 && <span className={`portal-notification-count${notificationsSeen ? " is-seen" : ""}`}>{notifications.length > 99 ? "99+" : notifications.length}</span>}</button>
+              <button type="button" className="portal-icon-button" aria-label={`Notifications${unreadNotificationCount ? `, ${unreadNotificationCount} new updates` : notifications.length ? ", recent updates already viewed" : ""}`} title="Notifications" aria-expanded={notificationsOpen} onClick={toggleNotifications}><Bell size={17} />{notifications.length > 0 && <span className={`portal-notification-count${unreadNotificationCount === 0 ? " is-seen" : ""}`}>{displayedNotificationCount > 99 ? "99+" : displayedNotificationCount}</span>}</button>
               {notificationsOpen && (
                 <div className="portal-notification-menu" role="dialog" aria-label="Recent repository activity">
                   <div className="portal-notification-heading"><div><strong>Notifications</strong><span>Recent repository activity</span></div></div>

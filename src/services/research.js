@@ -50,18 +50,21 @@ export async function submitResearch({
 
   const { data: existingTitle, error: titleCheckError } = await supabase
     .from("research_papers")
-    .select("id")
-    .ilike("title", normalizedTitle)
-    .limit(1)
-    .maybeSingle();
+    .select("id, title")
+    .ilike("title", normalizedTitle.replace(/[\\%_]/g, "\\$&"))
+    .limit(100);
 
   if (titleCheckError) throw titleCheckError;
-  if (existingTitle) {
+  const matchingTitle = (existingTitle || []).find((paper) =>
+    String(paper.title || "").trim().replace(/\s+/g, " ").toLocaleLowerCase()
+      === normalizedTitle.toLocaleLowerCase()
+  );
+  if (matchingTitle) {
     if (ieeeFile && !manuscriptFile) {
       const { data: ownedPaper, error: ownedPaperError } = await supabase
         .from("research_papers")
         .select("id")
-        .eq("id", existingTitle.id)
+        .eq("id", matchingTitle.id)
         .eq("submitted_by", userId)
         .maybeSingle();
 
@@ -346,8 +349,15 @@ export async function deleteResearchPaper(paper) {
     if (storageError) throw storageError;
   }
 
-  const { error } = await supabase.from("research_papers").delete().eq("id", paper.id);
+  const { data: deletedRows, error } = await supabase
+    .from("research_papers")
+    .delete()
+    .eq("id", paper.id)
+    .select("id");
   if (error) throw error;
+  if (!deletedRows?.length) {
+    throw new Error("The research record could not be deleted. Refresh the archive and try again.");
+  }
 }
 
 export function getResearchFileUrls(fileUrl) {

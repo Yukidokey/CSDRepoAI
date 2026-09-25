@@ -2,6 +2,12 @@ import { supabase } from "../lib/supabaseClient";
 
 const GENKIT_SEARCH_URL = import.meta.env.VITE_GENKIT_SEARCH_URL;
 const GENKIT_DUPLICATE_URL = GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/check-duplicate");
+const MIN_SEMANTIC_SIMILARITY = 0.58;
+const MIN_MATCH_CONFIDENCE = 50;
+const SEARCH_STOP_WORDS = new Set([
+  "a", "an", "and", "are", "about", "for", "from", "in", "into", "is", "of", "on", "or", "the", "to", "with",
+  "find", "paper", "papers", "research", "study", "studies", "system",
+]);
 
 export async function checkResearchDuplicate({ abstract, keywords = [], documentText = "", excludePaperId }) {
   if (!GENKIT_DUPLICATE_URL || GENKIT_DUPLICATE_URL === GENKIT_SEARCH_URL) {
@@ -115,35 +121,45 @@ function mergeSearchResults(query, textItems, semanticItems) {
   }
 
   return [...byId.values()]
-    .map((item) => ({
-      item,
-      score: scoreSearchResult(query, item),
-    }))
-    .sort((left, right) => right.score - left.score)
+    .map((item) => ({ item, ...getSearchMatch(query, item) }))
+    .filter(({ relevant }) => relevant)
+    .sort((left, right) => right.confidence - left.confidence)
     .slice(0, 30)
-    .map(({ item }) => item);
+    .map(({ item, confidence }) => ({ ...item, matchConfidence: confidence }));
 }
 
-function scoreSearchResult(query, item) {
-  const queryText = query.toLowerCase();
-  const tokens = queryText
-    .split(/[^a-z0-9]+/)
-    .filter((token) => token.length > 2);
-  const title = String(item.title || "").toLowerCase();
-  const keywords = Array.isArray(item.keywords) ? item.keywords.join(" ").toLowerCase() : "";
-  const abstract = String(item.abstract || "").toLowerCase();
-  const searchableText = [title, keywords, abstract, item.ocr_raw_text || ""].join(" ").toLowerCase();
+function getSearchMatch(query, item) {
+  const normalizedQuery = normalizeSearchText(query);
+  const tokens = normalizedQuery
+    .split(" ")
+    .filter((token) => token.length > 1 && !SEARCH_STOP_WORDS.has(token));
+  const fields = [
+    normalizeSearchText(item.title),
+    normalizeSearchText(item.abstract),
+    normalizeSearchText(Array.isArray(item.keywords) ? item.keywords.join(" ") : ""),
+    normalizeSearchText(item.ocr_raw_text),
+  ].filter(Boolean);
+  const exactPhraseMatch = normalizedQuery.length > 2 && fields.some((field) => field.includes(normalizedQuery));
+  const matchedTokens = tokens.filter((token) => fields.some((field) => field.split(" ").includes(token)));
+  const termCoverage = tokens.length ? matchedTokens.length / tokens.length : 0;
+  const semanticSimilarity = Math.min(1, Math.max(0, Number(item.similarity) || 0));
+  const confidence = exactPhraseMatch
+    ? 100
+    : Math.round(Math.max(termCoverage, semanticSimilarity) * 100);
+  const requiredMatches = Math.min(2, tokens.length);
+  const relevant = exactPhraseMatch
+    || semanticSimilarity >= MIN_SEMANTIC_SIMILARITY
+    || (requiredMatches > 0 && matchedTokens.length >= requiredMatches && confidence >= MIN_MATCH_CONFIDENCE);
 
-  let score = Number(item.similarity || 0) * 10;
-  if (title.includes(queryText)) score += 30;
-  if (keywords.includes(queryText)) score += 20;
+  return { confidence, relevant };
+}
 
-  for (const token of tokens) {
-    if (title.includes(token)) score += 8;
-    if (keywords.includes(token)) score += 5;
-    if (abstract.includes(token)) score += 2;
-    if (searchableText.includes(token)) score += 0.5;
-  }
-
-  return score;
+function normalizeSearchText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 }

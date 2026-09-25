@@ -1597,13 +1597,17 @@ textarea.input {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 11.5px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  font-size: 10.5px;
   font-weight: 600;
   text-transform: capitalize;
-  font-family: var(--font-mono);
-  letter-spacing: 0.02em;
+  font-family: var(--font-body);
+  line-height: 1.2;
+  letter-spacing: 0;
+  overflow-wrap: anywhere;
 }
 
 .badge-warning {
@@ -1624,7 +1628,69 @@ textarea.input {
 }
 .badge-neutral {
   background: var(--surface-sunken);
+  color: var(--ink-700);
+  border-color: var(--line);
+}
+
+.search-result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.search-result-heading h3 {
+  min-width: 0;
+  margin-top: 2px;
+  font-family: var(--font-display);
+  font-size: 15.5px;
+  overflow-wrap: anywhere;
+}
+
+.search-match-confidence {
+  display: grid;
+  width: 132px;
+  flex: 0 0 132px;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 4px 8px;
   color: var(--ink-500);
+  font-size: 10px;
+}
+
+.search-match-confidence strong {
+  color: var(--ink-700);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.search-match-track {
+  grid-column: 1 / -1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-sunken);
+}
+
+.search-match-track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--danger-600);
+}
+
+.search-match-confidence.is-mid .search-match-track > span {
+  background: var(--warning-600);
+}
+
+.search-match-confidence.is-high .search-match-track > span {
+  background: var(--success-600);
+}
+
+@media (max-width: 520px) {
+  .search-result-heading {
+    flex-direction: column;
+  }
 }
 
 /* ---------- tags (sdg / keywords) ---------- */

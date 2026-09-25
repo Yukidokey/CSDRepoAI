@@ -68,7 +68,18 @@ export default function Search() {
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {results.map((r) => (
           <div key={r.id} className="card card-pad">
-            <h3 style={{ fontSize: 15.5, fontFamily: "var(--font-display)" }}>{r.title}</h3>
+            <div className="search-result-heading">
+              <h3>{r.title}</h3>
+              <div
+                className={`search-match-confidence${r.matchConfidence >= 80 ? " is-high" : r.matchConfidence >= 65 ? " is-mid" : " is-low"}`}
+                aria-label={`Match confidence ${r.matchConfidence}%`}
+                title="Relevance score based on the paper's content and semantic similarity; not a probability."
+              >
+                <span>Match confidence</span>
+                <strong>{r.matchConfidence}%</strong>
+                <span className="search-match-track" aria-hidden="true"><span style={{ width: `${r.matchConfidence}%` }} /></span>
+              </div>
+            </div>
             <p style={{ fontSize: 13, color: "var(--ink-500)", marginTop: 6 }}>{r.abstract}</p>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
               {(r.keywords || []).map((k) => (

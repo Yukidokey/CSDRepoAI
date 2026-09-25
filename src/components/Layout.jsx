@@ -271,10 +271,6 @@ export default function Layout({ children }) {
         </nav>
 
         <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <span className="sidebar-user-avatar">{initials}</span>
-            <span>{profile?.full_name}</span>
-          </div>
           <button
             type="button"
             className="theme-toggle"

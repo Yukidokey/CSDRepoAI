@@ -178,7 +178,7 @@ export default function Layout({ children }) {
                 <div key={item.key} className="sidebar-group">
                   <button
                     type="button"
-                    className={`sidebar-link sidebar-group-toggle${activeSdg ? " active" : ""}`}
+                    className={`sidebar-link sidebar-group-toggle${activeSdg ? " sidebar-group-current" : ""}`}
                     onClick={() => setOpenGroups((g) => ({ ...g, [item.key]: !g[item.key] }))}
                     aria-expanded={isOpen}
                   >
@@ -202,7 +202,7 @@ export default function Layout({ children }) {
                             const active =
                               location.pathname === item.basePath &&
                               location.search === `?sdg=${sdg.id}`;
-                            return `sidebar-sublink${active ? " active" : ""}`;
+                            return `sidebar-sublink${active ? " sidebar-sublink-current" : ""}`;
                           }}
                         >
                           <span className="sidebar-sublink-num">{sdg.id}</span>
@@ -221,7 +221,7 @@ export default function Layout({ children }) {
                 key={item.to}
                 to={item.to}
                 end={item.end}
-                className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}
+                className={({ isActive }) => `sidebar-link${isActive ? " sidebar-link-current" : ""}`}
               >
                 <Icon size={16} />
                 {item.label}

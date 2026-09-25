@@ -10,6 +10,7 @@ export default function ReviewApproval() {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [notes, setNotes] = useState({});
+  const [pendingDecision, setPendingDecision] = useState(null);
 
   function load() {
     getPendingSubmissions().then(setPending).finally(() => setLoading(false));
@@ -22,6 +23,11 @@ export default function ReviewApproval() {
   async function handleDecision(paperId, status) {
     await reviewSubmission({ paperId, status, notes: notes[paperId] || "", reviewerId: user.id });
     load();
+  }
+
+  async function confirmDecision() {
+    await handleDecision(pendingDecision.paperId, pendingDecision.status);
+    setPendingDecision(null);
   }
 
   return (
@@ -92,10 +98,10 @@ export default function ReviewApproval() {
                 style={{ marginTop: 12 }}
               />
               <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <button onClick={() => handleDecision(p.id, "approved")} className="btn btn-success btn-sm">
+                <button onClick={() => setPendingDecision({ paperId: p.id, title: p.title, status: "approved" })} className="btn btn-success btn-sm">
                   <Check size={13} /> Approve
                 </button>
-                <button onClick={() => handleDecision(p.id, "rejected")} className="btn btn-danger btn-sm">
+                <button onClick={() => setPendingDecision({ paperId: p.id, title: p.title, status: "rejected" })} className="btn btn-danger btn-sm">
                   <X size={13} /> Reject
                 </button>
                 <button onClick={() => handleDecision(p.id, "under_review")} className="btn btn-outline btn-sm">
@@ -104,6 +110,51 @@ export default function ReviewApproval() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+      {pendingDecision && (
+        <div
+          className="review-decision-backdrop"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setPendingDecision(null);
+          }}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 1000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="review-decision-title"
+            className="card card-pad"
+            style={{ width: "min(100%, 460px)", boxShadow: "var(--shadow-lg)" }}
+          >
+            <h2 id="review-decision-title" style={{ fontSize: 19 }}>
+              Confirm {pendingDecision.status === "approved" ? "approval" : "rejection"}
+            </h2>
+            <p style={{ marginTop: 10, color: "var(--ink-700)" }}>
+              {pendingDecision.status === "approved" ? "Approve" : "Reject"} <strong>{pendingDecision.title}</strong>?
+            </p>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+              <button type="button" className="btn btn-outline btn-sm" onClick={() => setPendingDecision(null)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`btn btn-${pendingDecision.status === "approved" ? "success" : "danger"} btn-sm`}
+                onClick={confirmDecision}
+              >
+                Yes, {pendingDecision.status === "approved" ? "Approve" : "Reject"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </Layout>

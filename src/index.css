@@ -1607,7 +1607,8 @@ textarea.input {
   font-family: var(--font-body);
   line-height: 1.2;
   letter-spacing: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .badge-warning {

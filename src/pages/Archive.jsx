@@ -97,12 +97,13 @@ export default function Archive() {
                   </span>
                 </td>
                 <td>
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6 }}>
+                  <div className="archive-file-links">
                     {getResearchFileUrls(p.file_url).length > 0 && (
-                      <button
-                        type="button"
-                        onClick={async (e) => {
-                          e.stopPropagation();
+                      <ResearchFileLink
+                        urls={getResearchFileUrls(p.file_url)}
+                        label="View manuscript"
+                        onClick={async (event) => {
+                          event.stopPropagation();
                           setFileError("");
                           try {
                             await openResearchFile(p);
@@ -112,42 +113,19 @@ export default function Archive() {
                             setFileError(error.message);
                           }
                         }}
-                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", background: "none", border: 0, cursor: "pointer", padding: 0, textDecoration: "underline" }}
-                      >
-                        <FileText size={13} /> View manuscript
-                      </button>
+                      />
                     )}
                     {getResearchFileUrls(p.source_code_url).length > 0 && (
-                      <a
-                        href={getResearchFileUrls(p.source_code_url)[0]}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}
-                      >
-                        <FolderOpen size={13} /> View source code
-                      </a>
+                      <ResearchFileLink urls={getResearchFileUrls(p.source_code_url)} label="View source code" icon={FolderOpen} />
                     )}
                     {getResearchFileUrls(p.ieee_paper_url).length > 0 && (
-                      <a
-                        href={getResearchFileUrls(p.ieee_paper_url)[0]}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                        style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}
-                      >
-                        <FileText size={13} /> View IEEE short paper
-                      </a>
+                      <ResearchFileLink urls={getResearchFileUrls(p.ieee_paper_url)} label="View IEEE short paper" />
                     )}
                     {getResearchFileUrls(p.acm_paper_url).length > 0 && (
-                      <a href={getResearchFileUrls(p.acm_paper_url)[0]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}>
-                        <FileText size={13} /> View ACM style paper
-                      </a>
+                      <ResearchFileLink urls={getResearchFileUrls(p.acm_paper_url)} label="View ACM style paper" />
                     )}
                     {getResearchFileUrls(p.apa_paper_url).length > 0 && (
-                      <a href={getResearchFileUrls(p.apa_paper_url)[0]} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12.5, fontWeight: 600, color: "var(--brass-700)", textDecoration: "underline" }}>
-                        <FileText size={13} /> View APA style paper
-                      </a>
+                      <ResearchFileLink urls={getResearchFileUrls(p.apa_paper_url)} label="View APA style paper" />
                     )}
                   </div>
                 </td>
@@ -282,5 +260,57 @@ export default function Archive() {
         </div>
       )}
     </Layout>
+  );
+}
+
+const FILE_FORMATS = {
+  doc: "DOC",
+  docx: "DOCX",
+  pdf: "PDF",
+  odt: "ODT",
+  rtf: "RTF",
+  txt: "TXT",
+  csv: "CSV",
+  xls: "XLS",
+  xlsx: "XLSX",
+  ppt: "PPT",
+  pptx: "PPTX",
+  zip: "ZIP",
+  rar: "RAR",
+  jpg: "JPG",
+  jpeg: "JPEG",
+  png: "PNG",
+};
+
+function getFileFormat(urls) {
+  if (urls.length > 1) return "PDF";
+  const rawUrl = String(urls[0] || "").split(/[?#]/, 1)[0];
+  let path = rawUrl;
+  try {
+    path = decodeURIComponent(new URL(rawUrl).pathname);
+  } catch {
+    try { path = decodeURIComponent(rawUrl); } catch { /* Keep the undecoded path. */ }
+  }
+  const extension = path.match(/\.([a-z0-9]{1,8})$/i)?.[1]?.toLowerCase();
+  return FILE_FORMATS[extension] || extension?.toUpperCase() || "FILE";
+}
+
+function ResearchFileLink({ urls, label, icon: Icon = FileText, onClick }) {
+  const content = (
+    <>
+      <Icon className="archive-file-icon" size={14} aria-hidden="true" />
+      <span className="archive-file-label">{label}</span>
+      <span className="archive-file-format">{getFileFormat(urls)}</span>
+    </>
+  );
+
+  if (onClick) {
+    return <button type="button" className="archive-file-link" onClick={onClick}>{content}</button>;
+  }
+
+  return (
+    <a className="archive-file-link" href={urls[0]} target="_blank" rel="noreferrer" onClick={(event) => event.stopPropagation()}>
+      {content}
+    </a>
   );
 }

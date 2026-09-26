@@ -58,6 +58,7 @@ export default function OCRScan() {
   const [meta, setMeta] = useState({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
   const [aiStatus, setAiStatus] = useState("idle");
   const [saveProgress, setSaveProgress] = useState({ completed: 0, total: 0 });
+  const [saveEstimateSeconds, setSaveEstimateSeconds] = useState(null);
   const [previewIndex, setPreviewIndex] = useState(null);
   const [previewZoom, setPreviewZoom] = useState(1);
   const [draggedIndex, setDraggedIndex] = useState(null);
@@ -67,6 +68,7 @@ export default function OCRScan() {
   const fileInputRef = useRef(null);
   const scanAbortControllerRef = useRef(null);
   const pageTimingRef = useRef({ page: null, startedAt: 0, durations: [] });
+  const saveTimingRef = useRef({ lastPageAt: 0, pageDurations: [] });
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })
@@ -284,21 +286,44 @@ function handleFile(e) {
   async function handleArchive(e) {
     e.preventDefault();
     setStep("saving");
-    setSaveProgress({ completed: 0, total: files.length });
-    await digitizeAndArchive({
-      imageFiles: files,
-      ocrText,
-      title: meta.title,
-      authors: meta.authors.split(",").map((a) => a.trim()).filter(Boolean),
-      academicYear: meta.academicYear,
-      adviser: meta.adviser,
-      panelMembers: meta.panelMembers.split(",").map((member) => member.trim()).filter(Boolean),
-      abstract: meta.abstract,
-      keywords: meta.keywords.split(",").map((k) => k.trim()).filter(Boolean),
-      adminId: user.id,
-      onProgress: (completed, total) => setSaveProgress({ completed, total }),
-    });
-    setStep("done");
+    setUploadError("");
+    setSaveProgress({ completed: 0, total: files.length, phase: "preparing" });
+    setSaveEstimateSeconds(null);
+    saveTimingRef.current = { lastPageAt: Date.now(), pageDurations: [] };
+    try {
+      await digitizeAndArchive({
+        imageFiles: files,
+        ocrText,
+        title: meta.title,
+        authors: meta.authors.split(",").map((a) => a.trim()).filter(Boolean),
+        academicYear: meta.academicYear,
+        adviser: meta.adviser,
+        panelMembers: meta.panelMembers.split(",").map((member) => member.trim()).filter(Boolean),
+        abstract: meta.abstract,
+        keywords: meta.keywords.split(",").map((k) => k.trim()).filter(Boolean),
+        adminId: user.id,
+        onProgress: ({ phase, completed = 0, total = files.length, bytes = 0 }) => {
+          setSaveProgress({ completed, total, phase });
+          if (phase === "preparing" && completed > 0) {
+            const timing = saveTimingRef.current;
+            timing.pageDurations.push(Math.max(1, (Date.now() - timing.lastPageAt) / 1000));
+            timing.lastPageAt = Date.now();
+            const recent = timing.pageDurations.slice(-5).sort((a, b) => a - b);
+            const typicalPageSeconds = recent[Math.floor(recent.length / 2)];
+            setSaveEstimateSeconds(Math.ceil(typicalPageSeconds * Math.max(0, total - completed)));
+          } else if (phase === "uploading") {
+            // Network speed varies, so show a rough estimate and keep the upload stage visible.
+            setSaveEstimateSeconds(Math.max(3, Math.ceil(bytes / (512 * 1024))));
+          } else if (phase === "saving") {
+            setSaveEstimateSeconds(3);
+          }
+        },
+      });
+      setStep("done");
+    } catch (error) {
+      setStep("scanned");
+      setUploadError(error.message || "The document could not be saved. Please try again.");
+    }
   }
 
   function resetAll() {
@@ -313,6 +338,7 @@ function handleFile(e) {
     setTotalPages(0);
     setDonePages(0);
     setEstimatedSecondsRemaining(null);
+    setSaveEstimateSeconds(null);
     setMeta({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
     setSaveProgress({ completed: 0, total: 0 });
   }
@@ -625,18 +651,34 @@ function handleFile(e) {
 
           <button type="submit" disabled={step === "saving"} className="btn btn-primary" style={{ marginTop: 4 }}>
             {step === "saving"
-              ? saveProgress.total
-                ? `Uploading page ${saveProgress.completed} of ${saveProgress.total}...`
-                : "Saving..."
+              ? saveProgress.phase === "uploading"
+                ? "Uploading manuscript..."
+                : saveProgress.phase === "saving"
+                  ? "Finishing archive..."
+                  : `Preparing page ${saveProgress.completed} of ${saveProgress.total}...`
               : <>Save to Repository <ArrowRight size={14} /></>}
           </button>
           {step === "saving" && saveProgress.total > 0 && (
-            <div className="ocr-progress-track" style={{ marginTop: -4 }}>
+            <>
+              <p role="status" aria-live="polite" style={{ color: "var(--ink-600)", fontSize: 12, margin: "0 0 8px" }}>
+                {saveProgress.phase === "uploading"
+                  ? "Uploading the manuscript to the research archive…"
+                  : saveProgress.phase === "saving"
+                    ? "Finishing the archive record…"
+                    : `Preparing page ${saveProgress.completed} of ${saveProgress.total} for the archive…`}
+                <span style={{ display: "block", color: "var(--ink-500)", fontSize: 11, marginTop: 3 }}>
+                  {saveEstimateSeconds === null
+                    ? "Estimating save time…"
+                    : `Estimated time remaining: about ${saveEstimateSeconds < 60 ? `${saveEstimateSeconds} sec` : `${Math.ceil(saveEstimateSeconds / 60)} min`}. This is approximate.`}
+                </span>
+              </p>
+              {saveProgress.phase === "preparing" && <div className="ocr-progress-track" style={{ marginTop: -4 }}>
               <div
                 className="ocr-progress-fill"
                 style={{ width: `${Math.round((saveProgress.completed / saveProgress.total) * 100)}%` }}
               />
-            </div>
+              </div>}
+            </>
           )}
         </form>
       )}

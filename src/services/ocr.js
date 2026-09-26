@@ -221,6 +221,11 @@ async function pdfFileToPageImageFiles(file, maxPages = Infinity) {
         type: "image/jpeg",
       })
     );
+    Object.assign(pageFiles[pageFiles.length - 1], {
+      sourcePdf: file,
+      sourcePdfPageNumber: pageNumber,
+      sourcePdfPageCount: pdf.numPages,
+    });
   }
 
   return pageFiles;
@@ -342,7 +347,7 @@ async function createResearchPdf(files, { onProgress } = {}) {
 
     if (index > 0) pdf.addPage();
     pdf.addImage(dataUrl, file.type === "image/png" ? "PNG" : "JPEG", x, y, width, height);
-    onProgress?.(index + 1, files.length);
+    onProgress?.({ phase: "preparing", completed: index + 1, total: files.length });
   }
 
   return pdf.output("blob");
@@ -351,6 +356,7 @@ async function createResearchPdf(files, { onProgress } = {}) {
 async function uploadResearchPdf(files, { onProgress } = {}) {
   const pdfBlob = await createResearchPdf(files, { onProgress });
   const path = `ocr-scans/${Date.now()}_research.pdf`;
+  onProgress?.({ phase: "uploading", completed: files.length, total: files.length, bytes: pdfBlob.size });
   const { error } = await supabase.storage.from("research-files").upload(path, pdfBlob, {
     contentType: "application/pdf",
     upsert: false,
@@ -361,8 +367,9 @@ async function uploadResearchPdf(files, { onProgress } = {}) {
   return pub.publicUrl;
 }
 
-async function uploadResearchDocument(file) {
+async function uploadResearchDocument(file, { onProgress } = {}) {
   const path = `ocr-scans/${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi, "_")}`;
+  onProgress?.({ phase: "uploading", completed: 0, total: 1, bytes: file.size });
   const { error } = await supabase.storage.from("research-files").upload(path, file, {
     contentType: file.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     upsert: false,
@@ -483,9 +490,18 @@ export async function digitizeAndArchive({
   }
 
   const actorId = adminId;
+  const firstPage = filesToUpload[0];
+  const sourcePdf = firstPage?.sourcePdf;
+  const isCompleteOriginalPdf = sourcePdf
+    && filesToUpload.length === firstPage.sourcePdfPageCount
+    && filesToUpload.every((file, index) => file.sourcePdf === sourcePdf && file.sourcePdfPageNumber === index + 1);
   const uploadedUrl = filesToUpload.length === 1 && isDocxFile(filesToUpload[0])
-    ? await uploadResearchDocument(filesToUpload[0])
-    : await uploadResearchPdf(filesToUpload, { onProgress });
+    ? await uploadResearchDocument(filesToUpload[0], { onProgress })
+    : isCompleteOriginalPdf
+      ? await uploadResearchDocument(sourcePdf, { onProgress })
+      : await uploadResearchPdf(filesToUpload, { onProgress });
+
+  onProgress?.({ phase: "saving", completed: 0, total: 1 });
 
   const { data, error } = await supabase
     .from("research_papers")
@@ -508,6 +524,7 @@ export async function digitizeAndArchive({
 
   if (error) throw error;
 
+  onProgress?.({ phase: "saving", completed: 1, total: 1 });
   await supabase.from("submission_logs").insert({
     paper_id: data.id,
     action: "ocr_scanned",

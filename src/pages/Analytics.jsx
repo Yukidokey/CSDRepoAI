@@ -72,7 +72,7 @@ export default function Analytics() {
         }
       />
 
-      <StatGrid>
+      <StatGrid className="analytics-stat-grid">
         <StatCard label="Total Submissions" value={data.totalSubmissions} accent="brass" icon={FolderOpen} />
         <StatCard label="Published (Approved)" value={data.approved} accent="success" icon={CheckCircle2} />
         <StatCard label="Pending" value={data.pending} accent="warning" icon={Clock} />
@@ -209,7 +209,7 @@ export default function Analytics() {
         <>
           <SectionTitle>User Analytics</SectionTitle>
           {users && (
-            <StatGrid>
+            <StatGrid className="analytics-stat-grid">
               <StatCard label="Total Users" value={users.total} accent="brass" icon={Users2} />
               <StatCard label="Students" value={users.byRole.student || 0} accent="info" icon={GraduationCap} />
               <StatCard label="Faculty" value={users.byRole.faculty || 0} accent="info" icon={UserCog} />

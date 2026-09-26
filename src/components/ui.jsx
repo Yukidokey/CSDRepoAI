@@ -21,8 +21,8 @@ export function Card({ children, style, className = "" }) {
   );
 }
 
-export function StatGrid({ children }) {
-  return <div className="stat-grid">{children}</div>;
+export function StatGrid({ children, className = "" }) {
+  return <div className={`stat-grid ${className}`.trim()}>{children}</div>;
 }
 
 const ACCENTS = {

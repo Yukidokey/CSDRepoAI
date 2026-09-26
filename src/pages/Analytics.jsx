@@ -129,18 +129,29 @@ export default function Analytics() {
         </div>
 
         <div className="card card-pad" style={{ width: "100%" }}>
-          <h3 style={{ fontSize: 14, marginBottom: 14 }}>Research by Keyword</h3>
+          <div style={{ marginBottom: 18 }}>
+            <h3 style={{ fontSize: 14 }}>Research by Keyword</h3>
+            <p style={{ color: "var(--ink-500)", fontSize: 12.5, marginTop: 4 }}>Most common keywords across submitted research.</p>
+          </div>
           {data.byKeyword.length === 0 ? (
             <p style={{ color: "var(--ink-500)", fontSize: 13 }}>No keywords recorded yet.</p>
           ) : (
-            <ResponsiveContainer width="100%" height={Math.max(300, data.byKeyword.length * 42)}>
-              <BarChart data={data.byKeyword} layout="vertical" margin={{ left: 10, right: 20 }}>
-                <XAxis type="number" allowDecimals={false} fontSize={11} stroke="var(--ink-500)" />
-                <YAxis type="category" dataKey="keyword" width={180} fontSize={10.5} stroke="var(--ink-500)" />
-                <Tooltip content={<AnalyticsTooltip />} />
-                <Bar dataKey="count" fill={BAR_COLORS.keyword} radius={[0, 4, 4, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="keyword-analytics-grid">
+              {data.byKeyword.map(({ keyword, count }, index) => (
+                <div className="keyword-analytics-item" key={keyword} title={`${keyword}: ${count} research paper${count === 1 ? "" : "s"}`}>
+                  <span className="keyword-analytics-rank">{String(index + 1).padStart(2, "0")}</span>
+                  <div className="keyword-analytics-content">
+                    <div className="keyword-analytics-label-row">
+                      <span className="keyword-analytics-label">{keyword}</span>
+                      <span className="keyword-analytics-count">{count}</span>
+                    </div>
+                    <div className="keyword-analytics-track" aria-hidden="true">
+                      <span style={{ width: `${Math.max(6, (count / data.byKeyword[0].count) * 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </div>

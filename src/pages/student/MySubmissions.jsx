@@ -138,8 +138,10 @@ export default function MySubmissions() {
       const authors = splitList(editForm.authors);
       const keywords = splitList(editForm.keywords);
       await checkResearchDuplicate({
+        title: editForm.title,
         abstract: editForm.abstract,
         keywords,
+        documentText: editManuscriptText,
         excludePaperId: editing.id,
       });
 

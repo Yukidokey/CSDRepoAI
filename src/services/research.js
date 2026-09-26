@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabaseClient";
 import { notifyResearchDataChanged } from "../lib/researchEvents";
+import { checkResearchDuplicate } from "./search";
 import { jsPDF } from "jspdf";
 
 function buildStoragePath(userId, file) {
@@ -37,6 +38,57 @@ function normalizeResearchKeywords(value) {
     .sort();
 }
 
+async function getManuscriptSha256(file) {
+  if (!file) return null;
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("This browser cannot verify manuscript file duplicates. Use a current browser over HTTPS.");
+  }
+
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function getStoredManuscriptSha256(fileUrl) {
+  const urls = getResearchFileUrls(fileUrl);
+  if (!urls.length) return null;
+  const hashes = [];
+  for (const url of urls) {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Could not read the existing manuscript to check for duplicate files.");
+    hashes.push(await getManuscriptSha256(await response.blob()));
+  }
+  if (hashes.length === 1) return hashes[0];
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(hashes.join("\n")));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function assertManuscriptHashIsUnique(manuscriptSha256, excludePaperId = null) {
+  if (!manuscriptSha256) return null;
+  let query = supabase
+    .from("research_papers")
+    .select("id")
+    .eq("manuscript_sha256", manuscriptSha256)
+    .neq("status", "rejected");
+  if (excludePaperId) query = query.neq("id", excludePaperId);
+
+  const { data, error } = await query.limit(1).maybeSingle();
+  if (error) {
+    if (error.code === "42703" || error.code === "PGRST204") {
+      throw new Error("The database needs the manuscript duplicate protection migration. Apply supabase/migrations/20260926000300_enforce_manuscript_file_uniqueness.sql in Supabase SQL Editor.");
+    }
+    throw error;
+  }
+  if (data) {
+    throw new Error("This manuscript file has already been submitted. Edit the existing rejected paper instead of uploading another copy.");
+  }
+
+  return manuscriptSha256;
+}
+
+async function assertManuscriptFileIsUnique(file, excludePaperId = null) {
+  return assertManuscriptHashIsUnique(await getManuscriptSha256(file), excludePaperId);
+}
+
 /** Research Submission Module: student submits a new paper + files */
 export async function submitResearch({
   title,
@@ -59,6 +111,7 @@ export async function submitResearch({
 }) {
   const normalizedTitle = title.trim().replace(/\s+/g, " ");
   if (!normalizedTitle) throw new Error("Research title is required.");
+  const manuscriptSha256 = await assertManuscriptFileIsUnique(manuscriptFile);
 
   // Match title candidates even when imports contain repeated spaces or line
   // breaks, then block only when all three identifying fields are the same.
@@ -153,6 +206,7 @@ export async function submitResearch({
       keywords,
       sdg_tags: sdgTags,
       ocr_raw_text: manuscriptText || null,
+      manuscript_sha256: manuscriptSha256,
       submitted_by: userId,
       status: "pending",
       ...uploads,
@@ -162,6 +216,9 @@ export async function submitResearch({
 
   if (error) {
     if (error.code === "23505") {
+      if (error.constraint === "idx_research_active_manuscript_sha256") {
+        throw new Error("This manuscript file has already been submitted. Edit the existing rejected paper instead of uploading another copy.");
+      }
       if (error.constraint === "idx_research_unique_normalized_title") {
         throw new Error("Another non-rejected paper already uses this title. Review the existing paper or choose a distinct title.");
       }
@@ -203,6 +260,12 @@ export async function updateResearchSubmission({
 
   const normalizedTitle = String(title || "").trim().replace(/\s+/g, " ");
   if (!normalizedTitle) throw new Error("Research title is required.");
+  const manuscriptSha256 = files.manuscript
+    ? await assertManuscriptFileIsUnique(files.manuscript, paper.id)
+    : paper.manuscript_sha256 || await getStoredManuscriptSha256(paper.file_url);
+  if (manuscriptSha256 && !files.manuscript) {
+    await assertManuscriptHashIsUnique(manuscriptSha256, paper.id);
+  }
 
   const updates = {
     abstract,
@@ -222,6 +285,7 @@ export async function updateResearchSubmission({
   if (normalizeResearchText(paper.title) !== normalizeResearchText(normalizedTitle)) {
     updates.title = normalizedTitle;
   }
+  if (manuscriptSha256) updates.manuscript_sha256 = manuscriptSha256;
   const fileColumns = {
     manuscript: "file_url",
     sourceCode: "source_code_url",
@@ -233,6 +297,9 @@ export async function updateResearchSubmission({
   let updatedPaper;
 
   if (files.manuscript) updates.ocr_raw_text = manuscriptText || null;
+  if (manuscriptSha256 && manuscriptSha256 !== paper.manuscript_sha256) {
+    updates.manuscript_sha256 = manuscriptSha256;
+  }
 
   try {
     for (const [key, file] of Object.entries(files)) {
@@ -256,6 +323,9 @@ export async function updateResearchSubmission({
     updatedPaper = data;
   } catch (error) {
     await removeResearchStorageFiles(uploadedUrls);
+    if (error.code === "23505" && error.constraint === "idx_research_active_manuscript_sha256") {
+      throw new Error("This manuscript file has already been submitted. Edit the existing rejected paper instead of uploading another copy.");
+    }
     if (error.code === "23505" && error.constraint === "idx_research_unique_normalized_title") {
       throw new Error("Another non-rejected paper already uses this title. Keep this paper's current title or choose a distinct title.");
     }
@@ -337,18 +407,37 @@ export function ensureApprovedResearchEmbeddings() {
       return { embedded: 0, failed: 0 };
     }
 
-    const { data: papers, error } = await supabase
-      .from("research_papers")
-      .select("id")
-      .eq("status", "approved")
-      .is("embedding", null)
-      .limit(1000);
+    const [unembeddedResult, unhashedResult] = await Promise.all([
+      supabase
+        .from("research_papers")
+        .select("id")
+        .eq("status", "approved")
+        .is("embedding", null)
+        .limit(1000),
+      supabase
+        .from("research_papers")
+        .select("id")
+        .eq("status", "approved")
+        .is("manuscript_sha256", null)
+        .not("file_url", "is", null)
+        .limit(1000),
+    ]);
 
-    if (error) throw error;
+    if (unembeddedResult.error || unhashedResult.error) {
+      const error = unembeddedResult.error || unhashedResult.error;
+      if (error.code === "42703" || error.code === "PGRST204") {
+        throw new Error("Apply supabase/migrations/20260926000300_enforce_manuscript_file_uniqueness.sql to enable file duplicate checks.");
+      }
+      throw error;
+    }
+    const papers = [...new Set([
+      ...(unembeddedResult.data || []).map((paper) => paper.id),
+      ...(unhashedResult.data || []).map((paper) => paper.id),
+    ])];
     let embedded = 0;
     let failed = 0;
 
-    for (let index = 0; index < (papers || []).length; index += 3) {
+    for (let index = 0; index < papers.length; index += 3) {
       const results = await Promise.all(papers.slice(index, index + 3).map(triggerEmbedding));
       embedded += results.filter(Boolean).length;
       failed += results.filter((result) => !result).length;
@@ -591,6 +680,24 @@ export async function incrementDownloadCount(paperId) {
   if (error) console.error("Failed to record download:", error.message);
 }
 export async function reviewSubmission({ paperId, status, notes, reviewerId }) {
+  if (status === "approved") {
+    const { data: paper, error: paperError } = await supabase
+      .from("research_papers")
+      .select("abstract, keywords, ocr_raw_text")
+      .eq("id", paperId)
+      .maybeSingle();
+    if (paperError) throw paperError;
+    if (!paper) throw new Error("This research paper is no longer available for review.");
+
+    await checkResearchDuplicate({
+      title: paper.title,
+      abstract: paper.abstract,
+      keywords: paper.keywords || [],
+      documentText: paper.ocr_raw_text || "",
+      excludePaperId: paperId,
+    });
+  }
+
   const { data, error } = await supabase
     .from("research_papers")
     .update({

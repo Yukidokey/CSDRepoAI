@@ -1,4 +1,5 @@
 import { z } from "genkit";
+import { createHash } from "node:crypto";
 import { ai, embedder, embedOptions } from "../genkit.config.js";
 import { supabaseAdmin } from "../supabaseAdmin.js";
 import { extractEmbeddingValues, toVectorLiteral } from "../embeddingUtils.js";
@@ -21,6 +22,33 @@ function buildEmbeddingText(paper) {
     .join("\n\n");
 }
 
+function getPaperFileUrls(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (!value) return [];
+  try {
+    const parsed = JSON.parse(value);
+    return Array.isArray(parsed) ? parsed.filter(Boolean) : [value];
+  } catch {
+    return [value];
+  }
+}
+
+async function hashPaperFiles(urls) {
+  const fileHashes = [];
+  for (const url of urls) {
+    const response = await fetch(url);
+    if (!response.ok || !response.body) {
+      throw new Error(`Could not read manuscript file for duplicate detection (${response.status || "no response body"}).`);
+    }
+    const fileHash = createHash("sha256");
+    for await (const chunk of response.body) fileHash.update(chunk);
+    fileHashes.push(fileHash.digest("hex"));
+  }
+
+  if (fileHashes.length === 1) return fileHashes[0];
+  return createHash("sha256").update(fileHashes.join("\n")).digest("hex");
+}
+
 export const embedPaperFlow = ai.defineFlow(
   {
     name: "embedPaper",
@@ -30,7 +58,7 @@ export const embedPaperFlow = ai.defineFlow(
   async ({ paperId }) => {
     const { data: paper, error } = await supabaseAdmin
       .from("research_papers")
-      .select("id, title, abstract, keywords, authors, program, ocr_raw_text")
+      .select("id, title, abstract, keywords, authors, program, ocr_raw_text, file_url, manuscript_sha256, embedding")
       .eq("id", paperId)
       .single();
 
@@ -38,22 +66,28 @@ export const embedPaperFlow = ai.defineFlow(
       throw new Error(`Paper ${paperId} not found: ${error?.message || "no row"}`);
     }
 
+    const updates = {};
     const text = buildEmbeddingText(paper);
-    if (!text.trim()) {
-      return { paperId, embedded: false };
+    if (!paper.embedding && text.trim()) {
+      const rawEmbedding = await ai.embed({ embedder, content: text, options: embedOptions });
+      updates.embedding = toVectorLiteral(extractEmbeddingValues(rawEmbedding));
     }
 
-    const rawEmbedding = await ai.embed({ embedder, content: text, options: embedOptions });
-    const embedding = toVectorLiteral(extractEmbeddingValues(rawEmbedding));
+    const fileUrls = getPaperFileUrls(paper.file_url);
+    if (!paper.manuscript_sha256 && fileUrls.length) {
+      updates.manuscript_sha256 = await hashPaperFiles(fileUrls);
+    }
 
-    const { error: updateError } = await supabaseAdmin
-      .from("research_papers")
-      .update({ embedding })
-      .eq("id", paperId);
+    if (Object.keys(updates).length) {
+      const { error: updateError } = await supabaseAdmin
+        .from("research_papers")
+        .update(updates)
+        .eq("id", paperId);
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
+    }
 
-    return { paperId, embedded: true };
+    return { paperId, embedded: Boolean(paper.embedding || updates.embedding) };
   }
 );
 

@@ -9,28 +9,25 @@ const SEARCH_STOP_WORDS = new Set([
   "find", "paper", "papers", "research", "study", "studies", "system",
 ]);
 
-export async function checkResearchDuplicate({ abstract, keywords = [], documentText = "", excludePaperId }) {
+export async function checkResearchDuplicate({ title, abstract, keywords = [], documentText = "", excludePaperId }) {
   if (!GENKIT_DUPLICATE_URL || GENKIT_DUPLICATE_URL === GENKIT_SEARCH_URL) {
-    console.warn("Manuscript similarity checking is unavailable; skipping duplicate check for this submission.");
-    return false;
+    throw new Error("Topic duplicate checking is not configured. Ask an administrator to enable semantic search before submitting this manuscript.");
   }
 
   try {
     const response = await fetch(GENKIT_DUPLICATE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ abstract, keywords, documentText: String(documentText || "").slice(0, 5000), excludePaperId }),
+      body: JSON.stringify({ title, abstract, keywords, documentText: String(documentText || "").slice(0, 12000), excludePaperId }),
     });
 
     if (!response.ok) {
-      console.warn(`Duplicate check service returned ${response.status}; continuing with submission.`);
-      return false;
+      throw new Error(`Topic duplicate checking is temporarily unavailable (${response.status}). Please try again later.`);
     }
 
     const result = await response.json();
     if (typeof result.duplicate !== "boolean") {
-      console.warn("Duplicate check returned an unexpected payload; continuing with submission.");
-      return false;
+      throw new Error("Topic duplicate checking returned an invalid response. Please try again later.");
     }
     if (result.duplicate) {
       throw new Error("This manuscript is too similar to an existing submission. Please review it with your adviser before submitting.");
@@ -39,8 +36,7 @@ export async function checkResearchDuplicate({ abstract, keywords = [], document
     return false;
   } catch (error) {
     if (error instanceof Error && /Failed to fetch|fetch/i.test(error.message)) {
-      console.warn("Duplicate check request failed; continuing with submission while keeping the paper reviewable.", error);
-      return false;
+      throw new Error("Topic duplicate checking is temporarily unavailable. Please try again later.");
     }
     throw error;
   }

@@ -162,13 +162,12 @@ export default function Submit() {
     setStatus("submitting");
     setErrorMsg("");
     try {
-      if (files.manuscript) {
-        await checkResearchDuplicate({
-          abstract: suggestions?.abstract || form.abstract,
-          keywords: form.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
-          documentText: manuscriptText,
-        });
-      }
+      await checkResearchDuplicate({
+        title: form.title,
+        abstract: suggestions?.abstract || form.abstract,
+        keywords: form.keywords.split(",").map((keyword) => keyword.trim()).filter(Boolean),
+        documentText: manuscriptText,
+      });
 
       const result = await submitResearch({
         title: form.title,

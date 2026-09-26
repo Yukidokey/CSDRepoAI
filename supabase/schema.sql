@@ -103,6 +103,7 @@ create table if not exists research_papers (
   submitted_by uuid references profiles(id) not null,
   source text default 'digital' check (source in ('digital', 'ocr_scanned')),
   ocr_raw_text text,                      -- extracted OCR or digital manuscript text
+  manuscript_sha256 text,                 -- exact manuscript-file duplicate detection
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -119,10 +120,15 @@ create index if not exists idx_research_sdg on research_papers using gin(sdg_tag
 -- Additional citation-style attachments supported by the submission form.
 alter table research_papers add column if not exists acm_paper_url text;
 alter table research_papers add column if not exists apa_paper_url text;
+alter table research_papers add column if not exists manuscript_sha256 text;
 
 -- Duplicate submissions are checked by title + abstract + keywords in the app.
 -- Titles alone may be reused for different studies.
 drop index if exists idx_research_unique_normalized_title;
+create unique index if not exists idx_research_active_manuscript_sha256
+  on research_papers (manuscript_sha256)
+  where manuscript_sha256 is not null
+    and status not in ('rejected', 'student_editing');
 
 -- Full-text search support for the AI-Assisted Search module
 alter table research_papers add column if not exists search_vector tsvector

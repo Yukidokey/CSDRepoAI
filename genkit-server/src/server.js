@@ -73,8 +73,9 @@ app.post("/search", async (req, res) => {
  * Returns only a boolean so unpublished paper details are not exposed.
  */
 app.post("/check-duplicate", async (req, res) => {
-  const { abstract, keywords, documentText, excludePaperId } = req.body || {};
+  const { title, abstract, keywords, documentText, excludePaperId } = req.body || {};
   const metadataQuery = [
+    String(title || "").trim(),
     String(abstract || "").trim(),
     Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
   ].filter(Boolean).join("\n\n");
@@ -91,6 +92,7 @@ app.post("/check-duplicate", async (req, res) => {
     const { count: unindexedCount, error: indexError } = await supabaseAdmin
       .from("research_papers")
       .select("id", { count: "exact", head: true })
+      .neq("status", "rejected")
       .is("embedding", null);
 
     if (indexError) throw indexError;
@@ -117,7 +119,7 @@ app.post("/check-duplicate", async (req, res) => {
 
     if (candidateError) throw candidateError;
     const documentTextById = new Map((candidateDocuments || []).map((paper) => [paper.id, paper.ocr_raw_text || ""]));
-    const metadataContext = [abstract, Array.isArray(keywords) ? keywords.join(" ") : keywords]
+    const metadataContext = [title, abstract, Array.isArray(keywords) ? keywords.join(" ") : keywords]
       .filter(Boolean)
       .join(" ");
     const duplicate = candidates.some((item) => {
@@ -125,7 +127,7 @@ app.post("/check-duplicate", async (req, res) => {
       const candidateMetadata = [item.title, item.abstract, ...(item.keywords || [])].filter(Boolean).join(" ");
       const documentOverlap = getContentOverlap(manuscriptContext, candidateDocument);
       const metadataOverlap = getContentOverlap(metadataContext, candidateMetadata);
-      return documentOverlap >= 0.35 || (!manuscriptContext && metadataOverlap >= 0.75);
+      return documentOverlap >= 0.35 || metadataOverlap >= 0.75;
     });
 
     res.json({ duplicate });

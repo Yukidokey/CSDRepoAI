@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { notifyResearchDataChanged } from "../lib/researchEvents";
 import { jsPDF } from "jspdf";
 
 function buildStoragePath(userId, file) {
@@ -388,6 +389,8 @@ export async function deleteResearchPaper(paper) {
   if (!deletedRows?.length) {
     throw new Error("The research record could not be deleted. Refresh the archive and try again.");
   }
+
+  notifyResearchDataChanged();
 }
 
 export function getResearchFileUrls(fileUrl) {

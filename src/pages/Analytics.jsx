@@ -4,6 +4,7 @@ import { Download, Eye, FileDown, FolderOpen, CheckCircle2, Clock, XCircle, User
 import Layout from "../components/Layout";
 import { PageHeader, StatGrid, StatCard } from "../components/ui";
 import { useAuth } from "../context/AuthContext";
+import { subscribeToResearchDataChanges } from "../lib/researchEvents";
 import { getAnalyticsSummary, getUserAnalytics, exportSummaryCsv } from "../services/analytics";
 
 const PIE_COLORS = ["var(--analytics-pie-1)", "var(--analytics-pie-2)", "var(--analytics-pie-3)", "var(--analytics-pie-4)", "var(--analytics-pie-5)", "var(--analytics-pie-6)", "var(--analytics-pie-7)"];
@@ -18,15 +19,40 @@ export default function Analytics() {
   const [titleSearch, setTitleSearch] = useState("");
 
   useEffect(() => {
-    Promise.all([
-      getAnalyticsSummary(),
-      role === "admin" ? getUserAnalytics() : Promise.resolve(null),
-    ])
-      .then(([summary, userStats]) => {
+    let active = true;
+    let refreshSequence = 0;
+    const refresh = async () => {
+      const currentSequence = ++refreshSequence;
+      try {
+        const [summary, userStats] = await Promise.all([
+          getAnalyticsSummary(),
+          role === "admin" ? getUserAnalytics() : Promise.resolve(null),
+        ]);
+        if (!active || currentSequence !== refreshSequence) return;
         setData(summary);
         setUsers(userStats);
-      })
-      .finally(() => setLoading(false));
+      } catch (error) {
+        console.error("Could not refresh research analytics:", error);
+      } finally {
+        if (active && currentSequence === refreshSequence) setLoading(false);
+      }
+    };
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+
+    refresh();
+    const unsubscribeFromChanges = subscribeToResearchDataChanges(refresh);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      active = false;
+      unsubscribeFromChanges();
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
   }, [role]);
 
   if (loading) {

@@ -278,8 +278,8 @@ export default function Submit() {
                 className="card"
                 style={{
                   marginTop: 16,
-                  background: "rgba(255,255,255,0.45)",
-                  border: "1px solid rgba(42, 93, 69, 0.18)",
+                  background: "var(--surface)",
+                  border: "1px solid var(--line)",
                   padding: 16,
                 }}
               >

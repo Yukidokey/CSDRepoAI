@@ -54,6 +54,7 @@ export default function MySubmissions() {
       const editPaper = paper.status === "student_editing"
         ? paper
         : await beginResearchEditing({ paperId: paper.id, userId: user.id });
+      setStatusFilter("all");
       setSubmissions((current) => current.map((currentPaper) => currentPaper.id === editPaper.id ? editPaper : currentPaper));
       setEditing(editPaper);
     setEditForm({
@@ -218,94 +219,6 @@ export default function MySubmissions() {
 
       {editActionError && <p className="auth-error" role="alert" style={{ marginBottom: 16 }}>{editActionError}</p>}
 
-      {editing && editForm && (
-        <form className="card card-pad" onSubmit={handleEditSubmit} style={{ marginBottom: 20 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
-            <div>
-              <h2 style={{ fontSize: 17 }}>Edit submission</h2>
-              <p style={{ color: "var(--ink-500)", fontSize: 12.5, marginTop: 4 }}>Changes are available until the paper is approved.</p>
-            </div>
-            <button type="button" className="portal-icon-button" aria-label="Cancel editing" title="Cancel editing" onClick={cancelEditing}>
-              <X size={17} />
-            </button>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Field label="Research title">
-              <input className="input" value={editForm.title} onChange={updateEditField("title")} required />
-            </Field>
-            <Field label="Abstract">
-              <textarea className="input" rows={4} value={editForm.abstract} onChange={updateEditField("abstract")} required />
-            </Field>
-            <Field label="Authors (comma-separated)">
-              <input className="input" value={editForm.authors} onChange={updateEditField("authors")} required />
-            </Field>
-            <Field label="Adviser">
-              <input className="input" value={editForm.adviser} onChange={updateEditField("adviser")} />
-            </Field>
-            <div className="form-grid-2">
-              <Field label="Academic year">
-                <input className="input" value={editForm.academicYear} onChange={updateEditField("academicYear")} placeholder="e.g. 2025-2026" pattern="[0-9]{4}-[0-9]{4}" title="Use the format YYYY-YYYY, for example 2025-2026" required />
-              </Field>
-              <Field label="Semester">
-                <select className="input" value={editForm.semester} onChange={updateEditField("semester")}>
-                  <option>1st Semester</option>
-                  <option>2nd Semester</option>
-                  <option>Summer</option>
-                </select>
-              </Field>
-            </div>
-            <Field label="Program">
-              <select className="input" value={editForm.program} onChange={updateEditField("program")} required>
-                <option value="">Select program</option>
-                <option value="BSIT">Bachelor of Science in Information Technology (BSIT)</option>
-                <option value="BSCS">Bachelor of Science in Computer Science (BSCS)</option>
-                <option value="BSIS">Bachelor of Science in Information Systems (BSIS)</option>
-                <option value="BSCpE">Bachelor of Science in Computer Engineering (BSCpE)</option>
-                <option value="Associate/Diploma in Computer Technology">Associate/Diploma in Computer Technology</option>
-              </select>
-            </Field>
-            <Field label="Keywords (comma-separated)">
-              <input className="input" value={editForm.keywords} onChange={updateEditField("keywords")} />
-            </Field>
-            <Field label="SDG classification">
-              <div className="sdg-grid">
-                {SDG_LIST.map((sdg) => (
-                  <button type="button" key={sdg.id} onClick={() => toggleEditSdg(sdg.id)} className={`sdg-chip${editSdgTags.includes(sdg.id) ? " selected" : ""}`}>
-                    <span className="sdg-chip-num">{sdg.id}</span>
-                    {sdg.title}
-                  </button>
-                ))}
-              </div>
-            </Field>
-            <div className="form-grid-2">
-              <Field label="Replace manuscript (PDF or DOCX)">
-                <input className="input" type="file" accept=".pdf,.docx" onChange={(event) => handleEditManuscriptChange(event.target.files?.[0] || null)} />
-                {editManuscriptLoading && <small className="form-section-hint">Reading manuscript for semantic search...</small>}
-              </Field>
-              <Field label="Replace source code (ZIP)">
-                <input className="input" type="file" accept=".zip" onChange={(event) => setEditFiles((current) => ({ ...current, sourceCode: event.target.files?.[0] || null }))} />
-              </Field>
-              <Field label="Replace IEEE paper (PDF)">
-                <input className="input" type="file" accept=".pdf" onChange={(event) => setEditFiles((current) => ({ ...current, ieee: event.target.files?.[0] || null }))} />
-              </Field>
-              <Field label="Replace ACM paper (PDF)">
-                <input className="input" type="file" accept=".pdf" onChange={(event) => setEditFiles((current) => ({ ...current, acm: event.target.files?.[0] || null }))} />
-              </Field>
-              <Field label="Replace APA paper (PDF)">
-                <input className="input" type="file" accept=".pdf" onChange={(event) => setEditFiles((current) => ({ ...current, apa: event.target.files?.[0] || null }))} />
-              </Field>
-            </div>
-          </div>
-
-          {editError && <p className="auth-error" role="alert" style={{ marginTop: 16 }}>{editError}</p>}
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
-            <Button type="button" variant="secondary" onClick={cancelEditing}>Cancel</Button>
-            <Button type="submit" variant="primary" disabled={editSaving || editManuscriptLoading}>{editSaving ? "Saving..." : "Save changes"}</Button>
-          </div>
-        </form>
-      )}
-
       {loading ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[0, 1, 2].map((i) => (
@@ -369,6 +282,93 @@ export default function MySubmissions() {
                   </a>
                 )}
               </div>
+              {editing?.id === s.id && editForm && (
+                <form className="card card-pad" onSubmit={handleEditSubmit} style={{ marginTop: 18 }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 18 }}>
+                    <div>
+                      <h2 style={{ fontSize: 17 }}>Edit submission</h2>
+                      <p style={{ color: "var(--ink-500)", fontSize: 12.5, marginTop: 4 }}>Changes are available until the paper is approved.</p>
+                    </div>
+                    <button type="button" className="portal-icon-button" aria-label="Cancel editing" title="Cancel editing" onClick={cancelEditing}>
+                      <X size={17} />
+                    </button>
+                  </div>
+
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    <Field label="Research title">
+                      <input className="input" value={editForm.title} onChange={updateEditField("title")} required />
+                    </Field>
+                    <Field label="Abstract">
+                      <textarea className="input" rows={4} value={editForm.abstract} onChange={updateEditField("abstract")} required />
+                    </Field>
+                    <Field label="Authors (comma-separated)">
+                      <input className="input" value={editForm.authors} onChange={updateEditField("authors")} required />
+                    </Field>
+                    <Field label="Adviser">
+                      <input className="input" value={editForm.adviser} onChange={updateEditField("adviser")} />
+                    </Field>
+                    <div className="form-grid-2">
+                      <Field label="Academic year">
+                        <input className="input" value={editForm.academicYear} onChange={updateEditField("academicYear")} placeholder="e.g. 2025-2026" pattern="[0-9]{4}-[0-9]{4}" title="Use the format YYYY-YYYY, for example 2025-2026" required />
+                      </Field>
+                      <Field label="Semester">
+                        <select className="input" value={editForm.semester} onChange={updateEditField("semester")}>
+                          <option>1st Semester</option>
+                          <option>2nd Semester</option>
+                          <option>Summer</option>
+                        </select>
+                      </Field>
+                    </div>
+                    <Field label="Program">
+                      <select className="input" value={editForm.program} onChange={updateEditField("program")} required>
+                        <option value="">Select program</option>
+                        <option value="BSIT">Bachelor of Science in Information Technology (BSIT)</option>
+                        <option value="BSCS">Bachelor of Science in Computer Science (BSCS)</option>
+                        <option value="BSIS">Bachelor of Science in Information Systems (BSIS)</option>
+                        <option value="BSCpE">Bachelor of Science in Computer Engineering (BSCpE)</option>
+                        <option value="Associate/Diploma in Computer Technology">Associate/Diploma in Computer Technology</option>
+                      </select>
+                    </Field>
+                    <Field label="Keywords (comma-separated)">
+                      <input className="input" value={editForm.keywords} onChange={updateEditField("keywords")} />
+                    </Field>
+                    <Field label="SDG classification">
+                      <div className="sdg-grid">
+                        {SDG_LIST.map((sdg) => (
+                          <button type="button" key={sdg.id} onClick={() => toggleEditSdg(sdg.id)} className={`sdg-chip${editSdgTags.includes(sdg.id) ? " selected" : ""}`}>
+                            <span className="sdg-chip-num">{sdg.id}</span>
+                            {sdg.title}
+                          </button>
+                        ))}
+                      </div>
+                    </Field>
+                    <div className="form-grid-2">
+                      <Field label="Replace manuscript (PDF or DOCX)">
+                        <input className="input" type="file" accept=".pdf,.docx" onChange={(event) => handleEditManuscriptChange(event.target.files?.[0] || null)} />
+                        {editManuscriptLoading && <small className="form-section-hint">Reading manuscript for semantic search...</small>}
+                      </Field>
+                      <Field label="Replace source code (ZIP)">
+                        <input className="input" type="file" accept=".zip" onChange={(event) => setEditFiles((current) => ({ ...current, sourceCode: event.target.files?.[0] || null }))} />
+                      </Field>
+                      <Field label="Replace IEEE paper (PDF)">
+                        <input className="input" type="file" accept=".pdf" onChange={(event) => setEditFiles((current) => ({ ...current, ieee: event.target.files?.[0] || null }))} />
+                      </Field>
+                      <Field label="Replace ACM paper (PDF)">
+                        <input className="input" type="file" accept=".pdf" onChange={(event) => setEditFiles((current) => ({ ...current, acm: event.target.files?.[0] || null }))} />
+                      </Field>
+                      <Field label="Replace APA paper (PDF)">
+                        <input className="input" type="file" accept=".pdf" onChange={(event) => setEditFiles((current) => ({ ...current, apa: event.target.files?.[0] || null }))} />
+                      </Field>
+                    </div>
+                  </div>
+
+                  {editError && <p className="auth-error" role="alert" style={{ marginTop: 16 }}>{editError}</p>}
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+                    <Button type="button" variant="secondary" onClick={cancelEditing}>Cancel</Button>
+                    <Button type="submit" variant="primary" disabled={editSaving || editManuscriptLoading}>{editSaving ? "Saving..." : "Save changes"}</Button>
+                  </div>
+                </form>
+              )}
             </div>
           ))}
         </div>

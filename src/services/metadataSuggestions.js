@@ -654,16 +654,28 @@ function extractKeywords(lines, startIndex) {
 
   const firstLine = cleanMetadataLine(lines[startIndex]);
   const keywordStart = firstLine.search(/\*?\s*key\s*(?:words?|wrods?|wods?)\s*\*?\s*[:\-]/i);
-  const segments = [stripKeywordsHeading(keywordStart >= 0 ? firstLine.slice(keywordStart) : firstLine)];
+  const firstKeywordLine = stripKeywordsHeading(keywordStart >= 0 ? firstLine.slice(keywordStart) : firstLine);
+  const firstBoundary = findKeywordSectionBoundary(firstKeywordLine);
+  let firstKeywordContent = firstBoundary >= 0 ? firstKeywordLine.slice(0, firstBoundary).trim() : firstKeywordLine;
+  if (firstBoundary >= 0) {
+    const lastDelimiter = Math.max(firstKeywordContent.lastIndexOf(","), firstKeywordContent.lastIndexOf(";"));
+    const trailingFragment = firstKeywordContent.slice(lastDelimiter + 1).trim();
+    if (lastDelimiter >= 0 && /^[A-Z][A-Za-z0-9-]{1,12}$/.test(trailingFragment)) {
+      firstKeywordContent = firstKeywordContent.slice(0, lastDelimiter).trim();
+    }
+  }
+  const segments = [firstKeywordContent];
   let index = startIndex + 1;
   while (
     index < lines.length
     && segments.length < 6
+    && firstBoundary < 0
     && !/\.\s*$/.test(segments[segments.length - 1].trim())
   ) {
     const nextLine = cleanMetadataLine(lines[index]);
     if (
       !nextLine
+      || findKeywordSectionBoundary(nextLine) >= 0
       || isPageMarkerLine(nextLine)
       || isDocumentHeading(nextLine)
       || isAbstractHeading(nextLine)
@@ -680,6 +692,10 @@ function extractKeywords(lines, startIndex) {
     .replace(/[.;]+$/, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function findKeywordSectionBoundary(line) {
+  return line.search(/\b(?:acknowledg(?:e)?ments?|we\s+sincerely\s+thank|we\s+would\s+like\s+to\s+thank)\b/i);
 }
 
 function findKeywordsIndex(lines, abstractIndex) {
@@ -723,7 +739,7 @@ function stripKeywordsHeading(line) {
 }
 
 function isDocumentHeading(line) {
-  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledg(?:e)?ment|approval sheet|dedication)\b/i.test(line);
+  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledg(?:e)?ments?|approval sheet|dedication)\b/i.test(line);
 }
 
 function isPageMarkerLine(line) {

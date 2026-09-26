@@ -33,7 +33,6 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
-app.options("*", cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 const DUPLICATE_SIMILARITY_THRESHOLD = 0.92;
 const DUPLICATE_STOP_WORDS = new Set([

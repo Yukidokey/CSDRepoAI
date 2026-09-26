@@ -10,14 +10,19 @@ export default function Search() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [error, setError] = useState("");
 
   async function handleSearch(e) {
     e.preventDefault();
     setLoading(true);
     setSearched(true);
+    setError("");
     try {
       const data = await searchResearch(query);
       setResults(data);
+    } catch (searchError) {
+      setResults([]);
+      setError(searchError.message || "Search is temporarily unavailable. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -42,6 +47,8 @@ export default function Search() {
           <SearchIcon size={14} /> Search
         </button>
       </form>
+
+      {error && <p className="auth-error" role="alert" style={{ marginBottom: 16 }}>{error}</p>}
 
       {loading && (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

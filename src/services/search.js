@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabaseClient";
 
 const GENKIT_SEARCH_URL = import.meta.env.VITE_GENKIT_SEARCH_URL;
 const GENKIT_DUPLICATE_URL = GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/check-duplicate");
-const MIN_SEMANTIC_SIMILARITY = 0.58;
+const MIN_SEMANTIC_SIMILARITY = 0.45;
 const MIN_MATCH_CONFIDENCE = 50;
 const SEARCH_STOP_WORDS = new Set([
   "a", "an", "and", "are", "about", "for", "from", "in", "into", "is", "of", "on", "or", "the", "to", "with",
@@ -73,6 +73,9 @@ export async function searchResearch(query, { sdgFilter, statusFilter = "approve
 
   if (semanticResult.status === "rejected") {
     console.warn("Genkit semantic search unavailable, using text search results.", semanticResult.reason);
+  }
+  if (semanticResult.status === "rejected" && textItems.length === 0) {
+    throw semanticResult.reason;
   }
   if (textResult.status === "rejected" && semanticItems.length === 0) {
     throw textResult.reason;

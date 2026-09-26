@@ -51,6 +51,7 @@ export default function OCRScan() {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [donePages, setDonePages] = useState(0);
+  const [estimatedSecondsRemaining, setEstimatedSecondsRemaining] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [canStopScan, setCanStopScan] = useState(false);
@@ -65,6 +66,7 @@ export default function OCRScan() {
   const [scanNotice, setScanNotice] = useState("");
   const fileInputRef = useRef(null);
   const scanAbortControllerRef = useRef(null);
+  const pageTimingRef = useRef({ page: null, startedAt: 0, durations: [] });
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })
@@ -203,11 +205,26 @@ function handleFile(e) {
     setProgress(0);
     setTotalPages(files.length);
     setDonePages(completedBeforeScan);
+    setEstimatedSecondsRemaining(null);
+    pageTimingRef.current = { page: null, startedAt: 0, durations: [] };
     setCurrentPage(pendingPages[0].index + 1);
 
     try {
       const { pages, cancelled } = await scanDocuments(pendingPages.map(({ file }) => file), (pageProgress, page) => {
         const originalPageIndex = pendingPages[page - 1].index;
+        const timing = pageTimingRef.current;
+        if (timing.page !== page) {
+          timing.page = page;
+          timing.startedAt = Date.now();
+        }
+        if (pageProgress >= 1) {
+          const duration = Math.max(1, (Date.now() - timing.startedAt) / 1000);
+          timing.durations.push(duration);
+          const recentDurations = timing.durations.slice(-5).sort((a, b) => a - b);
+          const typicalPageSeconds = recentDurations[Math.floor(recentDurations.length / 2)];
+          const remainingPages = Math.max(0, pendingPages.length - page);
+          setEstimatedSecondsRemaining(Math.ceil(typicalPageSeconds * remainingPages));
+        }
         setCurrentPage(originalPageIndex + 1);
         setTotalPages(files.length);
         setProgress(pageProgress >= 1 ? 0 : pageProgress);
@@ -295,6 +312,7 @@ function handleFile(e) {
     setCurrentPage(1);
     setTotalPages(0);
     setDonePages(0);
+    setEstimatedSecondsRemaining(null);
     setMeta({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
     setSaveProgress({ completed: 0, total: 0 });
   }
@@ -464,6 +482,19 @@ function handleFile(e) {
               </div>
               <p style={{ fontSize: 11.5, color: "var(--ink-500)", marginTop: 7 }}>
                 Overall progress · {donePages} of {totalPages} pages recognized
+              </p>
+
+              <p style={{ fontSize: 12, color: "var(--ink-600)", marginTop: 5 }} role="status" aria-live="polite">
+                {estimatedSecondsRemaining === null
+                  ? "Estimating time from page scan speed…"
+                  : estimatedSecondsRemaining === 0
+                    ? "Estimated scan time remaining: finishing up"
+                    : `Estimated scan time remaining: about ${estimatedSecondsRemaining < 60
+                      ? `${estimatedSecondsRemaining} sec`
+                      : `${Math.ceil(estimatedSecondsRemaining / 60)} min`}`}
+                <span style={{ display: "block", fontSize: 11, color: "var(--ink-500)", marginTop: 2 }}>
+                  Approximate estimate updates as each page finishes.
+                </span>
               </p>
 
               {previews.length > 1 && (

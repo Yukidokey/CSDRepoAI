@@ -46,8 +46,10 @@ export default function MySubmissions() {
 
   const statuses = ["all", "pending", "under_review", "student_editing", "approved", "rejected"];
 
-  async function startEditing(paper) {
+  async function startEditing(paper, event) {
     if (editStartingId !== null) return;
+    const paperCard = event?.currentTarget.closest("[data-submission-card]");
+    const paperCardTop = paperCard?.getBoundingClientRect().top;
     setEditStartingId(paper.id);
     setEditActionError("");
     try {
@@ -77,6 +79,14 @@ export default function MySubmissions() {
       setEditActionError(error.message || "Could not mark this submission for editing.");
     } finally {
       setEditStartingId(null);
+      if (paperCardTop !== undefined) {
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const currentPaperCard = document.getElementById(`submission-card-${paper.id}`);
+          if (!currentPaperCard) return;
+          const offset = currentPaperCard.getBoundingClientRect().top - paperCardTop;
+          if (Math.abs(offset) > 1) window.scrollBy(0, offset);
+        }));
+      }
     }
   }
 
@@ -234,13 +244,13 @@ export default function MySubmissions() {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {filtered.map((s) => (
-            <div key={s.id} className="card card-pad">
+            <div key={s.id} id={`submission-card-${s.id}`} data-submission-card className="card card-pad">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                 <h3 style={{ fontSize: 15, fontFamily: "var(--font-display)" }}>{s.title}</h3>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                   <StatusBadge status={s.status} />
                   {role === "student" && s.status !== "approved" && (
-                    <Button type="button" variant="secondary" size="sm" disabled={editStartingId !== null} onClick={() => startEditing(s)}>
+                    <Button type="button" variant="secondary" size="sm" disabled={editStartingId !== null} onClick={(event) => startEditing(s, event)}>
                       <Pencil size={13} /> {editStartingId === s.id ? "Marking..." : s.status === "student_editing" ? "Continue editing" : "Mark for editing"}
                     </Button>
                   )}

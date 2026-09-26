@@ -79,7 +79,10 @@ app.post("/check-duplicate", async (req, res) => {
     String(abstract || "").trim(),
     Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
   ].filter(Boolean).join("\n\n");
-  const query = metadataQuery || String(documentText || "").slice(0, 5000).trim();
+  // Metadata is editable and often differs between duplicate uploads. Use the
+  // manuscript body first so title/abstract/keyword edits cannot hide a copy.
+  const manuscriptContext = String(documentText || "").slice(0, 12000).trim();
+  const query = manuscriptContext || metadataQuery;
 
   if (!query) {
     return res.status(400).json({ error: "manuscript context is required" });
@@ -119,10 +122,11 @@ app.post("/check-duplicate", async (req, res) => {
       .filter(Boolean)
       .join(" ");
     const duplicate = candidates.some((item) => {
+      const candidateDocument = documentTextById.get(item.id);
       const candidateMetadata = [item.title, item.abstract, ...(item.keywords || [])].filter(Boolean).join(" ");
-      const documentOverlap = getContentOverlap(documentText, documentTextById.get(item.id));
+      const documentOverlap = getContentOverlap(manuscriptContext, candidateDocument);
       const metadataOverlap = getContentOverlap(metadataContext, candidateMetadata);
-      return documentOverlap >= 0.35 || metadataOverlap >= 0.75;
+      return documentOverlap >= 0.35 || (!manuscriptContext && metadataOverlap >= 0.75);
     });
 
     res.json({ duplicate });

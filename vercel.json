@@ -1,7 +1,7 @@
 {
   "rewrites": [
     {
-      "source": "/(search|embed|metadata|extract-metadata|health)",
+      "source": "/(search|check-duplicate|embed|metadata|extract-metadata|health)",
       "destination": "/api/index.js"
     },
     { "source": "/(.*)", "destination": "/index.html" }

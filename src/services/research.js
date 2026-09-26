@@ -78,7 +78,7 @@ export async function submitResearch({
   const duplicatePaper = (existingTitle || []).find((paper) => {
     // A rejected submission is no longer an active duplicate. Students must
     // be able to correct and upload that work again for review.
-    if (paper.status === "rejected") return false;
+    if (normalizeResearchText(paper.status) === "rejected") return false;
     const sameTitle = normalizeResearchText(paper.title) === normalizeResearchText(normalizedTitle);
     const sameAbstract = normalizeResearchText(paper.abstract) === normalizedAbstract;
     const paperKeywords = normalizeResearchKeywords(paper.keywords);

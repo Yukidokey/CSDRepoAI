@@ -355,7 +355,7 @@ export default function MySubmissions() {
                     <div className="form-grid-2">
                       <Field label="Replace manuscript (PDF or DOCX)">
                         <input className="input" type="file" accept=".pdf,.docx" onChange={(event) => handleEditManuscriptChange(event.target.files?.[0] || null)} />
-                        {editManuscriptLoading && <small className="form-section-hint">Reading manuscript for semantic search...</small>}
+                        {editManuscriptLoading && <small className="form-section-hint">Extracting manuscript text and metadata...</small>}
                       </Field>
                       <Field label="Replace source code (ZIP)">
                         <input className="input" type="file" accept=".zip" onChange={(event) => setEditFiles((current) => ({ ...current, sourceCode: event.target.files?.[0] || null }))} />

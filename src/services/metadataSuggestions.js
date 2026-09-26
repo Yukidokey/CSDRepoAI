@@ -206,7 +206,9 @@ async function readResearchDocument(file) {
     isDocx(file) ? await extractDocxText(file) : await extractPdfText(file)
   );
   const extracted = extractDocumentFields(documentText);
-  const abstract = extracted.abstract || buildAbstract(documentText, extracted.title);
+  // Do not fabricate an abstract from the opening sentences of the body. If
+  // the document has no identifiable abstract section, leave it for review.
+  const abstract = extracted.abstract;
   logMetadataDebug("document extracted", {
     pages: isDocx(file) ? 1 : Math.max(1, (documentText.match(/--- Page \d+ ---/g) || []).length + 1),
     textLength: documentText.length,
@@ -226,7 +228,7 @@ async function buildLocalAnalysis(file, { documentText, extracted, abstract }) {
     keywords: extracted.keywords,
     text: documentText,
   });
-  const title = resolveDocumentTitle(extracted.title, file, extracted.adviser);
+  const title = resolveDocumentTitle(extracted.title, extracted.adviser);
   const keywords = extracted.keywords || metadata.keywords.join(", ");
   logMetadataDebug("local metadata fallback ready", {
     title: Boolean(title),
@@ -250,37 +252,31 @@ async function buildLocalAnalysis(file, { documentText, extracted, abstract }) {
 }
 
 export function mergeExtractedMetadata(local, localAbstract, ai, file) {
-  const localTitle = resolveDocumentTitle(local.title, null, local.adviser);
-  const aiTitle = resolveDocumentTitle(ai.title, null, ai.adviser || local.adviser);
-  const title = chooseTitle(localTitle, aiTitle, file);
+  const localTitle = resolveDocumentTitle(local.title, local.adviser);
+  const aiTitle = resolveDocumentTitle(ai.title, ai.adviser || local.adviser);
+  const title = chooseTitle(localTitle, aiTitle);
   const localAuthors = cleanAuthorList(local.authors);
   const aiAuthors = cleanAuthorList(ai.authors);
-  const authors = aiAuthors.length >= localAuthors.length ? aiAuthors : localAuthors;
+  const authors = localAuthors.length ? localAuthors : aiAuthors;
   const aiAdviser = cleanAdviser(ai.adviser);
-  const adviser = aiAdviser || cleanAdviser(local.adviser);
+  const adviser = cleanAdviser(local.adviser) || aiAdviser;
   const aiAbstract = cleanAbstract(ai.abstract);
-  const abstract = aiAbstract && (aiAbstract.length >= localAbstract.length * 0.6 || !localAbstract)
-    ? aiAbstract
-    : localAbstract;
+  const abstract = cleanAbstract(localAbstract) || aiAbstract;
   const aiKeywords = normalizeKeywords(ai.keywords);
-  const keywords = aiKeywords.length > 0 ? aiKeywords.join(", ") : normalizeKeywords(local.keywords).join(", ");
+  const localKeywords = normalizeKeywords(local.keywords);
+  const keywords = (localKeywords.length ? localKeywords : aiKeywords).join(", ");
 
   return { title, authors, adviser, abstract, keywords };
 }
 
-function chooseTitle(localTitle, aiTitle, file) {
+function chooseTitle(localTitle, aiTitle) {
   const localValid = isValidTitle(localTitle);
   const aiValid = isValidTitle(aiTitle);
-  if (localValid && aiValid) {
-    const localWords = normalize(localTitle).split(/\s+/).filter(Boolean);
-    const aiWords = new Set(normalize(aiTitle).split(/\s+/).filter(Boolean));
-    const overlap = localWords.filter((word) => aiWords.has(word)).length / Math.max(aiWords.size, 1);
-    if (localTitle.length >= aiTitle.length * 1.35 && overlap >= 0.5) return localTitle;
-    return aiTitle;
-  }
-  if (aiValid) return aiTitle;
+  // The title page is the strongest source. Use generated text only when the
+  // local title-page parser could not find a credible title.
   if (localValid) return localTitle;
-  return titleFromFilename(file);
+  if (aiValid) return aiTitle;
+  return "";
 }
 
 function isValidTitle(value) {
@@ -376,7 +372,20 @@ async function extractPdfText(file) {
     pages.push(pageNumber === 1 ? pageText : `--- Page ${pageNumber} ---\n${pageText}`);
   }
 
-  return pages.join("\n\n").trim();
+  const text = pages.join("\n\n").trim();
+  const textLayer = text.replace(/--- Page \d+ ---/g, "").trim();
+  if (textLayer.length >= 120) return text;
+
+  // Scanned PDFs have no selectable text layer. Reuse the app's existing
+  // PaddleOCR flow to recover the title page and common front-matter sections.
+  try {
+    const { extractScannedPdfText } = await import("./ocr.js");
+    const scannedText = await extractScannedPdfText(file, { maxPages: 12 });
+    return scannedText.trim() ? scannedText : text;
+  } catch (error) {
+    console.warn("Scanned PDF OCR fallback failed; using available PDF text.", error);
+    return text;
+  }
 }
 
 async function extractDocxText(file) {
@@ -555,10 +564,17 @@ export function extractDocumentFields(text) {
 function extractTitle(lines) {
   const titleIndex = lines.slice(0, 12).findIndex((line) => /^title\s*(?:[:\-].*|)$/i.test(cleanMetadataLine(line)));
   if (titleIndex >= 0) {
-    const inlineTitle = cleanMetadataLine(lines[titleIndex]).replace(/^title\s*[:\-]?\s*/i, "").trim();
-    if (inlineTitle) return inlineTitle;
-    const nextTitleLine = cleanMetadataLine(lines[titleIndex + 1] || "");
-    if (nextTitleLine && !isDocumentHeading(nextTitleLine)) return nextTitleLine;
+    const titleLines = [];
+    const firstTitleLine = cleanMetadataLine(lines[titleIndex]).replace(/^title\s*[:\-]?\s*/i, "").trim();
+    if (firstTitleLine) titleLines.push(firstTitleLine);
+    for (let index = titleIndex + 1; index < Math.min(lines.length, titleIndex + 8); index += 1) {
+      const line = cleanMetadataLine(lines[index]);
+      if (!line || isPageMarkerLine(line) || isTitlePageBoilerplateLine(line)) continue;
+      if (isTitlePageAuthorBoundary(lines, index) || isTitlePageInstitutionLine(line) || isDocumentHeading(line)) break;
+      if (/^(authors?|researchers?|prepared by|by)\s*[:\-]?$/i.test(line)) break;
+      titleLines.push(line);
+    }
+    if (titleLines.length) return titleLines.join(" ").replace(/\s+/g, " ").trim();
   }
 
   const hasBoldMarkers = lines.some(isBoldMetadataLine);
@@ -585,10 +601,10 @@ function extractTitle(lines) {
   return firstPageTitle(lines);
 }
 
-function resolveDocumentTitle(title, file, adviser = "") {
+function resolveDocumentTitle(title, adviser = "") {
   const cleanedTitle = sanitizeResearchTitle(title);
   if (cleanedTitle && !isPlaceholderTitle(cleanedTitle) && !isLikelyNonTitle(cleanedTitle, adviser)) return cleanedTitle;
-  return file ? titleFromFilename(file) : "";
+  return "";
 }
 
 export function sanitizeResearchTitle(value) {
@@ -609,17 +625,6 @@ function normalizeTitleCandidate(value) {
 
 function isPlaceholderTitle(title) {
   return /^(string|title|document|manuscript|research paper|untitled|unknown|n\/a|null|undefined)$/i.test(title.trim());
-}
-
-function titleFromFilename(file) {
-  const filename = String(file?.name || "")
-    .replace(/\.[^.]+$/, "")
-    .replace(/[._+\-]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!filename || /^(document|manuscript|research|thesis|paper|file|untitled)(\s*\d+)?$/i.test(filename)) return "";
-  if (isNonTitlePageLabel(filename)) return "";
-  return filename;
 }
 
 function extractSection(lines, startIndex, stopPatterns) {
@@ -686,12 +691,19 @@ function findKeywordsIndex(lines, abstractIndex) {
 }
 
 function findAbstractIndex(lines) {
-  return lines.findIndex((line) => isAbstractHeading(cleanMetadataLine(line)));
+  return lines.findIndex((line, index) => {
+    const cleaned = cleanMetadataLine(line).trim();
+    if (!isAbstractHeading(cleaned)) return false;
+    // Ignore table-of-contents rows such as "Abstract 4" or a heading whose
+    // next line is only its page number.
+    if (/^abstract\s*(?:\.{2,}\s*)?\d+\s*$/i.test(cleaned)) return false;
+    if (/^abstract\s*$/i.test(cleaned) && /^\d{1,3}$/.test(cleanMetadataLine(lines[index + 1] || "").trim())) return false;
+    return true;
+  });
 }
 
 function isAbstractHeading(line) {
-  const normalized = line.toLowerCase().replace(/[^a-z]/g, "");
-  return /^(abstract|abstrac|abstrct)/.test(normalized);
+  return /^\s*(?:abstract|abstrac|abstrct)(?=\s|[:\-]|$)/i.test(line);
 }
 
 function stripAbstractHeading(line) {
@@ -732,6 +744,11 @@ function firstPageTitle(lines) {
     if (!line) continue;
     if (isPageMarkerLine(line)) continue;
     if (isNonTitlePageLabel(line)) continue;
+    if (isTitlePageBoilerplateLine(line)) continue;
+    if (isTitlePageInstitutionLine(line)) {
+      if (titleLines.length) break;
+      continue;
+    }
     if (/^(abstract|keywords?)\b/i.test(line)) break;
     if (isTitlePageAuthorBoundary(firstPageLines, index)) break;
     if (titleLines.length > 0 && isInstitutionLine(line) && !isAllCapsLine(line)) break;
@@ -739,6 +756,10 @@ function firstPageTitle(lines) {
   }
 
   return titleLines.join(" ").replace(/\s+/g, " ").trim();
+}
+
+function isTitlePageInstitutionLine(line) {
+  return /^\s*(?:Notre Dame of Marbel University|Republic of the Philippines|University of\b|Polytechnic University\b|College of\b|Institute of\b|Bachelor of\b|Master of\b|Department of Education\b)/i.test(line);
 }
 
 function isNonTitlePageLabel(line) {
@@ -758,7 +779,9 @@ function isNonTitlePageLabel(line) {
 function isTitlePageBoilerplateLine(line) {
   return isNonTitlePageLabel(line)
     || (/^(?:softbound|manuscript|thesis|capstone|research\s+paper|research\s+study)(?:\s+[a-z0-9-]+){0,3}$/i.test(line)
-      && line.length <= 60);
+      && line.length <= 60)
+    || /^(?:(?:a\s+)?(?:thesis|capstone|research paper|project report)\s+(?:submitted|presented|prepared)|in partial fulfillment|submitted to|presented to)\b/i.test(line)
+    || /\b(?:in partial fulfillment|submitted to|presented to the)\b/i.test(line);
 }
 
 function getFirstPageLines(lines) {
@@ -1022,17 +1045,6 @@ function isLikelyAuthorOrInstitutionLine(line) {
 
   const words = line.split(/\s+/).filter(Boolean);
   return line.length <= 55 && words.length <= 5;
-}
-
-function buildAbstract(text, title = "") {
-  const withoutTitle = title ? text.replace(title, " ") : text;
-  const sentences = withoutTitle.match(/[^.!?]+[.!?]+/g) || [];
-  return sentences
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length > 35)
-    .slice(0, 3)
-    .join(" ")
-    .slice(0, 900);
 }
 
 function isAdviserCaption(line) {

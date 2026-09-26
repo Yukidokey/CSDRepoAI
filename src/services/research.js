@@ -378,7 +378,12 @@ export async function beginResearchEditing({ paperId, userId }) {
     .select()
     .maybeSingle();
 
-  if (error) throw error;
+  if (error) {
+    if (error.code === "23514" && error.message?.includes("research_papers_status_check")) {
+      throw new Error("The database needs the student editing status migration. Apply supabase/migrations/20260926000100_allow_student_editing_status.sql in the Supabase SQL Editor, then try again.");
+    }
+    throw error;
+  }
   if (!data) throw new Error("This submission is approved or is no longer available for editing.");
   return data;
 }

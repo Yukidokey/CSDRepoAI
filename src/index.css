@@ -1907,6 +1907,15 @@ table.table tbody tr:hover {
   background: var(--surface-sunken);
 }
 
+/* Light/dark theme aware striping keeps archive records distinct at a glance. */
+table.archive-table tbody tr:nth-child(even) {
+  background: var(--surface-sunken);
+}
+
+table.archive-table tbody tr:hover {
+  background: color-mix(in srgb, var(--brass-500) 12%, var(--surface-sunken));
+}
+
 /* ---------- empty / loading states ---------- */
 
 .empty-state {

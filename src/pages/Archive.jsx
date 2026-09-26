@@ -65,7 +65,7 @@ export default function Archive() {
   function renderPaperTable(records) {
     return (
       <div className="table-wrap">
-        <table className="table">
+        <table className="table archive-table">
           <thead>
             <tr>
               <th>Title</th>

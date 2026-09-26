@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { FileText, FolderOpen, Archive as ArchiveIcon, X } from "lucide-react";
 import Layout from "../components/Layout";
 import { PageHeader, EmptyState } from "../components/ui";
-import { getApprovedPapers, getResearchFileUrls, incrementViewCount, incrementDownloadCount, openResearchFile } from "../services/research";
+import { ensureApprovedResearchEmbeddings, getApprovedPapers, getResearchFileUrls, incrementViewCount, incrementDownloadCount, openResearchFile } from "../services/research";
 import { SDG_LIST } from "../lib/sdgList";
 
 export default function Archive() {
@@ -28,6 +28,9 @@ export default function Archive() {
 
   useEffect(() => {
     getApprovedPapers({ limit: 200 }).then(setPapers).finally(() => setLoading(false));
+    ensureApprovedResearchEmbeddings().catch((error) => {
+      console.warn("Could not backfill semantic search embeddings for approved archive papers:", error);
+    });
   }, []);
 
   const years = useMemo(() => {

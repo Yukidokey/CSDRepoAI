@@ -293,9 +293,13 @@ async function removeResearchStorageFiles(urls) {
  *  search. Never blocks or fails the submission flow — if the Genkit
  *  server isn't configured/running, keyword search still works fine,
  *  and `npm run reindex` in genkit-server can backfill it later. */
-async function triggerEmbedding(paperId) {
-  const embedUrl = import.meta.env.VITE_GENKIT_EMBED_URL
+function getEmbeddingEndpoint() {
+  return import.meta.env.VITE_GENKIT_EMBED_URL
     || import.meta.env.VITE_GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/embed");
+}
+
+async function triggerEmbedding(paperId) {
+  const embedUrl = getEmbeddingEndpoint();
   if (!embedUrl) {
     console.warn("Genkit embedding URL is not configured; the paper will need reindexing.");
     return false;
@@ -313,6 +317,44 @@ async function triggerEmbedding(paperId) {
     console.warn("Genkit embedding request failed (non-fatal):", error);
     return false;
   }
+}
+
+let approvedEmbeddingBackfill = null;
+
+/** Embeds approved archive records that predate automatic indexing or whose
+ *  earlier embedding request failed. Safe to call whenever the archive opens. */
+export function ensureApprovedResearchEmbeddings() {
+  if (approvedEmbeddingBackfill) return approvedEmbeddingBackfill;
+
+  approvedEmbeddingBackfill = (async () => {
+    if (!getEmbeddingEndpoint()) {
+      console.warn("Genkit embedding URL is not configured; approved archive papers cannot be embedded yet.");
+      return { embedded: 0, failed: 0 };
+    }
+
+    const { data: papers, error } = await supabase
+      .from("research_papers")
+      .select("id")
+      .eq("status", "approved")
+      .is("embedding", null)
+      .limit(1000);
+
+    if (error) throw error;
+    let embedded = 0;
+    let failed = 0;
+
+    for (let index = 0; index < (papers || []).length; index += 3) {
+      const results = await Promise.all(papers.slice(index, index + 3).map(triggerEmbedding));
+      embedded += results.filter(Boolean).length;
+      failed += results.filter((result) => !result).length;
+    }
+
+    return { embedded, failed };
+  })().finally(() => {
+    approvedEmbeddingBackfill = null;
+  });
+
+  return approvedEmbeddingBackfill;
 }
 
 /** Research Submission Module: student's own submission history + status */
@@ -560,6 +602,8 @@ export async function reviewSubmission({ paperId, status, notes, reviewerId }) {
     actor_id: reviewerId,
     detail: { status, notes },
   });
+
+  if (status === "approved") await triggerEmbedding(paperId);
 
   return data;
 }

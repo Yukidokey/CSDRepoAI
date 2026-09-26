@@ -163,7 +163,7 @@ export async function submitResearch({
   if (error) {
     if (error.code === "23505") {
       if (error.constraint === "idx_research_unique_normalized_title") {
-        throw new Error("The database still blocks title reuse. Apply supabase/migrations/20260926000200_remove_title_only_unique_index.sql in the Supabase SQL Editor, then try again.");
+        throw new Error("Another non-rejected paper already uses this title. Review the existing paper or choose a distinct title.");
       }
       throw error;
     }
@@ -205,7 +205,6 @@ export async function updateResearchSubmission({
   if (!normalizedTitle) throw new Error("Research title is required.");
 
   const updates = {
-    title: normalizedTitle,
     abstract,
     authors,
     adviser,
@@ -217,6 +216,12 @@ export async function updateResearchSubmission({
     status: "pending",
     updated_at: new Date().toISOString(),
   };
+  // Do not rewrite an unchanged title. The legacy normalized-title unique
+  // index can reject an otherwise valid correction when duplicate historical
+  // records already exist, even though this edit is changing other fields.
+  if (normalizeResearchText(paper.title) !== normalizeResearchText(normalizedTitle)) {
+    updates.title = normalizedTitle;
+  }
   const fileColumns = {
     manuscript: "file_url",
     sourceCode: "source_code_url",
@@ -252,7 +257,7 @@ export async function updateResearchSubmission({
   } catch (error) {
     await removeResearchStorageFiles(uploadedUrls);
     if (error.code === "23505" && error.constraint === "idx_research_unique_normalized_title") {
-      throw new Error("The database still blocks title reuse. Apply supabase/migrations/20260926000200_remove_title_only_unique_index.sql in the Supabase SQL Editor, then try again.");
+      throw new Error("Another non-rejected paper already uses this title. Keep this paper's current title or choose a distinct title.");
     }
     throw error;
   }

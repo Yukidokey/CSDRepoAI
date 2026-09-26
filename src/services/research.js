@@ -163,7 +163,7 @@ export async function submitResearch({
   if (error) {
     if (error.code === "23505") {
       if (error.constraint === "idx_research_unique_normalized_title") {
-        throw new Error("The database still enforces title-only duplicates. Apply the updated supabase/schema.sql to allow titles with different abstracts or keywords.");
+        throw new Error("The database still blocks title reuse. Apply supabase/migrations/20260926000200_remove_title_only_unique_index.sql in the Supabase SQL Editor, then try again.");
       }
       throw error;
     }
@@ -252,7 +252,7 @@ export async function updateResearchSubmission({
   } catch (error) {
     await removeResearchStorageFiles(uploadedUrls);
     if (error.code === "23505" && error.constraint === "idx_research_unique_normalized_title") {
-      throw new Error("The database still enforces title-only duplicates. Apply the updated supabase/schema.sql to allow titles with different abstracts or keywords.");
+      throw new Error("The database still blocks title reuse. Apply supabase/migrations/20260926000200_remove_title_only_unique_index.sql in the Supabase SQL Editor, then try again.");
     }
     throw error;
   }

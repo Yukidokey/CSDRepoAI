@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabaseClient";
+import { toGenkitEndpoint } from "../lib/genkitUrl.js";
 import { notifyResearchDataChanged } from "../lib/researchEvents";
 import { checkResearchDuplicate } from "./search";
 import { jsPDF } from "jspdf";
@@ -369,8 +370,10 @@ async function removeResearchStorageFiles(urls) {
  *  server isn't configured/running, keyword search still works fine,
  *  and `npm run reindex` in genkit-server can backfill it later. */
 function getEmbeddingEndpoint() {
-  return import.meta.env.VITE_GENKIT_EMBED_URL
-    || import.meta.env.VITE_GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/embed");
+  return toGenkitEndpoint(
+    import.meta.env.VITE_GENKIT_EMBED_URL || import.meta.env.VITE_GENKIT_SEARCH_URL,
+    "embed",
+  );
 }
 
 async function triggerEmbedding(paperId) {

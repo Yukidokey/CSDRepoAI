@@ -1,7 +1,8 @@
 import { supabase } from "../lib/supabaseClient";
+import { toGenkitEndpoint } from "../lib/genkitUrl.js";
 
-const GENKIT_SEARCH_URL = import.meta.env.VITE_GENKIT_SEARCH_URL;
-const GENKIT_DUPLICATE_URL = GENKIT_SEARCH_URL?.replace(/\/search\/?$/i, "/check-duplicate");
+const GENKIT_SEARCH_URL = toGenkitEndpoint(import.meta.env.VITE_GENKIT_SEARCH_URL, "search");
+const GENKIT_DUPLICATE_URL = toGenkitEndpoint(GENKIT_SEARCH_URL, "check-duplicate");
 const MIN_SEMANTIC_SIMILARITY = 0.45;
 const MIN_MATCH_CONFIDENCE = 50;
 const SEARCH_STOP_WORDS = new Set([

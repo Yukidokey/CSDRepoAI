@@ -1,4 +1,5 @@
 import { SDG_LIST } from "../lib/sdgList.js";
+import { toGenkitEndpoint } from "../lib/genkitUrl.js";
 import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
 import mammoth from "mammoth/mammoth.browser.js";
 
@@ -31,11 +32,7 @@ export function splitConcatenatedNames(line) {
 }
 
 export function toMetadataEndpoint(url, endpoint) {
-  if (!url) return "";
-  const normalizedUrl = url
-    .replace(/\/+$/, "")
-    .replace(/^http:\/\/(?!localhost(?::|\/)|127\.0\.0\.1(?::|\/))/i, "https://");
-  return normalizedUrl.replace(/\/(?:metadata|extract-metadata)$/i, "") + `/${endpoint}`;
+  return toGenkitEndpoint(url, endpoint);
 }
 
 function logMetadataDebug(message, details) {

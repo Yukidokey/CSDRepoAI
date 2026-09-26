@@ -92,7 +92,7 @@ app.post("/check-duplicate", async (req, res) => {
     const { count: unindexedCount, error: indexError } = await supabaseAdmin
       .from("research_papers")
       .select("id", { count: "exact", head: true })
-      .neq("status", "rejected")
+      .eq("status", "approved")
       .is("embedding", null);
 
     if (indexError) throw indexError;

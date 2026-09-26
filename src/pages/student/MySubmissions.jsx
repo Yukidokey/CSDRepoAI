@@ -3,7 +3,6 @@ import { FileText, FolderOpen, Pencil, X } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, StatusBadge, EmptyState, Field, Button } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
-import { checkResearchDuplicate } from "../../services/search";
 import { beginResearchEditing, cancelResearchEditing, getMySubmissions, updateResearchSubmission } from "../../services/research";
 import { analyzeResearchDocumentWithAI } from "../../services/metadataSuggestions";
 import { SDG_LIST } from "../../lib/sdgList";
@@ -137,14 +136,6 @@ export default function MySubmissions() {
     try {
       const authors = splitList(editForm.authors);
       const keywords = splitList(editForm.keywords);
-      await checkResearchDuplicate({
-        title: editForm.title,
-        abstract: editForm.abstract,
-        keywords,
-        documentText: editManuscriptText,
-        excludePaperId: editing.id,
-      });
-
       const updatedPaper = await updateResearchSubmission({
         paper: editing,
         title: editForm.title,

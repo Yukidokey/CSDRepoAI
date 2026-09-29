@@ -6,6 +6,7 @@ const outputSchema = z.object({
   title: z.string(),
   authors: z.array(z.string()),
   adviser: z.string(),
+  panelMembers: z.array(z.string()),
   abstract: z.string(),
   keywords: z.array(z.string()),
 });
@@ -51,6 +52,7 @@ Given the document text below, extract exactly these fields and return ONLY vali
   "title": string,
   "authors": string[],
   "adviser": string,
+  "panelMembers": string[],
   "abstract": string,
   "keywords": string[]
 }
@@ -58,6 +60,7 @@ Given the document text below, extract exactly these fields and return ONLY vali
 Rules:
 - "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
 - "title" must be the FULL title, reconstructed by concatenating all wrapped lines of the title block into one continuous string (joined with spaces, no line breaks). Never output a partial title consisting of only the final line — check that your extracted title captures the complete first sentence/phrase before the author names appear on the title page.
+- Extract every distinct panel chair/member name into "panelMembers", including the chair, and exclude the adviser and other signatories.
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
 - "authors" must include ALL names credited as the researchers/writers of the thesis on the title page, not just the first name — not the adviser, panel, or dean.
 - If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".
@@ -91,6 +94,9 @@ ${safeDocumentText}`;
         ? parsed.authors.map((author) => String(author).trim()).filter(Boolean)
         : [],
       adviser: String(parsed.adviser || "").trim(),
+      panelMembers: Array.isArray(parsed.panelMembers)
+        ? parsed.panelMembers.map((member) => String(member).trim()).filter(Boolean)
+        : [],
       abstract: String(parsed.abstract || "").trim(),
       keywords: Array.isArray(parsed.keywords)
         ? parsed.keywords.map((keyword) => String(keyword).trim()).filter(Boolean).slice(0, 8)
@@ -103,6 +109,7 @@ export function buildMetadataContext(documentText) {
   const text = String(documentText || "");
   const sections = [`[DOCUMENT START]\n${text.slice(0, 12000)}`];
   appendContextWindows(sections, text, "APPROVAL SHEET SECTION", /approval\s+sheet|thesis\s+advis(?:e|o)r/gi, 500, 5000, 3);
+  appendContextWindows(sections, text, "PANEL MEMBERS SECTION", /panel\s*(?:chair|member)|member\s+of\s+the\s+panel|chairperson?\s+of\s+the\s+panel/gi, 500, 1800, 8);
   appendContextWindows(sections, text, "ABSTRACT + KEYWORDS SECTION", /(?:^|\n)\s*abstrac?t\b/gi, 0, 7000, 3);
   appendContextWindows(sections, text, "KEYWORDS SECTION", /(?:^|\n)\s*\*?\s*key\s*words?\s*\*?\s*:/gi, 0, 2500, 3);
 

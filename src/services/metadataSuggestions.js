@@ -1021,14 +1021,17 @@ function extractAdviser(lines) {
 
 function extractPanelMembers(lines) {
   const panelMembers = [];
-  const panelRolePattern = /^(?:panel\s*(?:chair|member)|chair(?:person)?\s*of\s*the\s*panel)$/i;
-  const inlinePanelPattern = /^(.*?)\s+(?:panel\s*(?:chair|member)|chair(?:person)?\s*of\s*the\s*panel)$/i;
+  const panelRolePattern = /^(?:panel\s*(?:chair|member|ist)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)$/i;
+  const inlinePanelPattern = /^(.*?)\s+(?:panel\s*(?:chair|member|ist)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)\b/i;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = cleanMetadataLine(lines[index]);
     const nextLine = cleanMetadataLine(lines[index + 1] || "");
+    const previousLine = cleanMetadataLine(lines[index - 1] || "");
     const inlineMatch = line.match(inlinePanelPattern);
-    const name = panelRolePattern.test(nextLine) ? line : inlineMatch?.[1] || "";
+    const name = panelRolePattern.test(nextLine) ? line
+      : panelRolePattern.test(line) ? previousLine
+        : inlineMatch?.[1] || "";
     if (name && isLikelyAuthorNameLine(name)) panelMembers.push(name.trim());
   }
 

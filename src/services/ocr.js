@@ -418,7 +418,11 @@ export async function extractMetadata(rawText) {
   const fallbackAbstract = String(fallback.abstract || "").trim();
   const aiAbstract = String(aiMetadata?.abstract || "").trim();
   const abstract = fallbackAbstract.length >= 80 ? fallbackAbstract : aiAbstract || fallbackAbstract;
-  const panelMembers = Array.isArray(fallback.panelMembers) ? fallback.panelMembers.join(", ") : "";
+  const fallbackPanelMembers = Array.isArray(fallback.panelMembers) ? fallback.panelMembers : [];
+  const aiPanelMembers = Array.isArray(aiMetadata?.panelMembers) ? aiMetadata.panelMembers : [];
+  const panelMembers = [...new Set([...fallbackPanelMembers, ...aiPanelMembers]
+    .map((member) => String(member || "").replace(/\s+/g, " ").trim())
+    .filter(Boolean))].join(", ");
 
   return {
     title,
@@ -436,6 +440,7 @@ function hasUsableAiMetadata(metadata) {
     metadata.title
     || metadata.abstract
     || metadata.adviser
+    || (Array.isArray(metadata.panelMembers) && metadata.panelMembers.length)
     || (Array.isArray(metadata.authors) && metadata.authors.length)
     || (Array.isArray(metadata.keywords) && metadata.keywords.length)
   ));

@@ -8,6 +8,8 @@ const publicRuntimeDirectory = join(projectRoot, "public", "ort-wasm");
 const runtimeFiles = [
   "ort-wasm-simd-threaded.mjs",
   "ort-wasm-simd-threaded.wasm",
+  "ort-wasm-simd-threaded.jsep.mjs",
+  "ort-wasm-simd-threaded.jsep.wasm",
 ];
 
 mkdirSync(publicRuntimeDirectory, { recursive: true });

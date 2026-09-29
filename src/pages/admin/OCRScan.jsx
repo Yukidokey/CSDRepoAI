@@ -344,6 +344,9 @@ function handleFile(e) {
   }
 
   const stagePreview = previews[currentPage - 1] || previews[0];
+  const overallProgressPercent = totalPages > 0
+    ? Math.min(100, Math.max(0, Math.round(((donePages + progress) / totalPages) * 100)))
+    : 0;
 
   return (
     <Layout>
@@ -500,11 +503,30 @@ function handleFile(e) {
                   Reading text
                 </div>
                 <span className="ocr-scan-pagelabel">Page {currentPage} of {totalPages}</span>
-                <span className="ocr-scan-percent">{Math.round(progress * 100)}%</span>
+                <div
+                  className="ocr-scan-percent"
+                  role="status"
+                  aria-label={`Overall scan progress: ${overallProgressPercent}%`}
+                >
+                  <svg className="ocr-scan-percent-ring" viewBox="0 0 32 32" aria-hidden="true">
+                    <circle className="ocr-scan-percent-track" cx="16" cy="16" r="13" />
+                    <circle
+                      className="ocr-scan-percent-value"
+                      cx="16"
+                      cy="16"
+                      r="13"
+                      style={{ strokeDashoffset: `${81.68 * (1 - overallProgressPercent / 100)}` }}
+                    />
+                  </svg>
+                  <span className="ocr-scan-percent-copy">
+                    <strong>{overallProgressPercent}%</strong>
+                    <span>overall</span>
+                  </span>
+                </div>
               </div>
 
               <div className="ocr-progress-track">
-                <div className="ocr-progress-fill" style={{ width: `${Math.round(((donePages + progress) / Math.max(totalPages, 1)) * 100)}%` }} />
+                <div className="ocr-progress-fill" style={{ width: `${overallProgressPercent}%` }} />
               </div>
               <p style={{ fontSize: 11.5, color: "var(--ink-500)", marginTop: 7 }}>
                 Overall progress · {donePages} of {totalPages} pages recognized

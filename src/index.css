@@ -3357,14 +3357,70 @@ table.archive-table tbody tr:hover {
 
 .ocr-scan-percent {
   position: absolute;
-  bottom: 12px;
-  right: 14px;
-  font-family: var(--font-mono);
-  font-size: 22px;
-  font-weight: 600;
+  top: 12px;
+  right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px 6px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  background: rgba(12, 20, 31, 0.78);
   color: #fff;
-  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   font-variant-numeric: tabular-nums;
+}
+
+.ocr-scan-percent-ring {
+  display: block;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  transform: rotate(-90deg);
+}
+
+.ocr-scan-percent-track,
+.ocr-scan-percent-value {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ocr-scan-percent-track {
+  stroke: rgba(255, 255, 255, 0.2);
+}
+
+.ocr-scan-percent-value {
+  stroke: var(--brass-400);
+  stroke-linecap: round;
+  stroke-dasharray: 81.68;
+  transition: stroke-dashoffset 280ms ease;
+}
+
+.ocr-scan-percent-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  min-width: 42px;
+}
+
+.ocr-scan-percent-copy strong {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+
+.ocr-scan-percent-copy > span {
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
 }
 
 .ocr-scan-pagelabel {

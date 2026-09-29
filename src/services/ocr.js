@@ -23,6 +23,7 @@ function getPaddleOcr() {
         worker: true,
         ortOptions: {
           backend: "wasm",
+          wasmPaths: `${import.meta.env.BASE_URL}ort-wasm/`,
           numThreads: 1,
           simd: true,
         },

@@ -148,6 +148,7 @@ function getSearchMatch(query, item) {
     .filter((token) => token.length > 1 && !SEARCH_STOP_WORDS.has(token));
   const fields = [
     normalizeSearchText(item.title),
+    normalizeSearchText(Array.isArray(item.authors) ? item.authors.join(" ") : item.authors),
     normalizeSearchText(item.abstract),
     normalizeSearchText(Array.isArray(item.keywords) ? item.keywords.join(" ") : ""),
     normalizeSearchText(item.ocr_raw_text),

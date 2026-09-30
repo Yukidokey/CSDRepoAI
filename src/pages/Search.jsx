@@ -33,7 +33,7 @@ export default function Search() {
       <PageHeader
         eyebrow="AI-Assisted Retrieval"
         title="Search the Repository"
-        description="Describe your topic in plain language. Matches title, abstract, keywords, and OCR-digitized text across the archive."
+        description="Search by topic, author, title, abstract, keywords, or OCR-digitized text across the archive."
       />
 
       <form onSubmit={handleSearch} style={{ display: "flex", gap: 8, marginBottom: 24, maxWidth: 640 }}>

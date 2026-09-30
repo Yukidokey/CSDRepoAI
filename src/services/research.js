@@ -3,6 +3,7 @@ import { toGenkitEndpoint } from "../lib/genkitUrl.js";
 import { notifyResearchDataChanged } from "../lib/researchEvents";
 import { checkResearchDuplicate } from "./search";
 import { jsPDF } from "jspdf";
+import { createUniqueStorageToken } from "../lib/storagePath.js";
 
 function buildStoragePath(userId, file) {
   const originalName = file?.name || "upload";
@@ -25,7 +26,7 @@ function buildStoragePath(userId, file) {
 
   const sanitizedName = `${sanitizedBase || "file"}${sanitizedExtension || ""}`.slice(0, 180) || `upload${sanitizedExtension || ""}`;
 
-  return `${userId}/${Date.now()}_${sanitizedName}`;
+  return `${userId}/${createUniqueStorageToken()}_${sanitizedName}`;
 }
 
 function normalizeResearchText(value) {
@@ -622,7 +623,7 @@ export async function openResearchFile(paper) {
     const pdfUrl = URL.createObjectURL(pdfBlob);
 
     try {
-      const path = `ocr-scans/${Date.now()}_research.pdf`;
+      const path = `ocr-scans/${createUniqueStorageToken()}_research.pdf`;
       const { error: uploadError } = await supabase.storage.from("research-files").upload(path, pdfBlob, {
         contentType: "application/pdf",
         upsert: false,

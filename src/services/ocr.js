@@ -4,6 +4,7 @@ import { toGenkitEndpoint } from "../lib/genkitUrl.js";
 import { extractDocumentFields, extractDocxTextWithFormatting, extractMetadataWithAI } from "./metadataSuggestions.js";
 import { stripPageMarkers } from "./ocrTextUtils.js";
 import { checkResearchDuplicate } from "./search.js";
+import { createUniqueStorageToken } from "../lib/storagePath.js";
 
 /**
  * OCR Digitization Module
@@ -347,7 +348,7 @@ async function createResearchPdf(files, { onProgress } = {}) {
 
 async function uploadResearchPdf(files, { onProgress } = {}) {
   const pdfBlob = await createResearchPdf(files, { onProgress });
-  const path = `ocr-scans/${Date.now()}_research.pdf`;
+  const path = `ocr-scans/${createUniqueStorageToken()}_research.pdf`;
   onProgress?.({ phase: "uploading", completed: files.length, total: files.length, bytes: pdfBlob.size });
   const { error } = await supabase.storage.from("research-files").upload(path, pdfBlob, {
     contentType: "application/pdf",
@@ -360,7 +361,7 @@ async function uploadResearchPdf(files, { onProgress } = {}) {
 }
 
 async function uploadResearchDocument(file, { onProgress } = {}) {
-  const path = `ocr-scans/${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi, "_")}`;
+  const path = `ocr-scans/${createUniqueStorageToken()}_${file.name.replace(/[^a-z0-9._-]/gi, "_")}`;
   onProgress?.({ phase: "uploading", completed: 0, total: 1, bytes: file.size });
   const { error } = await supabase.storage.from("research-files").upload(path, file, {
     contentType: file.type || "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

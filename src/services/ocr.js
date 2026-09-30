@@ -413,12 +413,21 @@ export async function extractMetadata(rawText) {
   const abstract = fallbackAbstract.length >= 80 ? fallbackAbstract : aiAbstract || fallbackAbstract;
   const fallbackPanelMembers = Array.isArray(fallback.panelMembers) ? fallback.panelMembers : [];
   const aiPanelMembers = Array.isArray(aiMetadata?.panelMembers) ? aiMetadata.panelMembers : [];
-  const combinedPanelMembers = [...new Set([...fallbackPanelMembers, ...aiPanelMembers]
-    .map((member) => String(member || "").replace(/\s+/g, " ").trim())
-    .filter(Boolean))];
-  const panelMembers = (fallbackPanelMembers.length >= 3 ? fallbackPanelMembers : combinedPanelMembers)
-    .slice(0, 3)
-    .join(", ");
+  const excludedPanelMembers = new Set([fallback.adviser, aiMetadata?.adviser, ...fallbackAuthors, ...aiAuthors]
+    .map(normalizeOcrPersonName)
+    .filter(Boolean));
+  const combinedPanelMembers = [];
+  const seenPanelMembers = new Set();
+  // Prefer role-aware AI extraction when both sources disagree; use local
+  // parsing to fill any missing places without repeating authors or adviser.
+  for (const member of [...aiPanelMembers, ...fallbackPanelMembers]) {
+    const cleanedMember = String(member || "").replace(/\s+/g, " ").trim();
+    const normalizedMember = normalizeOcrPersonName(cleanedMember);
+    if (!cleanedMember || !normalizedMember || excludedPanelMembers.has(normalizedMember) || seenPanelMembers.has(normalizedMember)) continue;
+    seenPanelMembers.add(normalizedMember);
+    combinedPanelMembers.push(cleanedMember);
+  }
+  const panelMembers = combinedPanelMembers.slice(0, 3).join(", ");
 
   return {
     title,
@@ -429,6 +438,14 @@ export async function extractMetadata(rawText) {
     keywords,
     aiStatus,
   };
+}
+
+function normalizeOcrPersonName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\b(?:engr|dr|mr|mrs|ms|mit|msit|mep-ece|msce)\b\.?/g, "")
+    .replace(/[^a-z]+/g, " ")
+    .trim();
 }
 
 function hasUsableAiMetadata(metadata) {

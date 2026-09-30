@@ -12,8 +12,11 @@ export const THESIS_BOILERPLATE_ANCHORS = [
   "Notre Dame of Marbel University",
   "Bachelor of Science in",
   "Thesis Adviser",
+  "Approval Sheet",
   "Panel Chair",
+  "Panel Chairperson",
   "Panel Member",
+  "Panel Members",
 ];
 
 export function normalizeThesisBoilerplate(text) {
@@ -747,7 +750,7 @@ function stripKeywordsHeading(line) {
 }
 
 function isDocumentHeading(line) {
-  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledg(?:e)?ments?|approval sheet|dedication)\b/i.test(line);
+  return /^(introduction|background|methodology|methods?|results?|discussion|conclusion|references?|chapter|table of contents|acknowledg(?:e)?ments?|approval[\s-]*sheet|dedication)\b/i.test(line);
 }
 
 function isPageMarkerLine(line) {
@@ -1032,9 +1035,11 @@ function extractAdviser(lines) {
 
 function extractPanelMembers(lines, adviser = "", authors = []) {
   const panelMembers = [];
+  const excludedPeople = new Set([adviser, ...authors].map(normalizePersonName).filter(Boolean));
   const chairRole = "chair(?:person|man|woman)?";
   const panelRolePattern = new RegExp(`^(?:panel\\s*(?:${chairRole}|members?|ists?)|(?:${chairRole}|member)\\s+of\\s+(?:the\\s+)?panel|${chairRole})$`, "i");
-  const panelSectionPattern = /^(?:panelists?(?:\s+names?)?|panel\s+members?(?:\s+names?)?|members\s+of\s+the\s+panel)\s*:?$/i;
+  const panelSectionPattern = /^(?:panelists?(?:\s+names?)?|panel\s+members?(?:\s+names?)?|members\s+of\s+the\s+panel|panel\s+of\s+examiners|composition\s+of\s+(?:the\s+)?panel|board\s+of\s+examiners)\s*:?$/i;
+  const panelRoleLinePattern = /^(?:panel\s*(?:chair(?:\s*person|person|man|woman)?|members?|ists?)|(?:chair(?:person|man|woman)?|member)\s+of\s+(?:the\s+)?panel|chair(?:person|man|woman)?)[\s:;,.]*$/i;
   const inlinePanelPattern = new RegExp(`^(.*?)\\s+(?:panel\\s*(?:${chairRole}|members?|ists?)|(?:${chairRole}|member)\\s+of\\s+(?:the\\s+)?panel)\\b`, "i");
 
   for (let index = 0; index < lines.length; index += 1) {
@@ -1042,30 +1047,36 @@ function extractPanelMembers(lines, adviser = "", authors = []) {
     const nextLine = cleanMetadataLine(lines[index + 1] || "");
     const previousLine = cleanMetadataLine(lines[index - 1] || "");
     const inlineMatch = line.match(inlinePanelPattern);
+    const roleMatch = line.match(/\b(?:panel\s*(?:chair(?:\s*person|person|man|woman)?|members?|ists?)|(?:chair|member)\s+of\s+(?:the\s+)?panel|chair)\b/i);
     if (panelSectionPattern.test(line)) {
       for (let candidateIndex = index + 1; candidateIndex < lines.length && panelMembers.length < 3; candidateIndex += 1) {
         const candidate = cleanMetadataLine(lines[candidateIndex]);
         if (!candidate || isDocumentHeading(candidate) || isAdviserCaption(candidate)) break;
-        if (panelRolePattern.test(candidate)) continue;
-        if (isPanelistName(candidate)) panelMembers.push(candidate);
+        if (panelRolePattern.test(candidate) || panelRoleLinePattern.test(candidate)) continue;
+        const normalizedCandidate = normalizePersonName(candidate);
+        if (isPanelistName(candidate) && !excludedPeople.has(normalizedCandidate)) panelMembers.push(candidate);
       }
       continue;
     }
 
-    const name = panelRolePattern.test(nextLine) ? line
-      : panelRolePattern.test(line)
+    const beforeRole = roleMatch ? line.slice(0, roleMatch.index).replace(/^[\s:;,.-]+|[\s:;,.-]+$/g, "").trim() : "";
+    const afterRole = roleMatch
+      ? line.slice(roleMatch.index + roleMatch[0].length).replace(/^[\s:;,.-]+|[\s:;,.-]+$/g, "").trim()
+      : "";
+    const roleName = isPanelistName(afterRole) ? afterRole : isPanelistName(beforeRole) ? beforeRole : "";
+    const name = roleName || (panelRoleLinePattern.test(nextLine) ? line
+      : (panelRolePattern.test(line) || panelRoleLinePattern.test(line))
         ? isPanelistName(previousLine) ? previousLine : nextLine
-        : inlineMatch?.[1] || "";
-    if (name && isPanelistName(name)) panelMembers.push(name.trim());
+        : inlineMatch?.[1] || "");
+    if (name && isPanelistName(name) && !excludedPeople.has(normalizePersonName(name))) panelMembers.push(name.trim());
   }
 
   const uniquePanelMembers = [...new Set(panelMembers)];
   if (uniquePanelMembers.length < 3) {
-    const approvalIndex = lines.findIndex((line) => /^approval\s+sheet\b/i.test(cleanMetadataLine(line)));
+    const approvalIndex = lines.findIndex((line) => /^approval[\s-]*sheet\b/i.test(cleanMetadataLine(line)));
     if (approvalIndex >= 0) {
       const abstractIndex = findAbstractIndex(lines);
       const approvalEnd = abstractIndex > approvalIndex ? abstractIndex : Math.min(lines.length, approvalIndex + 120);
-      const excludedPeople = new Set([adviser, ...authors].map(normalizePersonName).filter(Boolean));
       const alreadyFound = new Set(uniquePanelMembers.map(normalizePersonName));
 
       for (let index = approvalIndex + 1; index < approvalEnd && uniquePanelMembers.length < 3; index += 1) {
@@ -1083,7 +1094,7 @@ function extractPanelMembers(lines, adviser = "", authors = []) {
     }
   }
 
-  return uniquePanelMembers.slice(0, 3);
+  return [...new Map(uniquePanelMembers.map((member) => [normalizePersonName(member), member])).values()].slice(0, 3);
 }
 
 function normalizePersonName(value) {
@@ -1100,7 +1111,8 @@ function isPanelistName(value) {
   if (/\b(?:adviser|advisor|dean|secretary|approved|accepted|panel|chair(?:person|man|woman)?|member|witness)\b/i.test(name)) return false;
   const words = name.replace(/[,:;]/g, "").split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 6) return false;
-  return words.every((word) => /^[A-Z][A-Za-z.'-]*$/.test(word) || /^[A-Z]\.$/.test(word));
+  const particles = new Set(["de", "del", "dela", "la", "las", "los", "van", "von", "y", "san", "santa", "di"]);
+  return words.every((word) => /^[A-Z][A-Za-z.'-]*$/.test(word) || /^[A-Z]\.$/.test(word) || particles.has(word.toLowerCase()));
 }
 
 function isLikelyAuthorLine(line) {

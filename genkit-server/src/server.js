@@ -96,8 +96,24 @@ app.post("/check-duplicate", async (req, res) => {
       .is("embedding", null);
 
     if (indexError) throw indexError;
+
+    // OCR archived papers and older records may not have embeddings yet.
+    // Check those records using their stored text and metadata instead of
+    // disabling topic checks for every submission until a full reindex ends.
+    const unindexedPapers = [];
     if (unindexedCount > 0) {
-      return res.status(503).json({ error: "similarity index is incomplete" });
+      const pageSize = 500;
+      for (let offset = 0; offset < unindexedCount; offset += pageSize) {
+        const { data, error } = await supabaseAdmin
+          .from("research_papers")
+          .select("id, title, abstract, keywords, ocr_raw_text")
+          .eq("status", "approved")
+          .is("embedding", null)
+          .order("id")
+          .range(offset, offset + pageSize - 1);
+        if (error) throw error;
+        unindexedPapers.push(...(data || []));
+      }
     }
 
     const result = await semanticSearchFlow({
@@ -110,7 +126,17 @@ app.post("/check-duplicate", async (req, res) => {
       .filter((item) => item.status !== "rejected" && item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD)
       .slice(0, 12);
 
-    if (!candidates.length) return res.json({ duplicate: false });
+    const fallbackDuplicate = unindexedPapers.some((paper) => {
+      if (paper.id === excludePaperId) return false;
+      const candidateMetadata = [paper.title, paper.abstract, ...(Array.isArray(paper.keywords) ? paper.keywords : [paper.keywords])]
+        .filter(Boolean)
+        .join(" ");
+      const documentOverlap = getContentOverlap(manuscriptContext, paper.ocr_raw_text);
+      const metadataOverlap = getContentOverlap(metadataContext, candidateMetadata);
+      return documentOverlap >= 0.35 || metadataOverlap >= 0.75;
+    });
+
+    if (!candidates.length) return res.json({ duplicate: fallbackDuplicate });
 
     const { data: candidateDocuments, error: candidateError } = await supabaseAdmin
       .from("research_papers")
@@ -122,7 +148,7 @@ app.post("/check-duplicate", async (req, res) => {
     const metadataContext = [title, abstract, Array.isArray(keywords) ? keywords.join(" ") : keywords]
       .filter(Boolean)
       .join(" ");
-    const duplicate = candidates.some((item) => {
+    const duplicate = fallbackDuplicate || candidates.some((item) => {
       const candidateDocument = documentTextById.get(item.id);
       const candidateMetadata = [item.title, item.abstract, ...(item.keywords || [])].filter(Boolean).join(" ");
       const documentOverlap = getContentOverlap(manuscriptContext, candidateDocument);

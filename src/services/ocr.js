@@ -1,5 +1,6 @@
 import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabaseClient.js";
+import { toGenkitEndpoint } from "../lib/genkitUrl.js";
 import { extractDocumentFields, extractDocxTextWithFormatting, extractMetadataWithAI } from "./metadataSuggestions.js";
 import { stripPageMarkers } from "./ocrTextUtils.js";
 import { checkResearchDuplicate } from "./search.js";
@@ -534,6 +535,22 @@ export async function digitizeAndArchive({
   if (error) throw error;
 
   onProgress?.({ phase: "saving", completed: 1, total: 1 });
+  const embeddingUrl = toGenkitEndpoint(
+    import.meta.env.VITE_GENKIT_EMBED_URL || import.meta.env.VITE_GENKIT_SEARCH_URL,
+    "embed",
+  );
+  if (embeddingUrl) {
+    void fetch(embeddingUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ paperId: data.id }),
+    }).then((response) => {
+      if (!response.ok) throw new Error(`Embedding request failed with status ${response.status}`);
+    }).catch((embeddingError) => {
+      console.warn("Could not index the OCR archive record for semantic search.", embeddingError);
+    });
+  }
+
   // The archive record is already committed. Do not make the user's save wait
   // for a secondary audit-log request to finish.
   void supabase.from("submission_logs").insert({

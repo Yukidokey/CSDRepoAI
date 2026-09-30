@@ -31,7 +31,7 @@ export async function checkResearchDuplicate({ title, abstract, keywords = [], d
       throw new Error("Topic duplicate checking returned an invalid response. Please try again later.");
     }
     if (result.duplicate) {
-      throw new Error("This manuscript is too similar to an existing submission. Please review it with your adviser before submitting.");
+      throw new Error("The duplicate check found research with very similar content. This submission was not saved. Review the existing record before trying again.");
     }
 
     return false;

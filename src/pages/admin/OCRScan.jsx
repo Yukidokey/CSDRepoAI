@@ -286,6 +286,17 @@ function handleFile(e) {
         setAiStatus(extracted.aiStatus || "failed");
       }
 
+      const blankPages = pages.filter((page) => !page.text.trim()).map((page) => page.pageNumber);
+      const lowConfidencePages = pages
+        .filter((page) => page.confidence !== null && page.confidence < 0.65 && page.text.trim())
+        .map((page) => page.pageNumber);
+      const scanWarnings = [];
+      if (blankPages.length) scanWarnings.push(`No text was detected on page${blankPages.length > 1 ? "s" : ""} ${blankPages.join(", ")}.`);
+      if (lowConfidencePages.length) scanWarnings.push(`OCR confidence was low on page${lowConfidencePages.join(", ")}.`);
+      if (scanWarnings.length) {
+        setScanNotice(`${scanWarnings.join(" ")} Check the page images and correct the extracted text before archiving.`);
+      }
+
       setStep("scanned");
     } catch (error) {
       scanAbortControllerRef.current = null;
@@ -366,7 +377,7 @@ function handleFile(e) {
       <PageHeader
         eyebrow="OCR Digitization"
         title="Digitize a Research Document"
-        description="Upload scanned image pages from a hardbound paper. PaddleOCR extracts the text and suggests metadata for review; its models load on the first scan."
+        description="Upload clear, well-lit images or PDF pages from a hardbound paper. OCR extracts the pages you provide, but can miss or misread text; review the scan and correct it before archiving."
       />
 
       {/* ---------- stepper ---------- */}

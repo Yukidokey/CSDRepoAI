@@ -45,16 +45,18 @@ function getRecognizedText(result) {
   return cleanOcrText(lines.join("\n"));
 }
 
+function getRecognitionConfidence(result) {
+  const scores = (result?.items || []).map((item) => item.score).filter(Number.isFinite);
+  return scores.length ? scores.reduce((sum, score) => sum + score, 0) / scores.length : 0;
+}
+
 export async function scanDocument(imageFileOrUrl, onProgress) {
   const ocr = await getPaddleOcr();
   onProgress?.(0.05);
   const preparedImage = await prepareOcrImage(imageFileOrUrl);
   const [result] = await ocr.predict(preparedImage);
   onProgress?.(1);
-  const scores = (result?.items || []).map((item) => item.score).filter(Number.isFinite);
-  const confidence = scores.length
-    ? (scores.reduce((sum, score) => sum + score, 0) / scores.length) * 100
-    : 0;
+  const confidence = getRecognitionConfidence(result) * 100;
   return { text: getRecognizedText(result), confidence };
 }
 
@@ -102,7 +104,7 @@ export async function scanDocuments(imageFiles, onProgress, { signal } = {}) {
     const file = imageFiles[index];
     if (isDocxFile(file)) {
       const { text, metadataText } = await extractDocxTextWithFormatting(file);
-      pages.push({ pageNumber: index + 1, text, metadataText });
+      pages.push({ pageNumber: index + 1, text, metadataText, confidence: null });
       onProgress?.(1, index + 1, totalPages);
       continue;
     }
@@ -114,6 +116,7 @@ export async function scanDocuments(imageFiles, onProgress, { signal } = {}) {
     pages.push({
       pageNumber: index + 1,
       text: getRecognizedText(result),
+      confidence: getRecognitionConfidence(result),
     });
     onProgress?.(1, index + 1, totalPages);
   }

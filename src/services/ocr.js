@@ -1,8 +1,8 @@
 import { jsPDF } from "jspdf";
-import mammoth from "mammoth/mammoth.browser.js";
 import { supabase } from "../lib/supabaseClient.js";
-import { extractDocumentFields, extractMetadataWithAI } from "./metadataSuggestions.js";
+import { extractDocumentFields, extractDocxTextWithFormatting, extractMetadataWithAI } from "./metadataSuggestions.js";
 import { stripPageMarkers } from "./ocrTextUtils.js";
+import { checkResearchDuplicate } from "./search.js";
 
 /**
  * OCR Digitization Module
@@ -99,8 +99,8 @@ export async function scanDocuments(imageFiles, onProgress, { signal } = {}) {
     if (signal?.aborted) break;
     const file = imageFiles[index];
     if (isDocxFile(file)) {
-      const text = await extractDocxTextForOcr(file);
-      pages.push({ pageNumber: index + 1, text });
+      const { text, metadataText } = await extractDocxTextWithFormatting(file);
+      pages.push({ pageNumber: index + 1, text, metadataText });
       onProgress?.(1, index + 1, totalPages);
       continue;
     }
@@ -184,16 +184,6 @@ function isPdfFile(file) {
 function isDocxFile(file) {
   return file?.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
     || /\.docx$/i.test(file?.name || "");
-}
-
-async function extractDocxTextForOcr(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const { value } = await mammoth.extractRawText({ arrayBuffer });
-  return value
-    .replace(/\r/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .replace(/[ \t]+/g, " ")
-    .trim();
 }
 
 async function pdfFileToPageImageFiles(file, maxPages = Infinity) {
@@ -391,8 +381,9 @@ async function uploadResearchDocument(file, { onProgress } = {}) {
  * the fields before archiving (see OCRScan.jsx).
  */
 export async function extractMetadata(rawText) {
-  const cleanedText = stripPageMarkers(rawText);
-  const fallback = extractDocumentFields(cleanedText);
+  const parserText = stripPageMarkers(rawText);
+  const cleanedText = parserText.replace(/__DOCX_(?:BOLD|ITALIC)__/g, "");
+  const fallback = extractDocumentFields(parserText);
   const aiMetadata = await extractMetadataWithAI(cleanedText);
   const aiStatus = aiMetadata?.unavailable
     ? "not_configured"
@@ -421,9 +412,12 @@ export async function extractMetadata(rawText) {
   const abstract = fallbackAbstract.length >= 80 ? fallbackAbstract : aiAbstract || fallbackAbstract;
   const fallbackPanelMembers = Array.isArray(fallback.panelMembers) ? fallback.panelMembers : [];
   const aiPanelMembers = Array.isArray(aiMetadata?.panelMembers) ? aiMetadata.panelMembers : [];
-  const panelMembers = [...new Set([...fallbackPanelMembers, ...aiPanelMembers]
+  const combinedPanelMembers = [...new Set([...fallbackPanelMembers, ...aiPanelMembers]
     .map((member) => String(member || "").replace(/\s+/g, " ").trim())
-    .filter(Boolean))].join(", ");
+    .filter(Boolean))];
+  const panelMembers = (fallbackPanelMembers.length >= 3 ? fallbackPanelMembers : combinedPanelMembers)
+    .slice(0, 3)
+    .join(", ");
 
   return {
     title,
@@ -451,6 +445,7 @@ function isUsableMetadataTitle(value) {
   const title = String(value || "").replace(/\s+/g, " ").trim();
   if (!title || title.length > 180 || title.split(/\s+/).length > 24) return false;
   if (/^har(?:d)?bound(?:\s+bayad)?$/i.test(title)) return false;
+  if (/\b(?:university|college|institute|bachelor of|master of|in partial fulfillment|submitted to|presented to)\b/i.test(title)) return false;
   if (/^(string|title|document|manuscript|research paper|untitled|unknown|n\/a|null|undefined)$/i.test(title)) return false;
   if (/^\d+\s+(?:weeks?|days?|months?)\b/i.test(title)) return false;
   if (/\b(?:data collection plan|prior to data collection|this study will|the research team will)\b/i.test(title)) return false;
@@ -494,6 +489,14 @@ export async function digitizeAndArchive({
   if (!filesToUpload.length) {
     throw new Error("Document digitization requires at least one scanned image or PDF file.");
   }
+
+  onProgress?.({ phase: "checking", completed: 0, total: 1 });
+  await checkResearchDuplicate({
+    title,
+    abstract,
+    keywords,
+    documentText: ocrText,
+  });
 
   const actorId = adminId;
   const firstPage = filesToUpload[0];

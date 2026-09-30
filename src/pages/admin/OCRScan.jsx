@@ -241,14 +241,27 @@ function handleFile(e) {
         nextPageTexts[pendingPages[index].index] = page.text;
       });
       setScannedPageTexts(nextPageTexts);
+      const nextMetadataPageTexts = [...nextPageTexts];
+      pages.forEach((page, index) => {
+        nextMetadataPageTexts[pendingPages[index].index] = page.metadataText || page.text;
+      });
 
       const recognizedText = pages
         .map((page, index) => `--- Page ${pendingPages[index].index + 1} ---\n${page.text}`)
+        .join("\n\n");
+      const recognizedMetadataText = pages
+        .map((page, index) => `--- Page ${pendingPages[index].index + 1} ---\n${page.metadataText || page.text}`)
         .join("\n\n");
       const combinedText = hadPreviousText
         ? [ocrText.trim(), recognizedText].filter(Boolean).join("\n\n")
         : files
           .map((_, index) => nextPageTexts[index] == null ? "" : `--- Page ${index + 1} ---\n${nextPageTexts[index]}`)
+          .filter(Boolean)
+          .join("\n\n");
+      const combinedMetadataText = hadPreviousText
+        ? [ocrText.trim(), recognizedMetadataText].filter(Boolean).join("\n\n")
+        : files
+          .map((_, index) => nextMetadataPageTexts[index] == null ? "" : `--- Page ${index + 1} ---\n${nextMetadataPageTexts[index]}`)
           .filter(Boolean)
           .join("\n\n");
       setOcrText(combinedText);
@@ -260,7 +273,7 @@ function handleFile(e) {
       }
 
       if ((!hadPreviousText || !meta.title.trim()) && combinedText.trim()) {
-        const extracted = await extractMetadata(combinedText);
+        const extracted = await extractMetadata(combinedMetadataText);
         setMeta({
           title: extracted.title,
           authors: extracted.authors,
@@ -673,21 +686,25 @@ function handleFile(e) {
 
           <button type="submit" disabled={step === "saving"} className="btn btn-primary" style={{ marginTop: 4 }}>
             {step === "saving"
-              ? saveProgress.phase === "uploading"
-                ? "Uploading manuscript..."
-                : saveProgress.phase === "saving"
-                  ? "Finishing archive..."
-                  : `Preparing page ${saveProgress.completed} of ${saveProgress.total}...`
+              ? saveProgress.phase === "checking"
+                ? "Checking for similar topics..."
+                : saveProgress.phase === "uploading"
+                  ? "Uploading manuscript..."
+                  : saveProgress.phase === "saving"
+                    ? "Finishing archive..."
+                    : `Preparing page ${saveProgress.completed} of ${saveProgress.total}...`
               : <>Save to Repository <ArrowRight size={14} /></>}
           </button>
           {step === "saving" && saveProgress.total > 0 && (
             <>
               <p role="status" aria-live="polite" style={{ color: "var(--ink-600)", fontSize: 12, margin: "0 0 8px" }}>
-                {saveProgress.phase === "uploading"
-                  ? "Uploading the manuscript to the research archive…"
-                  : saveProgress.phase === "saving"
-                    ? "Finishing the archive record…"
-                    : `Preparing page ${saveProgress.completed} of ${saveProgress.total} for the archive…`}
+                {saveProgress.phase === "checking"
+                  ? "Checking this topic against existing research…"
+                  : saveProgress.phase === "uploading"
+                    ? "Uploading the manuscript to the research archive…"
+                    : saveProgress.phase === "saving"
+                      ? "Finishing the archive record…"
+                      : `Preparing page ${saveProgress.completed} of ${saveProgress.total} for the archive…`}
                 <span style={{ display: "block", color: "var(--ink-500)", fontSize: 11, marginTop: 3 }}>
                   {saveEstimateSeconds === null
                     ? "Estimating save time…"

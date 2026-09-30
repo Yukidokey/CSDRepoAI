@@ -389,6 +389,11 @@ async function extractPdfText(file) {
 }
 
 async function extractDocxText(file) {
+  const { metadataText } = await extractDocxTextWithFormatting(file);
+  return metadataText;
+}
+
+export async function extractDocxTextWithFormatting(file) {
   const arrayBuffer = await file.arrayBuffer();
   const [{ value }, { value: html }] = await Promise.all([
     mammoth.extractRawText({ arrayBuffer }),
@@ -403,7 +408,10 @@ async function extractDocxText(file) {
     if (italicLines.has(line)) return `__DOCX_ITALIC__${line}`;
     return line;
   });
-  return markedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  return {
+    text: lines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+    metadataText: markedLines.join("\n").replace(/\n{3,}/g, "\n\n").trim(),
+  };
 }
 
 function getBoldDocxParagraphs(html) {
@@ -1024,21 +1032,42 @@ function extractAdviser(lines) {
 
 function extractPanelMembers(lines) {
   const panelMembers = [];
-  const panelRolePattern = /^(?:panel\s*(?:chair|member|ist)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)$/i;
-  const inlinePanelPattern = /^(.*?)\s+(?:panel\s*(?:chair|member|ist)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)\b/i;
+  const panelRolePattern = /^(?:panel\s*(?:chair|members?|ists?)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)$/i;
+  const panelSectionPattern = /^(?:panelists?|panel\s+members?|members\s+of\s+the\s+panel)\s*:?$/i;
+  const inlinePanelPattern = /^(.*?)\s+(?:panel\s*(?:chair|members?|ists?)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)\b/i;
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = cleanMetadataLine(lines[index]);
     const nextLine = cleanMetadataLine(lines[index + 1] || "");
     const previousLine = cleanMetadataLine(lines[index - 1] || "");
     const inlineMatch = line.match(inlinePanelPattern);
+    if (panelSectionPattern.test(line)) {
+      for (let candidateIndex = index + 1; candidateIndex < lines.length && panelMembers.length < 3; candidateIndex += 1) {
+        const candidate = cleanMetadataLine(lines[candidateIndex]);
+        if (!candidate || isDocumentHeading(candidate) || isAdviserCaption(candidate)) break;
+        if (panelRolePattern.test(candidate)) continue;
+        if (isPanelistName(candidate)) panelMembers.push(candidate);
+      }
+      continue;
+    }
+
     const name = panelRolePattern.test(nextLine) ? line
-      : panelRolePattern.test(line) ? previousLine
+      : panelRolePattern.test(line)
+        ? isPanelistName(previousLine) ? previousLine : nextLine
         : inlineMatch?.[1] || "";
-    if (name && isLikelyAuthorNameLine(name)) panelMembers.push(name.trim());
+    if (name && isPanelistName(name)) panelMembers.push(name.trim());
   }
 
-  return [...new Set(panelMembers)];
+  return [...new Set(panelMembers)].slice(0, 3);
+}
+
+function isPanelistName(value) {
+  const name = cleanMetadataLine(value).replace(/[,;\s]+$/, "").trim();
+  if (!name || name.length > 60 || isInstitutionLine(name)) return false;
+  if (/\b(?:adviser|advisor|dean|secretary|approved|accepted|panel|chairperson|member|witness)\b/i.test(name)) return false;
+  const words = name.replace(/[,:;]/g, "").split(/\s+/).filter(Boolean);
+  if (words.length < 2 || words.length > 6) return false;
+  return words.every((word) => /^[A-Z][A-Za-z.'-]*$/.test(word) || /^[A-Z]\.$/.test(word));
 }
 
 function isLikelyAuthorLine(line) {

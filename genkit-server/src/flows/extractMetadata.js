@@ -36,6 +36,7 @@ TITLE PAGE (usually page 1):
 - Below the authors, the university name and degree program usually appear.
 - An adviser's name sometimes appears near the bottom of this page, also unlabeled — but do not treat this as fully reliable; the Approval Sheet is the authoritative source for adviser identity.
 - The title MUST be drawn only from the DOCUMENT START section. Never use text from the approval-sheet or abstract sections as the title.
+- For DOCX files with no page separators, identify the title page by its sequence: full title block first, researcher names below it, then university/program/submission text. Stop the title before the first author or institution line, even when the title itself spans several paragraphs.
 - Never mistake a body-text sentence about weeks, timelines, ethics review, data collection procedures, methodology, or a data collection plan for the title. If the top of the document appears procedural, keep looking earlier in the DOCUMENT START section; if no credible title-page title is present, return an empty title instead of substituting unrelated body text.
 
 APPROVAL SHEET (usually page 2, titled "Approval Sheet"):
@@ -60,7 +61,7 @@ Given the document text below, extract exactly these fields and return ONLY vali
 Rules:
 - "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
 - "title" must be the FULL title, reconstructed by concatenating all wrapped lines of the title block into one continuous string (joined with spaces, no line breaks). Never output a partial title consisting of only the final line — check that your extracted title captures the complete first sentence/phrase before the author names appear on the title page.
-- Extract every distinct panel chair/member name into "panelMembers", including the chair, and exclude the adviser and other signatories.
+- Extract all three panelist names when three are shown. The name may appear immediately before or after its "Panel Chair"/"Panel Member" caption, or under a "Panelists"/"Panel Members" heading. Return each person once and exclude the adviser and other signatories. Never invent a missing name.
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
 - "authors" must include ALL names credited as the researchers/writers of the thesis on the title page, not just the first name — not the adviser, panel, or dean.
 - If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".

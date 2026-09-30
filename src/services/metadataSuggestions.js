@@ -44,7 +44,10 @@ export async function extractMetadataWithAI(documentText) {
     return { unavailable: true };
   }
 
-  const normalizedDocumentText = normalizeThesisBoilerplate(documentText);
+  // Metadata is concentrated in the title page, approval sheet, and abstract.
+  // Keep the request bounded for long DOCX manuscripts; the complete extracted
+  // text is still retained locally and archived for full-text search.
+  const normalizedDocumentText = normalizeThesisBoilerplate(String(documentText || "").slice(0, 60000));
 
   try {
     const response = await fetch(GENKIT_EXTRACTION_URL, {

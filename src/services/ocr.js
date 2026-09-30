@@ -531,11 +531,15 @@ export async function digitizeAndArchive({
   if (error) throw error;
 
   onProgress?.({ phase: "saving", completed: 1, total: 1 });
-  await supabase.from("submission_logs").insert({
+  // The archive record is already committed. Do not make the user's save wait
+  // for a secondary audit-log request to finish.
+  void supabase.from("submission_logs").insert({
     paper_id: data.id,
     action: "ocr_scanned",
     actor_id: actorId,
     detail: null,
+  }).then(({ error: logError }) => {
+    if (logError) console.warn("Could not write OCR archive audit log.", logError);
   });
 
   return data;

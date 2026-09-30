@@ -25,7 +25,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Keep each browser tab's login independent. localStorage is shared by every
+// tab on the same origin, so signing in as another account would otherwise
+// replace the first tab's Supabase session. sessionStorage survives reloads
+// while remaining isolated to the tab (and is also available on mobile).
+const tabSessionStorage = typeof window !== "undefined" ? window.sessionStorage : undefined;
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: tabSessionStorage,
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+  },
+});
 export const supabaseService =
   supabaseServiceKey
     ? createClient(supabaseUrl, supabaseServiceKey, {

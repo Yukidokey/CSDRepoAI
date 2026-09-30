@@ -35,6 +35,9 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "1mb" }));
 const DUPLICATE_SIMILARITY_THRESHOLD = 0.92;
+// gemini-embedding-001 accepts at most 2,048 tokens. Keep the request bounded
+// to roughly 1,500 English tokens, leaving room for tokenization variance.
+const MAX_DUPLICATE_QUERY_CHARS = 6000;
 const DUPLICATE_STOP_WORDS = new Set([
   "about", "after", "also", "among", "and", "are", "based", "been", "between", "both", "can", "could",
   "each", "for", "from", "have", "into", "its", "more", "most", "not", "our", "over", "research", "study",
@@ -74,26 +77,55 @@ app.post("/search", async (req, res) => {
  */
 app.post("/check-duplicate", async (req, res) => {
   const { title, abstract, keywords, documentText, excludePaperId } = req.body || {};
+  if (
+    (title !== undefined && typeof title !== "string") ||
+    (abstract !== undefined && typeof abstract !== "string") ||
+    (documentText !== undefined && typeof documentText !== "string") ||
+    (keywords !== undefined && typeof keywords !== "string" && !Array.isArray(keywords)) ||
+    (Array.isArray(keywords) && keywords.some((keyword) => typeof keyword !== "string"))
+  ) {
+    return res.status(400).json({ error: "title, abstract, documentText, and keywords must be text" });
+  }
+
   const metadataQuery = [
     String(title || "").trim(),
     String(abstract || "").trim(),
     Array.isArray(keywords) ? keywords.join(", ") : String(keywords || "").trim(),
   ].filter(Boolean).join("\n\n");
+  const metadataContext = [title, abstract, Array.isArray(keywords) ? keywords.join(" ") : keywords]
+    .filter(Boolean)
+    .join(" ");
   // Metadata is editable and often differs between duplicate uploads. Use the
   // manuscript body first so title/abstract/keyword edits cannot hide a copy.
-  const manuscriptContext = String(documentText || "").slice(0, 12000).trim();
+  const manuscriptContext = String(documentText || "").trim();
   const query = manuscriptContext || metadataQuery;
 
   if (!query) {
     return res.status(400).json({ error: "manuscript context is required" });
   }
+  if (query.length > MAX_DUPLICATE_QUERY_CHARS || metadataQuery.length > MAX_DUPLICATE_QUERY_CHARS) {
+    return res.status(400).json({
+      error: `manuscript context must be ${MAX_DUPLICATE_QUERY_CHARS} characters or fewer`,
+    });
+  }
 
   try {
-    const { count: unindexedCount, error: indexError } = await supabaseAdmin
-      .from("research_papers")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "approved")
-      .is("embedding", null);
+    // The count and remote embedding/vector search are independent; overlap
+    // them to avoid adding their network latency together on every request.
+    const [indexCountResult, result] = await Promise.all([
+      supabaseAdmin
+        .from("research_papers")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "approved")
+        .is("embedding", null),
+      semanticSearchFlow({
+        query,
+        statusFilter: null,
+        matchCount: 100,
+      }),
+    ]);
+
+    const { count: unindexedCount, error: indexError } = indexCountResult;
 
     if (indexError) throw indexError;
 
@@ -115,12 +147,6 @@ app.post("/check-duplicate", async (req, res) => {
         unindexedPapers.push(...(data || []));
       }
     }
-
-    const result = await semanticSearchFlow({
-      query,
-      statusFilter: null,
-      matchCount: 100,
-    });
 
     const candidates = result.items
       .filter((item) => item.status !== "rejected" && item.id !== excludePaperId && Number(item.similarity) >= DUPLICATE_SIMILARITY_THRESHOLD)
@@ -145,9 +171,6 @@ app.post("/check-duplicate", async (req, res) => {
 
     if (candidateError) throw candidateError;
     const documentTextById = new Map((candidateDocuments || []).map((paper) => [paper.id, paper.ocr_raw_text || ""]));
-    const metadataContext = [title, abstract, Array.isArray(keywords) ? keywords.join(" ") : keywords]
-      .filter(Boolean)
-      .join(" ");
     const duplicate = fallbackDuplicate || candidates.some((item) => {
       const candidateDocument = documentTextById.get(item.id);
       const candidateMetadata = [item.title, item.abstract, ...(item.keywords || [])].filter(Boolean).join(" ");
@@ -158,7 +181,7 @@ app.post("/check-duplicate", async (req, res) => {
 
     res.json({ duplicate });
   } catch (error) {
-    console.error("[genkit] /check-duplicate failed:", error);
+    console.error("[genkit] /check-duplicate failed:", error?.stack || error);
     res.status(500).json({ error: "manuscript similarity check failed" });
   }
 });

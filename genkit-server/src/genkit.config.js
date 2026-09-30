@@ -1,6 +1,11 @@
 import "dotenv/config";
 import { genkit } from "genkit";
+import { logger } from "genkit/logging";
 import { googleAI } from "@genkit-ai/google-genai";
+
+// Genkit captures flow traces automatically. Keep verbose logs enabled for
+// local diagnosis, while allowing deployments to choose a quieter level.
+logger.setLogLevel(process.env.GENKIT_LOG_LEVEL || (process.env.NODE_ENV === "production" ? "info" : "debug"));
 
 if (!process.env.GOOGLE_GENAI_API_KEY) {
   console.warn(

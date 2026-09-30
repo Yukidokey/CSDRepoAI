@@ -41,7 +41,7 @@ TITLE PAGE (usually page 1):
 
 APPROVAL SHEET (usually page 2, titled "Approval Sheet"):
 - This page lists names followed immediately below (or beside) each name by a role caption, not a label before the name. Use fuzzy OCR-tolerant matching for captions such as "Thesis Adviser", "Thesis Advisor", "Thesis Advis0r", or similar spacing/spelling variants. The name attached to that caption is the adviser, and this section is authoritative over the title page.
-- Similarly, a name followed by "Panel Chair" or "Panel Member" identifies committee members — do NOT confuse these with the adviser.
+- Similarly, a name associated with "Panel Chair", "Panel Chairperson", "Chairperson", "Chairman", or "Panel Member" identifies a panel member. The chair is included in the three-person panelMembers list — do NOT confuse the chair with the adviser.
 
 ABSTRACT:
 - Usually appears on its own page headed by the standalone word "Abstract" (no colon). The abstract text follows as one or more paragraphs.
@@ -61,7 +61,7 @@ Given the document text below, extract exactly these fields and return ONLY vali
 Rules:
 - "adviser" must come from the Approval Sheet's "Thesis Adviser" caption if present anywhere in the text — do not guess from the title page alone if the Approval Sheet is available.
 - "title" must be the FULL title, reconstructed by concatenating all wrapped lines of the title block into one continuous string (joined with spaces, no line breaks). Never output a partial title consisting of only the final line — check that your extracted title captures the complete first sentence/phrase before the author names appear on the title page.
-- Include the Panel Chair in "panelMembers": the chair counts as one of the three panel members, not as a separate fourth role. Extract the chair and the other two panel members when all three are shown. A name may appear immediately before or after its "Panel Chair"/"Panel Member" caption, or under a "Panelists"/"Panel Members" heading. Return each person once and exclude the adviser and other signatories. Never invent a missing name.
+- Include the Panel Chair in "panelMembers": the chair counts as one of the three panel members, not as a separate fourth role. Treat captions such as "Panel Chairperson", "Chairperson", or "Chairman" as chair roles too. Extract the chair and the other two panel members when all three are shown. A name may appear immediately before or after its role caption, or under a "Panelists"/"Panel Members" heading. Return each person once and exclude the adviser and other signatories. Never invent a missing name.
 - Do not include panel chair or panel members in "authors" or "adviser" — they are separate roles.
 - "authors" must include ALL names credited as the researchers/writers of the thesis on the title page, not just the first name — not the adviser, panel, or dean.
 - If fields or names are concatenated with only a plain space and no delimiter, split them using the expected structural patterns. For example, split "Chrissandra Marchelle L. Bautista Crislyn Joy D. Delgado" into the two authors "Chrissandra Marchelle L. Bautista" and "Crislyn Joy D. Delgado".
@@ -74,19 +74,32 @@ Rules:
 Document text:
 ${safeDocumentText}`;
 
-    const response = await ai.generate({
-      model: googleAI.model("gemini-2.0-flash"),
-      prompt,
-      output: { schema: outputSchema },
-      config: {
-        temperature: 0.2,
-      },
-    });
+    let response;
+    try {
+      response = await ai.generate({
+        model: googleAI.model("gemini-2.0-flash"),
+        prompt,
+        output: { schema: outputSchema },
+        config: {
+          temperature: 0.2,
+        },
+      });
+    } catch (error) {
+      console.error("[genkit] metadata model failed; returning empty fields for local fallback:", error);
+      return { title: "", authors: [], adviser: "", panelMembers: [], abstract: "", keywords: [] };
+    }
 
-    const parsed = response.output ?? (typeof response.text === "string" ? JSON.parse(response.text) : null);
+    let parsed = response.output;
+    if (!parsed && typeof response.text === "string") {
+      try {
+        parsed = JSON.parse(response.text);
+      } catch (error) {
+        console.error("[genkit] metadata model returned invalid JSON; using local fallback:", error);
+      }
+    }
 
     if (!parsed) {
-      throw new Error("Gemini metadata extraction returned no structured output.");
+      return { title: "", authors: [], adviser: "", panelMembers: [], abstract: "", keywords: [] };
     }
 
     return {
@@ -110,7 +123,7 @@ export function buildMetadataContext(documentText) {
   const text = String(documentText || "");
   const sections = [`[DOCUMENT START]\n${text.slice(0, 12000)}`];
   appendContextWindows(sections, text, "APPROVAL SHEET SECTION", /approval\s+sheet|thesis\s+advis(?:e|o)r/gi, 500, 5000, 3);
-  appendContextWindows(sections, text, "PANEL MEMBERS SECTION", /panel\s*(?:chair|member)|member\s+of\s+the\s+panel|chairperson?\s+of\s+the\s+panel/gi, 500, 1800, 8);
+  appendContextWindows(sections, text, "PANEL MEMBERS SECTION", /panel\s*(?:chair(?:person|man|woman)?|members?|ists?)|(?:chair(?:person|man|woman)?|member)\s+of\s+(?:the\s+)?panel|(?:chairperson|chairman)\b/gi, 500, 1800, 8);
   appendContextWindows(sections, text, "ABSTRACT + KEYWORDS SECTION", /(?:^|\n)\s*abstrac?t\b/gi, 0, 7000, 3);
   appendContextWindows(sections, text, "KEYWORDS SECTION", /(?:^|\n)\s*\*?\s*key\s*words?\s*\*?\s*:/gi, 0, 2500, 3);
 

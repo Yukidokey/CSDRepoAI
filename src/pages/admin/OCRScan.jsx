@@ -662,7 +662,7 @@ function handleFile(e) {
             </Field>
           </div>
 
-          <Field label={<span><Users size={11} style={{ verticalAlign: -1, marginRight: 4 }} />Panel Members (comma-separated)</span>}>
+          <Field label={<span><Users size={11} style={{ verticalAlign: -1, marginRight: 4 }} />Panel Members, including the chair (3 total; comma-separated)</span>}>
             <input className="input" value={meta.panelMembers} onChange={(e) => setMeta((m) => ({ ...m, panelMembers: e.target.value }))} />
           </Field>
 

@@ -557,7 +557,7 @@ export function extractDocumentFields(text) {
   const title = extractTitle(lines);
   const authors = extractAuthors(lines);
   const adviser = extractAdviser(lines);
-  const panelMembers = extractPanelMembers(lines);
+  const panelMembers = extractPanelMembers(lines, adviser, authors);
 
   return {
     title,
@@ -1030,11 +1030,12 @@ function extractAdviser(lines) {
   return "";
 }
 
-function extractPanelMembers(lines) {
+function extractPanelMembers(lines, adviser = "", authors = []) {
   const panelMembers = [];
-  const panelRolePattern = /^(?:panel\s*(?:chair|members?|ists?)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)$/i;
-  const panelSectionPattern = /^(?:panelists?|panel\s+members?|members\s+of\s+the\s+panel)\s*:?$/i;
-  const inlinePanelPattern = /^(.*?)\s+(?:panel\s*(?:chair|members?|ists?)|(?:chair(?:person)?|member)\s+of\s+(?:the\s+)?panel)\b/i;
+  const chairRole = "chair(?:person|man|woman)?";
+  const panelRolePattern = new RegExp(`^(?:panel\\s*(?:${chairRole}|members?|ists?)|(?:${chairRole}|member)\\s+of\\s+(?:the\\s+)?panel|${chairRole})$`, "i");
+  const panelSectionPattern = /^(?:panelists?(?:\s+names?)?|panel\s+members?(?:\s+names?)?|members\s+of\s+the\s+panel)\s*:?$/i;
+  const inlinePanelPattern = new RegExp(`^(.*?)\\s+(?:panel\\s*(?:${chairRole}|members?|ists?)|(?:${chairRole}|member)\\s+of\\s+(?:the\\s+)?panel)\\b`, "i");
 
   for (let index = 0; index < lines.length; index += 1) {
     const line = cleanMetadataLine(lines[index]);
@@ -1058,13 +1059,45 @@ function extractPanelMembers(lines) {
     if (name && isPanelistName(name)) panelMembers.push(name.trim());
   }
 
-  return [...new Set(panelMembers)].slice(0, 3);
+  const uniquePanelMembers = [...new Set(panelMembers)];
+  if (uniquePanelMembers.length < 3) {
+    const approvalIndex = lines.findIndex((line) => /^approval\s+sheet\b/i.test(cleanMetadataLine(line)));
+    if (approvalIndex >= 0) {
+      const abstractIndex = findAbstractIndex(lines);
+      const approvalEnd = abstractIndex > approvalIndex ? abstractIndex : Math.min(lines.length, approvalIndex + 120);
+      const excludedPeople = new Set([adviser, ...authors].map(normalizePersonName).filter(Boolean));
+      const alreadyFound = new Set(uniquePanelMembers.map(normalizePersonName));
+
+      for (let index = approvalIndex + 1; index < approvalEnd && uniquePanelMembers.length < 3; index += 1) {
+        const candidate = cleanMetadataLine(lines[index]).replace(/[,;\s]+$/, "").trim();
+        if (!isPanelistName(candidate)) continue;
+        const normalizedCandidate = normalizePersonName(candidate);
+        if (excludedPeople.has(normalizedCandidate) || alreadyFound.has(normalizedCandidate)) continue;
+
+        const adjacentText = `${cleanMetadataLine(lines[index - 1] || "")} ${cleanMetadataLine(lines[index + 1] || "")}`;
+        if (/^\s*(?:dean\b|president\b|secretary\b|registrar\b|director\b|thesis\s+advis(?:e|o)r\b|approved\b|accepted\b)/i.test(adjacentText)) continue;
+
+        uniquePanelMembers.push(candidate);
+        alreadyFound.add(normalizedCandidate);
+      }
+    }
+  }
+
+  return uniquePanelMembers.slice(0, 3);
+}
+
+function normalizePersonName(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/\b(?:engr|dr|mr|mrs|ms|mit|msit|mep-ece|msce)\b\.?/g, "")
+    .replace(/[^a-z]+/g, " ")
+    .trim();
 }
 
 function isPanelistName(value) {
   const name = cleanMetadataLine(value).replace(/[,;\s]+$/, "").trim();
   if (!name || name.length > 60 || isInstitutionLine(name)) return false;
-  if (/\b(?:adviser|advisor|dean|secretary|approved|accepted|panel|chairperson|member|witness)\b/i.test(name)) return false;
+  if (/\b(?:adviser|advisor|dean|secretary|approved|accepted|panel|chair(?:person|man|woman)?|member|witness)\b/i.test(name)) return false;
   const words = name.replace(/[,:;]/g, "").split(/\s+/).filter(Boolean);
   if (words.length < 2 || words.length > 6) return false;
   return words.every((word) => /^[A-Z][A-Za-z.'-]*$/.test(word) || /^[A-Z]\.$/.test(word));

@@ -19,7 +19,7 @@ export async function checkResearchDuplicate({ title, abstract, keywords = [], d
     const response = await fetch(GENKIT_DUPLICATE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, abstract, keywords, documentText: String(documentText || "").slice(0, 12000), excludePaperId }),
+      body: JSON.stringify({ title, abstract, keywords, documentText: String(documentText || "").slice(0, 6000), excludePaperId }),
     });
 
     if (!response.ok) {

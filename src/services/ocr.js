@@ -64,6 +64,51 @@ export async function expandUploadedFiles(files) {
   return normalizeFilesForArchive(files);
 }
 
+async function getOcrTextFingerprint(ocrText) {
+  const normalizedText = stripPageMarkers(String(ocrText || ""))
+    .normalize("NFKC")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim()
+    .replace(/\s+/g, " ");
+
+  if (!normalizedText) return null;
+  if (!globalThis.crypto?.subtle) {
+    throw new Error("This browser cannot verify duplicate OCR text. Use a current browser over HTTPS.");
+  }
+
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", new TextEncoder().encode(normalizedText));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function assertOcrTextIsUnique(fingerprint) {
+  if (!fingerprint) return;
+
+  const { data, error } = await supabase
+    .from("research_papers")
+    .select("id")
+    .eq("source", "ocr_scanned")
+    .eq("manuscript_sha256", fingerprint)
+    .neq("status", "rejected")
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data) {
+    throw new Error("This OCR text exactly matches a paper already in the repository. It was not saved again; check the existing archive record.");
+  }
+}
+
+async function removeUploadedOcrFile(fileUrl) {
+  const marker = "/storage/v1/object/public/research-files/";
+  const markerIndex = String(fileUrl || "").indexOf(marker);
+  if (markerIndex < 0) return;
+
+  const path = decodeURIComponent(fileUrl.slice(markerIndex + marker.length));
+  const { error } = await supabase.storage.from("research-files").remove([path]);
+  if (error) console.warn("Could not remove the duplicate OCR upload.", error.message);
+}
+
 async function normalizeFilesForArchive(files) {
   const expanded = [];
 
@@ -513,6 +558,8 @@ export async function digitizeAndArchive({
   }
 
   onProgress?.({ phase: "checking", completed: 0, total: 1 });
+  const manuscriptFingerprint = await getOcrTextFingerprint(ocrText);
+  await assertOcrTextIsUnique(manuscriptFingerprint);
   await checkResearchDuplicate({
     title,
     abstract,
@@ -548,12 +595,19 @@ export async function digitizeAndArchive({
       status: "approved",
       source: "ocr_scanned",
       ocr_raw_text: ocrText,
+      manuscript_sha256: manuscriptFingerprint,
       file_url: uploadedUrl,
     })
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    await removeUploadedOcrFile(uploadedUrl);
+    if (error.code === "23505" && error.constraint === "idx_research_active_manuscript_sha256") {
+      throw new Error("This OCR text was archived at the same time in another session. Check the existing archive record; this copy was not saved.");
+    }
+    throw error;
+  }
 
   onProgress?.({ phase: "saving", completed: 1, total: 1 });
   const embeddingUrl = toGenkitEndpoint(

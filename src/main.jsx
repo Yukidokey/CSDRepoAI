@@ -6,8 +6,11 @@ import "./index.css";
 class AppErrorBoundary extends React.Component {
   state = { hasError: false };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || "An unexpected error occurred while starting the app.",
+    };
   }
 
   componentDidCatch(error, errorInfo) {
@@ -30,6 +33,10 @@ class AppErrorBoundary extends React.Component {
           <section>
             <h1 style={{ fontFamily: "'Source Serif 4', serif" }}>CSDRepoAI could not load this page</h1>
             <p>Please reload the site. If the problem continues, contact the repository administrator.</p>
+            <details style={{ margin: "16px auto", maxWidth: 640, textAlign: "left" }}>
+              <summary style={{ cursor: "pointer" }}>Technical details</summary>
+              <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>{this.state.errorMessage}</pre>
+            </details>
             <button type="button" onClick={() => window.location.reload()}>Reload page</button>
           </section>
         </main>

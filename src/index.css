@@ -500,18 +500,15 @@ a {
 .app-shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .app-main {
   flex: 1;
   min-width: 0;
-  padding: 0 40px 56px;
-  max-width: 1180px;
-  width: 100%;
-}
-
-.app-main.fit-to-screen {
+  padding: 0 clamp(20px, 3.2vw, 40px) 56px;
   max-width: none;
+  width: 100%;
 }
 
 .portal-topbar {
@@ -552,24 +549,6 @@ a {
   position: relative;
   display: inline-flex;
   padding: 7px;
-}
-
-.fit-screen-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.fit-screen-button:hover,
-.fit-screen-button[aria-pressed="true"] {
-  background: var(--surface-sunken);
-  color: var(--ink-900);
 }
 
 .portal-notification-wrap {

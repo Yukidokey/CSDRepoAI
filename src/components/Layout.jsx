@@ -18,8 +18,6 @@ import {
   ChevronDown,
   ClipboardList,
   Settings as SettingsIcon,
-  Maximize2,
-  Minimize2,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { SDG_LIST } from "../lib/sdgList";
@@ -76,13 +74,6 @@ export default function Layout({ children }) {
   const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const [notifications, setNotifications] = useState([]);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [fitToScreen, setFitToScreen] = useState(() => {
-    try {
-      return localStorage.getItem("csdrepoai-fit-to-screen") === "true";
-    } catch {
-      return false;
-    }
-  });
   const notificationsOpenRef = useRef(false);
   const notificationStorageKey = profile?.id ? `csdrepoai-notifications-seen:${profile.id}` : null;
   const themeKey = profile?.id ? `csdrepoai-theme:${profile.id}` : null;
@@ -305,24 +296,9 @@ export default function Layout({ children }) {
         </nav>
 
       </aside>
-      <main className={`app-main${fitToScreen ? " fit-to-screen" : ""}`}>
+      <main className="app-main">
         <header className="portal-topbar">
           <div className="portal-topbar-actions">
-            <button
-              type="button"
-              className="portal-icon-button fit-screen-button"
-              aria-label={fitToScreen ? "Use standard page width" : "Fit content to screen"}
-              title={fitToScreen ? "Use standard page width" : "Fit content to screen"}
-              aria-pressed={fitToScreen}
-              onClick={() => setFitToScreen((current) => {
-                const next = !current;
-                try { localStorage.setItem("csdrepoai-fit-to-screen", String(next)); } catch { /* Keep this session's preference. */ }
-                return next;
-              })}
-            >
-              {fitToScreen ? <Minimize2 size={17} /> : <Maximize2 size={17} />}
-              <span>Fit to screen</span>
-            </button>
             <div className="portal-profile-menu-wrap">
               <button type="button" className="portal-profile-button" onClick={() => setProfileMenuOpen((open) => !open)} aria-expanded={profileMenuOpen}>
                 <span className="portal-profile-avatar">{initials}</span><span className="portal-profile-name">{profileName}</span><ChevronDown size={14} />

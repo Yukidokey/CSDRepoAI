@@ -18,6 +18,6 @@ export function normalizeGenkitUrl(value) {
 export function toGenkitEndpoint(value, endpoint) {
   const baseUrl = normalizeGenkitUrl(value);
   if (!baseUrl) return "";
-  const baseWithoutEndpoint = baseUrl.replace(/\/(?:search|check-duplicate|embed|metadata|extract-metadata|health)$/i, "");
+  const baseWithoutEndpoint = baseUrl.replace(/\/(?:search|check-duplicate|embed|metadata|extract-metadata|format-review|health)$/i, "");
   return `${baseWithoutEndpoint}/${endpoint}`;
 }

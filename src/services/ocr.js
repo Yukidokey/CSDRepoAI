@@ -5,6 +5,7 @@ import { extractDocumentFields, extractDocxTextWithFormatting, extractMetadataWi
 import { stripPageMarkers } from "./ocrTextUtils.js";
 import { checkResearchDuplicate } from "./search.js";
 import { createUniqueStorageToken } from "../lib/storagePath.js";
+import { comparePaperFormats, formatSectionLabels } from "../lib/paperFormat.js";
 
 /**
  * OCR Digitization Module
@@ -84,6 +85,75 @@ export async function scanDocument(imageFileOrUrl, onProgress) {
 
 export async function expandUploadedFiles(files) {
   return normalizeFilesForArchive(files);
+}
+
+/** Compare detected chapter headings against the repository's archived papers. */
+export async function reviewPaperFormat(documentText) {
+  const { data, error } = await supabase
+    .from("research_papers")
+    .select("ocr_raw_text")
+    .not("ocr_raw_text", "is", null)
+    .neq("status", "rejected")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.warn("Could not read archived papers for the OCR format comparison.", error.message);
+    return {
+      status: "unavailable",
+      message: "Format comparison is unavailable right now. Please review the paper’s section order manually.",
+      comparedPapers: 0,
+    };
+  }
+
+  const comparison = comparePaperFormats(documentText, (data || []).map((paper) => paper.ocr_raw_text));
+  const sections = formatSectionLabels(comparison.candidateSections);
+  if (comparison.status === "insufficient") {
+    return {
+      ...comparison,
+      message: comparison.candidateSections.length < 3
+        ? `Only ${sections.length ? sections.join(", ") : "a few recognizable section headings"} were detected. Scan the complete paper for a reliable format comparison.`
+        : `There are not enough complete archived papers to compare this scan yet (${comparison.comparedPapers} usable papers found).`,
+    };
+  }
+
+  if (comparison.status === "match") {
+    return {
+      ...comparison,
+      message: `The detected section structure looks consistent with ${comparison.comparedPapers} archived papers. Please still check that OCR captured every heading correctly.`,
+    };
+  }
+
+  const missingSections = formatSectionLabels(comparison.missingSections);
+  const unusualSections = formatSectionLabels(comparison.unusualSections);
+  const fallbackMessage = `The detected format differs from the archived papers. This scan is missing common section${missingSections.length === 1 ? "" : "s"}: ${missingSections.join(", ") || "none"}${unusualSections.length ? `, and includes less common section${unusualSections.length === 1 ? "" : "s"}: ${unusualSections.join(", ")}` : ""}. Review the scan because OCR may have missed headings.`;
+  const endpoint = toGenkitEndpoint(
+    import.meta.env.VITE_GENKIT_METADATA_URL || import.meta.env.VITE_GENKIT_SEARCH_URL,
+    "format-review",
+  );
+
+  if (!endpoint) return { ...comparison, message: fallbackMessage, aiReviewed: false };
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        candidateSections: sections,
+        commonSections: formatSectionLabels(comparison.commonSections),
+        missingSections,
+        unusualSections,
+        comparedPapers: comparison.comparedPapers,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error(`Format review request failed (${response.status})`);
+    const result = await response.json();
+    return { ...comparison, message: result.message || fallbackMessage, aiReviewed: Boolean(result.message) };
+  } catch (reviewError) {
+    console.warn("AI paper-format review unavailable; showing the local comparison.", reviewError.message);
+    return { ...comparison, message: fallbackMessage, aiReviewed: false };
+  }
 }
 
 async function getOcrTextFingerprint(ocrText) {

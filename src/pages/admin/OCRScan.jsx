@@ -22,7 +22,7 @@ import {
 import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
-import { digitizeAndArchive, scanDocuments, extractMetadata, expandUploadedFiles } from "../../services/ocr";
+import { digitizeAndArchive, scanDocuments, extractMetadata, expandUploadedFiles, reviewPaperFormat } from "../../services/ocr";
 import { getAcademicYears } from "../../services/academicYears";
 import { useUnloadWarning } from "../../lib/useUnloadWarning";
 
@@ -66,6 +66,7 @@ export default function OCRScan() {
   const [academicYears, setAcademicYears] = useState([]);
   const [uploadError, setUploadError] = useState("");
   const [scanNotice, setScanNotice] = useState("");
+  const [formatReview, setFormatReview] = useState({ status: "idle", message: "" });
   const fileInputRef = useRef(null);
   const scanAbortControllerRef = useRef(null);
   const pageTimingRef = useRef({ page: null, startedAt: 0, durations: [] });
@@ -203,6 +204,7 @@ function handleFile(e) {
     setStep("scanning");
     setUploadError("");
     setScanNotice("");
+    setFormatReview({ status: "checking", message: "Comparing section headings with archived papers…" });
     setIsStopping(false);
     setCanStopScan(true);
     const controller = new AbortController();
@@ -271,6 +273,7 @@ function handleFile(e) {
 
       if (cancelled) {
         setStep("idle");
+        setFormatReview({ status: "idle", message: "" });
         setScanNotice(`Scan stopped. ${completedBeforeScan + pages.length} of ${files.length} pages are recognized. Select Run OCR Scan to continue.`);
         return;
       }
@@ -289,6 +292,9 @@ function handleFile(e) {
         setAiStatus(extracted.aiStatus || "failed");
       }
 
+      const formatResult = await reviewPaperFormat(combinedText);
+      setFormatReview(formatResult);
+
       const blankPages = pages.filter((page) => !page.text.trim()).map((page) => page.pageNumber);
       const lowConfidencePages = pages
         .filter((page) => page.confidence !== null && page.confidence < 0.65 && page.text.trim())
@@ -306,6 +312,7 @@ function handleFile(e) {
       setCanStopScan(false);
       setIsStopping(false);
       setStep("idle");
+      setFormatReview({ status: "idle", message: "" });
       setUploadError(error.message || "OCR could not read the selected PDF, DOCX, or image document. Please try again.");
     }
   }
@@ -662,6 +669,28 @@ function handleFile(e) {
           <p style={{ fontSize: 11.5, color: "var(--ink-500)", marginTop: -8 }}>
             Fields below were parsed from the title page. Please review and correct before archiving.
           </p>
+
+          {formatReview.status !== "idle" && (
+            <div
+              className={`metadata-analysis${formatReview.status === "checking" ? " analyzing" : formatReview.status === "different" ? " error" : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              <strong>
+                {formatReview.status === "checking"
+                  ? "Checking paper format…"
+                  : formatReview.status === "different"
+                    ? "Format differs from archived papers"
+                    : formatReview.status === "match"
+                      ? "Paper format check"
+                      : formatReview.status === "insufficient"
+                        ? "Format comparison needs more text"
+                        : "Format comparison unavailable"}
+              </strong>
+              <span>{formatReview.message}</span>
+              {formatReview.comparedPapers > 0 && <small>Compared with {formatReview.comparedPapers} archived papers.</small>}
+            </div>
+          )}
 
           <Field label={<span><PenLine size={11} style={{ verticalAlign: -1, marginRight: 4 }} />Title</span>}>
             <input className="input" value={meta.title} onChange={(e) => setMeta((m) => ({ ...m, title: e.target.value }))} required />

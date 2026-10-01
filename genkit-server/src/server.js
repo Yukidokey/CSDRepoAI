@@ -5,6 +5,7 @@ import { semanticSearchFlow } from "./flows/semanticSearch.js";
 import { embedPaperFlow } from "./flows/embedPaper.js";
 import { metadataAnalysisFlow } from "./flows/metadataAnalysis.js";
 import { extractMetadataFlow } from "./flows/extractMetadata.js";
+import { formatReviewFlow } from "./flows/formatReview.js";
 import { supabaseAdmin } from "./supabaseAdmin.js";
 
 const app = express();
@@ -274,6 +275,16 @@ app.post("/extract-metadata", async (req, res) => {
   } catch (error) {
     console.error("[genkit] /extract-metadata failed:", error);
     res.status(500).json({ error: error.message || "metadata extraction failed" });
+  }
+});
+
+app.post("/format-review", async (req, res) => {
+  try {
+    const result = await formatReviewFlow(req.body || {});
+    res.json(result);
+  } catch (error) {
+    console.error("[genkit] /format-review failed:", error);
+    res.status(500).json({ error: error.message || "paper format review failed" });
   }
 });
 

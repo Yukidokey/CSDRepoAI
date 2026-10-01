@@ -21,10 +21,14 @@ function getPaddleOcr() {
     paddleOcrPromise = import("@paddleocr/paddleocr-js")
       .then(async ({ PaddleOCR }) => {
         const options = {
-          textDetectionModelName: "PP-OCRv5_mobile_det",
-          textRecognitionModelName: "PP-OCRv5_mobile_rec",
+          // Tiny v6 models are designed for on-device inference and avoid
+          // the long session-initialization timeout seen with v5 on phones.
+          textDetectionModelName: "PP-OCRv6_tiny_det",
+          textRecognitionModelName: "PP-OCRv6_tiny_rec",
           ortOptions: {
-            backend: "wasm",
+            // Use the device GPU where the browser supports WebGPU; the SDK
+            // automatically falls back to WASM on unsupported devices.
+            backend: "auto",
             wasmPaths: new URL(`${import.meta.env.BASE_URL}ort-wasm/`, window.location.origin).href,
             numThreads: 1,
             simd: true,
@@ -34,9 +38,13 @@ function getPaddleOcr() {
         try {
           return await PaddleOCR.create({ ...options, worker: true });
         } catch (workerError) {
-          // Some mobile browsers cannot initialize module workers or transfer
-          // their image buffers. Retry the same lightweight model on the main
-          // thread so those devices can still scan documents.
+          // Retry on the main thread only when the browser rejected worker
+          // startup. Model/session timeouts are not helped by repeating them
+          // on the main thread and can freeze a phone's UI.
+          const workerStartupFailed = /worker|postmessage|transfer|module script|securityerror/i
+            .test(String(workerError?.message || workerError));
+          if (!workerStartupFailed) throw workerError;
+
           try {
             return await PaddleOCR.create({ ...options, worker: false });
           } catch (fallbackError) {

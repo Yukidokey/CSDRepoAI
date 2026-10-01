@@ -18,11 +18,13 @@ import {
   RotateCcw,
   ZoomIn,
   ZoomOut,
+  Plus,
 } from "lucide-react";
 import Layout from "../../components/Layout";
 import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { digitizeAndArchive, scanDocuments, extractMetadata, expandUploadedFiles, reviewPaperFormat } from "../../services/ocr";
+import { suggestKeywordsWithAI } from "../../services/metadataSuggestions";
 import { getAcademicYears } from "../../services/academicYears";
 import { useUnloadWarning } from "../../lib/useUnloadWarning";
 
@@ -67,6 +69,8 @@ export default function OCRScan() {
   const [uploadError, setUploadError] = useState("");
   const [scanNotice, setScanNotice] = useState("");
   const [formatReview, setFormatReview] = useState({ status: "idle", message: "" });
+  const [keywordSuggestions, setKeywordSuggestions] = useState([]);
+  const [keywordSuggestionStatus, setKeywordSuggestionStatus] = useState("idle");
   const fileInputRef = useRef(null);
   const scanAbortControllerRef = useRef(null);
   const pageTimingRef = useRef({ page: null, startedAt: 0, durations: [] });
@@ -204,6 +208,8 @@ function handleFile(e) {
     setStep("scanning");
     setUploadError("");
     setScanNotice("");
+    setKeywordSuggestions([]);
+    setKeywordSuggestionStatus("idle");
     setFormatReview({ status: "checking", message: "Comparing section headings with archived papers…" });
     setIsStopping(false);
     setCanStopScan(true);
@@ -278,8 +284,10 @@ function handleFile(e) {
         return;
       }
 
+      let extractedMetadata = null;
       if ((!hadPreviousText || !meta.title.trim()) && combinedText.trim()) {
         const extracted = await extractMetadata(combinedMetadataText);
+        extractedMetadata = extracted;
         setMeta({
           title: extracted.title,
           authors: extracted.authors,
@@ -290,6 +298,19 @@ function handleFile(e) {
           keywords: extracted.keywords,
         });
         setAiStatus(extracted.aiStatus || "failed");
+      }
+
+      const currentKeywords = extractedMetadata ? extractedMetadata.keywords : meta.keywords;
+      if (!String(currentKeywords || "").trim() && combinedMetadataText.trim()) {
+        setKeywordSuggestionStatus("loading");
+        suggestKeywordsWithAI({
+          title: extractedMetadata?.title || meta.title,
+          abstract: extractedMetadata?.abstract || meta.abstract,
+          text: combinedMetadataText,
+        }).then(({ keywords, status }) => {
+          setKeywordSuggestions(keywords);
+          setKeywordSuggestionStatus(status);
+        });
       }
 
       const formatResult = await reviewPaperFormat(combinedText);
@@ -374,7 +395,18 @@ function handleFile(e) {
     setEstimatedSecondsRemaining(null);
     setSaveEstimateSeconds(null);
     setMeta({ title: "", authors: "", academicYear: "", adviser: "", panelMembers: "", abstract: "", keywords: "" });
+    setKeywordSuggestions([]);
+    setKeywordSuggestionStatus("idle");
     setSaveProgress({ completed: 0, total: 0 });
+  }
+
+  function addKeywordSuggestion(suggestion) {
+    setMeta((current) => {
+      const terms = current.keywords.split(/[;,]+/).map((term) => term.trim()).filter(Boolean);
+      if (!terms.some((term) => term.toLowerCase() === suggestion.toLowerCase())) terms.push(suggestion);
+      return { ...current, keywords: terms.join(", ") };
+    });
+    setKeywordSuggestions((current) => current.filter((keyword) => keyword !== suggestion));
   }
 
   const stagePreview = previews[currentPage - 1] || previews[0];
@@ -726,6 +758,30 @@ function handleFile(e) {
               </select>
             </Field>
           </div>
+
+          {!meta.keywords.trim() && keywordSuggestionStatus !== "idle" && (
+            <div className={`metadata-analysis${keywordSuggestionStatus === "loading" ? " analyzing" : keywordSuggestionStatus === "unavailable" ? " error" : ""}`} role="status" aria-live="polite">
+              <strong>AI keyword suggestions</strong>
+              <span>
+                {keywordSuggestionStatus === "loading"
+                  ? "Finding terms relevant to this paper…"
+                  : keywordSuggestionStatus === "unavailable"
+                    ? "Suggestions are unavailable right now. You can enter keywords manually."
+                    : keywordSuggestionStatus === "empty"
+                      ? "No relevant suggestions were returned. You can enter keywords manually."
+                      : "Review and add only the terms that fit this paper."}
+              </span>
+              {keywordSuggestions.length > 0 && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                  {keywordSuggestions.map((keyword) => (
+                    <button key={keyword} type="button" className="btn btn-outline btn-sm" onClick={() => addKeywordSuggestion(keyword)}>
+                      <Plus size={13} /> {keyword}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <button type="submit" disabled={step === "saving"} className="btn btn-primary" style={{ marginTop: 4 }}>
             {step === "saving"

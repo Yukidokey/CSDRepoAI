@@ -7,6 +7,10 @@ const viteEnv = typeof import.meta !== "undefined" && import.meta.env ? import.m
 const GENKIT_METADATA_URL = viteEnv.VITE_GENKIT_METADATA_URL;
 const GENKIT_EXTRACTION_URL = toMetadataEndpoint(GENKIT_METADATA_URL, "extract-metadata");
 const GENKIT_ANALYSIS_URL = toMetadataEndpoint(GENKIT_METADATA_URL, "metadata");
+const GENKIT_KEYWORD_SUGGESTION_URL = toMetadataEndpoint(
+  GENKIT_METADATA_URL || viteEnv.VITE_GENKIT_SEARCH_URL,
+  "metadata",
+) || (viteEnv.PROD ? "/metadata" : "");
 
 export const THESIS_BOILERPLATE_ANCHORS = [
   "Notre Dame of Marbel University",
@@ -77,6 +81,40 @@ export async function extractMetadataWithAI(documentText) {
   } catch (error) {
     console.warn("Google Genkit metadata extraction unavailable, using local metadata extraction.", error);
     return { failed: true };
+  }
+}
+
+export async function suggestKeywordsWithAI({ title = "", abstract = "", text = "" }) {
+  if (!GENKIT_KEYWORD_SUGGESTION_URL || !String(text || "").trim()) {
+    return { keywords: [], status: "unavailable" };
+  }
+
+  try {
+    const response = await fetch(GENKIT_KEYWORD_SUGGESTION_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title,
+        abstract,
+        keywords: "",
+        text: String(text).slice(0, 30000),
+      }),
+    });
+
+    if (!response.ok) throw new Error(`keyword suggestion request failed (${response.status})`);
+
+    const payload = await response.json();
+    const keywords = [...new Map(
+      (Array.isArray(payload?.keywords) ? payload.keywords : [])
+        .map((keyword) => String(keyword || "").trim().replace(/\s+/g, " "))
+        .filter((keyword) => keyword.length > 1 && keyword.length <= 80)
+        .map((keyword) => [keyword.toLowerCase(), keyword]),
+    ).values()].slice(0, 8);
+
+    return { keywords, status: keywords.length ? "ready" : "empty" };
+  } catch (error) {
+    console.warn("AI keyword suggestions unavailable.", error);
+    return { keywords: [], status: "unavailable" };
   }
 }
 

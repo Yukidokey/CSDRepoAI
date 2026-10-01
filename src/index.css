@@ -1,5 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap');
-
 /* =========================================================
    CSDRepoAI Design System
    Palette: deep archive-navy + brass, on a warm paper ground —
@@ -52,9 +50,9 @@
   --line-strong: #cfc8b4;
 
   /* Type */
-  --font-display: "Source Serif 4", Georgia, "Times New Roman", serif;
-  --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-display: Georgia, "Times New Roman", serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
 
   /* Shape / shadow */
   --radius-sm: 6px;
@@ -2643,7 +2641,7 @@ table.archive-table tbody tr:hover {
 
 .auth-logo-wordmark {
   color: #fff;
-  font-family: "Poppins", sans-serif;
+  font-family: var(--font-body);
   font-size: 30px;
   font-weight: 700;
   letter-spacing: 0.04em;

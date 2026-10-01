@@ -1,10 +1,17 @@
 {
-  "rewrites": [
+  "routes": [
     {
-      "source": "/(search|check-duplicate|embed|metadata|extract-metadata|format-review|health)",
-      "destination": "/api/index.js"
+      "src": "/(search|check-duplicate|embed|metadata|extract-metadata|format-review|health)",
+      "dest": "/api/index.js"
     },
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "handle": "filesystem" },
+    { "src": "/assets/.*", "status": 404 },
+    { "src": "/ort-wasm/.*", "status": 404 },
+    {
+      "src": "/(.*)",
+      "dest": "/index.html",
+      "headers": { "Cache-Control": "no-store, no-cache, must-revalidate" }
+    }
   ],
   "headers": [
     {

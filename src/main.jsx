@@ -3,6 +3,23 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
+const CHUNK_RELOAD_KEY = "csdrepoai:chunk-reload-at";
+
+window.addEventListener("vite:preloadError", (event) => {
+  event.preventDefault();
+
+  try {
+    const now = Date.now();
+    const lastReload = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY) || 0);
+    if (now - lastReload > 30_000) {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, String(now));
+      window.location.reload();
+    }
+  } catch {
+    // Keep the import error visible when browser storage is unavailable.
+  }
+});
+
 class AppErrorBoundary extends React.Component {
   state = { hasError: false };
 

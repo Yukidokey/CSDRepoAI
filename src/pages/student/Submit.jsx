@@ -20,6 +20,7 @@ import { analyzeResearchDocumentWithAI, sanitizeResearchTitle, suggestMetadata }
 import { SDG_LIST } from "../../lib/sdgList";
 import { wrapReceiptValue } from "../../lib/receiptFormatting";
 import { getAcademicYears } from "../../services/academicYears";
+import { useUnloadWarning } from "../../lib/useUnloadWarning";
 
 function buildDefaultForm(profile) {
   return {
@@ -48,6 +49,15 @@ export default function Submit() {
   const [documentAnalysis, setDocumentAnalysis] = useState({ status: "idle", message: "" });
   const [submittedPaper, setSubmittedPaper] = useState(null);
   const [academicYears, setAcademicYears] = useState([]);
+
+  const hasUnsavedSubmission = status !== "done" && (
+    [form.title, form.abstract, form.authors, form.adviser, form.academicYear, form.keywords]
+      .some((value) => Boolean(value?.trim()))
+    || Object.values(files).some(Boolean)
+    || sdgTags.length > 0
+    || Boolean(manuscriptText.trim())
+  );
+  useUnloadWarning(hasUnsavedSubmission);
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })

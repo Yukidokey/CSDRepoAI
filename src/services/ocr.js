@@ -19,20 +19,34 @@ let pdfJsPromise;
 function getPaddleOcr() {
   if (!paddleOcrPromise) {
     paddleOcrPromise = import("@paddleocr/paddleocr-js")
-      .then(({ PaddleOCR }) => PaddleOCR.create({
-        lang: "en",
-        ocrVersion: "PP-OCRv5",
-        worker: true,
-        ortOptions: {
-          backend: "wasm",
-          wasmPaths: `${import.meta.env.BASE_URL}ort-wasm/`,
-          numThreads: 1,
-          simd: true,
-        },
-      }))
+      .then(async ({ PaddleOCR }) => {
+        const options = {
+          textDetectionModelName: "PP-OCRv5_mobile_det",
+          textRecognitionModelName: "PP-OCRv5_mobile_rec",
+          ortOptions: {
+            backend: "wasm",
+            wasmPaths: new URL(`${import.meta.env.BASE_URL}ort-wasm/`, window.location.origin).href,
+            numThreads: 1,
+            simd: true,
+          },
+        };
+
+        try {
+          return await PaddleOCR.create({ ...options, worker: true });
+        } catch (workerError) {
+          // Some mobile browsers cannot initialize module workers or transfer
+          // their image buffers. Retry the same lightweight model on the main
+          // thread so those devices can still scan documents.
+          try {
+            return await PaddleOCR.create({ ...options, worker: false });
+          } catch (fallbackError) {
+            throw new Error(fallbackError?.message || workerError?.message || "model initialization failed");
+          }
+        }
+      })
       .catch((error) => {
         paddleOcrPromise = null;
-        throw new Error(`PaddleOCR could not start: ${error.message || "model initialization failed"}`);
+        throw new Error(`PaddleOCR could not start: ${error.message || "model initialization failed"}. Check your connection and reload the page to try again.`);
       });
   }
   return paddleOcrPromise;
@@ -301,8 +315,10 @@ async function prepareOcrImage(file) {
 
   try {
     const bitmap = await createImageBitmap(file);
-    const maxDimension = 3000;
-    const scale = Math.min(3.5, maxDimension / Math.max(bitmap.width, bitmap.height));
+    // Avoid upscaling small phone images; it wastes memory and can crash
+    // canvas allocation on mobile Safari without adding OCR detail.
+    const maxDimension = 2400;
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
     const width = Math.max(1, Math.round(bitmap.width * scale));
     const height = Math.max(1, Math.round(bitmap.height * scale));
 

@@ -24,6 +24,7 @@ import { PageHeader, Field } from "../../components/ui";
 import { useAuth } from "../../context/AuthContext";
 import { digitizeAndArchive, scanDocuments, extractMetadata, expandUploadedFiles } from "../../services/ocr";
 import { getAcademicYears } from "../../services/academicYears";
+import { useUnloadWarning } from "../../lib/useUnloadWarning";
 
 const STEPS = [
   { key: "upload", label: "Upload" },
@@ -69,6 +70,8 @@ export default function OCRScan() {
   const scanAbortControllerRef = useRef(null);
   const pageTimingRef = useRef({ page: null, startedAt: 0, durations: [] });
   const saveTimingRef = useRef({ lastPageAt: 0, pageDurations: [] });
+
+  useUnloadWarning(files.length > 0 && step !== "done");
 
   useEffect(() => {
     getAcademicYears({ activeOnly: true })

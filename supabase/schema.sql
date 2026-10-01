@@ -299,6 +299,16 @@ drop policy if exists "logs_select_staff" on submission_logs;
 create policy "logs_select_staff" on submission_logs for select
   using (exists (select 1 from profiles p where p.id = auth.uid() and p.role in ('faculty', 'admin')));
 
+-- Students can see activity for their own submissions so the portal can show
+-- review and status notifications without exposing other students' activity.
+drop policy if exists "logs_select_own_submission_activity" on submission_logs;
+create policy "logs_select_own_submission_activity" on submission_logs for select
+  using (exists (
+    select 1 from research_papers paper
+    where paper.id = submission_logs.paper_id
+      and paper.submitted_by = auth.uid()
+  ));
+
 drop policy if exists "logs_insert_any" on submission_logs;
 create policy "logs_insert_any" on submission_logs for insert
   with check (auth.role() = 'authenticated');
